@@ -1,3 +1,5 @@
+'use client';
+
 import { GripVertical, MoreVertical, Plus, Filter, Search } from 'lucide-react';
 import { useState } from 'react';
 
@@ -11,66 +13,19 @@ interface Permit {
   priority: 'low' | 'medium' | 'high';
 }
 
+// Sample/mock data
 const mockPermits: Permit[] = [
-  {
-    id: 'p1',
-    name: 'Food Service Establishment Permit',
-    authority: 'SF Dept. of Public Health',
-    status: 'submitted',
-    assignee: 'JD',
-    dueDate: 'Dec 28',
-    priority: 'high',
-  },
-  {
-    id: 'p2',
-    name: 'Health Department Plan Review',
-    authority: 'SF Dept. of Public Health',
-    status: 'action-required',
-    assignee: 'SC',
-    dueDate: 'Dec 20',
-    priority: 'high',
-  },
-  {
-    id: 'p3',
-    name: 'Business Operating Permit',
-    authority: 'City of San Francisco',
-    status: 'draft',
-    assignee: 'JD',
-    dueDate: 'Jan 5',
-    priority: 'medium',
-  },
-  {
-    id: 'p4',
-    name: 'Building Modification Permit',
-    authority: 'SF Dept. of Building Inspection',
-    status: 'draft',
-    assignee: 'JD',
-    dueDate: 'Jan 15',
-    priority: 'medium',
-  },
-  {
-    id: 'p5',
-    name: 'Fire Department Inspection',
-    authority: 'San Francisco Fire Department',
-    status: 'draft',
-    assignee: 'SC',
-    dueDate: 'Jan 10',
-    priority: 'low',
-  },
-  {
-    id: 'p6',
-    name: "Seller's Permit",
-    authority: 'California CDTFA',
-    status: 'approved',
-    assignee: 'JD',
-    dueDate: 'Completed',
-    priority: 'low',
-  },
+  { id: 'p1', name: 'Food Service Establishment Permit', authority: 'SF Dept. of Public Health', status: 'submitted', assignee: 'JD', dueDate: 'Dec 28', priority: 'high' },
+  { id: 'p2', name: 'Health Department Plan Review', authority: 'SF Dept. of Public Health', status: 'action-required', assignee: 'SC', dueDate: 'Dec 20', priority: 'high' },
+  { id: 'p3', name: 'Business Operating Permit', authority: 'City of San Francisco', status: 'draft', assignee: 'JD', dueDate: 'Jan 5', priority: 'medium' },
+  { id: 'p4', name: 'Building Modification Permit', authority: 'SF Dept. of Building Inspection', status: 'draft', assignee: 'JD', dueDate: 'Jan 15', priority: 'medium' },
+  { id: 'p5', name: 'Fire Department Inspection', authority: 'San Francisco Fire Department', status: 'draft', assignee: 'SC', dueDate: 'Jan 10', priority: 'low' },
+  { id: 'p6', name: "Seller's Permit", authority: 'California CDTFA', status: 'approved', assignee: 'JD', dueDate: 'Completed', priority: 'low' },
 ];
 
 interface StatusTrackingProps {
-  clientId: string | null;
-  onEditPermit: (permitId: string) => void;
+  clientId?: string | null;
+  onEditPermit?: (permitId: string) => void; // REQUIRED
 }
 
 export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) {
@@ -83,18 +38,14 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
     { id: 'approved' as const, label: 'Approved', color: 'bg-green-100' },
   ];
 
-  const getPermitsByStatus = (status: Permit['status']) => {
-    return mockPermits.filter((permit) => permit.status === status);
-  };
+  const getPermitsByStatus = (status: Permit['status']) =>
+    mockPermits.filter((permit) => permit.status === status);
 
   const getPriorityColor = (priority: Permit['priority']) => {
     switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-700 border-red-200';
-      case 'medium':
-        return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'low':
-        return 'bg-neutral-100 text-neutral-600 border-neutral-200';
+      case 'high': return 'bg-red-100 text-red-700 border-red-200';
+      case 'medium': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'low': return 'bg-neutral-100 text-neutral-600 border-neutral-200';
     }
   };
 
@@ -105,16 +56,14 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-neutral-900 mb-1">Status & Tracking</h1>
-            <p className="text-neutral-600">Urban Eats Restaurant Group</p>
+            <p className="text-neutral-600">{clientId || 'Unknown Client'}</p>
           </div>
           <div className="flex gap-2">
             <button className="flex items-center gap-2 px-4 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors">
-              <Filter className="w-4 h-4" />
-              Filter
+              <Filter className="w-4 h-4" /> Filter
             </button>
             <button className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors">
-              <Plus className="w-4 h-4" />
-              Add Permit
+              <Plus className="w-4 h-4" /> Add Permit
             </button>
           </div>
         </div>
@@ -156,7 +105,6 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
         {viewMode === 'kanban' ? (
-          // Kanban View
           <div className="grid grid-cols-4 gap-6 h-full">
             {columns.map((column) => {
               const permits = getPermitsByStatus(column.id);
@@ -176,13 +124,11 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
                     {permits.map((permit) => (
                       <div
                         key={permit.id}
-                        onClick={() => onEditPermit(permit.id)}
+                        onClick={() => onEditPermit?.(permit.id)}
                         className="bg-white rounded-lg border border-neutral-200 p-4 hover:shadow-md hover:border-neutral-300 cursor-pointer transition-all"
                       >
                         <div className="flex items-start justify-between mb-3">
-                          <h4 className="font-medium text-neutral-900 text-sm leading-snug">
-                            {permit.name}
-                          </h4>
+                          <h4 className="font-medium text-neutral-900 text-sm leading-snug">{permit.name}</h4>
                           <button className="p-1 hover:bg-neutral-100 rounded -mt-1 -mr-1">
                             <MoreVertical className="w-4 h-4 text-neutral-400" />
                           </button>
@@ -191,25 +137,18 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
                         <p className="text-xs text-neutral-600 mb-3">{permit.authority}</p>
 
                         <div className="flex items-center justify-between">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(
-                              permit.priority
-                            )}`}
-                          >
+                          <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(permit.priority)}`}>
                             {permit.priority}
                           </span>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-neutral-500">{permit.dueDate}</span>
-                            <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium">
-                              {permit.assignee}
-                            </div>
+                            <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium">{permit.assignee}</div>
                           </div>
                         </div>
 
                         <div className="mt-3 pt-3 border-t border-neutral-100">
                           <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700">
-                            <GripVertical className="w-3 h-3" />
-                            Drag to move
+                            <GripVertical className="w-3 h-3" /> Drag to move
                           </button>
                         </div>
                       </div>
@@ -220,9 +159,7 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
             })}
           </div>
         ) : (
-          // Table View
           <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
-            {/* Table Header */}
             <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-neutral-50 border-b border-neutral-200 text-sm font-medium text-neutral-600">
               <div className="col-span-4">Permit Name</div>
               <div className="col-span-3">Authority</div>
@@ -232,19 +169,16 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
               <div className="col-span-1">Due Date</div>
             </div>
 
-            {/* Table Rows */}
             {mockPermits.map((permit) => (
               <div
                 key={permit.id}
-                onClick={() => onEditPermit(permit.id)}
+                onClick={() => onEditPermit?.(permit.id)}
                 className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
               >
                 <div className="col-span-4">
                   <p className="font-medium text-neutral-900">{permit.name}</p>
                 </div>
-                <div className="col-span-3 flex items-center text-neutral-600 text-sm">
-                  {permit.authority}
-                </div>
+                <div className="col-span-3 flex items-center text-neutral-600 text-sm">{permit.authority}</div>
                 <div className="col-span-2 flex items-center">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -263,22 +197,14 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
                   </span>
                 </div>
                 <div className="col-span-1 flex items-center">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(
-                      permit.priority
-                    )}`}
-                  >
+                  <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(permit.priority)}`}>
                     {permit.priority}
                   </span>
                 </div>
                 <div className="col-span-1 flex items-center">
-                  <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium">
-                    {permit.assignee}
-                  </div>
+                  <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium">{permit.assignee}</div>
                 </div>
-                <div className="col-span-1 flex items-center text-neutral-600 text-sm">
-                  {permit.dueDate}
-                </div>
+                <div className="col-span-1 flex items-center text-neutral-600 text-sm">{permit.dueDate}</div>
               </div>
             ))}
           </div>
