@@ -6,10 +6,7 @@ import WorkspaceDashboard from './components/WorkspaceDashboard';
 import { SignIn } from './components/SignIn';
 import { SignUp } from './components/SignUp';
 import { ClientOnboarding } from './components/ClientOnboarding';
-import { FileText, Search, History, Users, Trello, ArrowLeft, LogOut } from 'lucide-react';
-
-// Force dynamic rendering to prevent static generation issues with localStorage
-export const dynamic = 'force-dynamic';
+import { LogOut } from 'lucide-react';
 
 type AuthScreen = 'signin' | 'signup';
 
