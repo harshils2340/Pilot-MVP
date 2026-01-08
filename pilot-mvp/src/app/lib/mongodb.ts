@@ -6,7 +6,13 @@ if (!uri) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
 }
 
-const options = {};
+const options = {
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  // mongodb+srv:// automatically handles TLS
+};
+
 
 // Fix for TypeScript global variable
 declare global {

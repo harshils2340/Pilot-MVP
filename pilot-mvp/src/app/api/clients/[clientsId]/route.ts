@@ -5,10 +5,11 @@ import { ObjectId, Document, WithId } from 'mongodb';
 
 export async function GET(
   req: Request,
-  { params }: { params: { clientsId: string } }
+  { params }: { params: Promise<{ clientsId: string }> }
 ) {
   try {
-    const clientParam = decodeURIComponent(params.clientsId); // Decode URI components
+    const { clientsId } = await params;
+    const clientParam = decodeURIComponent(clientsId); // Decode URI components
     console.log('Fetching client with ID or name:', clientParam);
 
     const mongoClient = await clientPromise;

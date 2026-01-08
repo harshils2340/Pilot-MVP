@@ -12,10 +12,21 @@ export async function GET() {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const clients = await db.collection(COLLECTION_NAME).find({}).toArray();
-    return NextResponse.json(clients);
-  } catch (err) {
+    
+    // Convert _id to string for JSON serialization
+    const clientsWithStringId = clients.map((client: any) => ({
+      ...client,
+      _id: client._id.toString(),
+    }));
+    
+    return NextResponse.json(clientsWithStringId);
+  } catch (err: any) {
     console.error('GET /clients error:', err);
-    return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+    const errorMessage = err?.message || 'Unknown error';
+    return NextResponse.json(
+      { error: 'Failed to fetch clients', details: errorMessage },
+      { status: 500 }
+    );
   }
 }
 

@@ -23,12 +23,23 @@ const mockPermits: Permit[] = [
   { id: 'p6', name: "Seller's Permit", authority: 'California CDTFA', status: 'approved', assignee: 'JD', dueDate: 'Completed', priority: 'low' },
 ];
 
+interface Client {
+  _id: string;
+  businessName: string;
+  jurisdiction: string;
+  activePermits: number;
+  status: string;
+  lastActivity: string;
+  completionRate: number;
+}
+
 interface StatusTrackingProps {
   clientId?: string | null;
+  client?: Client | null;
   onEditPermit?: (permitId: string) => void; // REQUIRED
 }
 
-export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) {
+export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackingProps) {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
 
   const columns = [
@@ -56,7 +67,7 @@ export function StatusTracking({ clientId, onEditPermit }: StatusTrackingProps) 
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-neutral-900 mb-1">Status & Tracking</h1>
-            <p className="text-neutral-600">{clientId || 'Unknown Client'}</p>
+            <p className="text-neutral-600">{client?.businessName || clientId || 'Unknown Client'}</p>
           </div>
           <div className="flex gap-2">
             <button className="flex items-center gap-2 px-4 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors">

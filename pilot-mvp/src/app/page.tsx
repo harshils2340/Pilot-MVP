@@ -1,147 +1,167 @@
-// 'use client';
-
-// import { useState } from 'react';
-// import WorkspaceDashboard from './components/WorkspaceDashboard';
-// import { PermitDiscovery } from './clients/[clientsId]/PermitDiscovery';
-// import { FormFilling } from './clients/[clientsId]/FormFilling';
-// import { RegulatoryMemory } from './clients/[clientsId]/RegulatoryMemory';
-// import { CollaborationView } from './clients/[clientsId]/CollaborationView';
-// import { StatusTracking } from './clients/[clientsId]/StatusTracking';
-// import { FileText, Search, History, Users, Trello, Home as HomeIcon } from 'lucide-react';
-
-// type Screen =
-//   | 'dashboard'
-//   | 'discovery'
-//   | 'form'
-//   | 'memory'
-//   | 'collaboration'
-//   | 'tracking';
-
-// export default function Home() {
-//   const [currentScreen, setCurrentScreen] = useState<Screen>('dashboard');
-//   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-//   const [selectedPermit, setSelectedPermit] = useState<string | null>(null);
-
-//   const navigation = [
-//     { id: 'dashboard' as Screen, label: 'Dashboard', icon: HomeIcon },
-//     { id: 'discovery' as Screen, label: 'Permit Discovery', icon: Search },
-//     { id: 'form' as Screen, label: 'Form Filling', icon: FileText },
-//     { id: 'memory' as Screen, label: 'Regulatory Memory', icon: History },
-//     { id: 'collaboration' as Screen, label: 'Collaboration', icon: Users },
-//     { id: 'tracking' as Screen, label: 'Status & Tracking', icon: Trello },
-//   ];
-
-//   const renderScreen = () => {
-//     switch (currentScreen) {
-//       case 'dashboard':
-//         return (
-//           <WorkspaceDashboard
-//             onSelectClient={(clientId: string) => {
-//               setSelectedClient(clientId);
-//               setCurrentScreen('tracking');
-//             }}
-//             onStartPermit={() => setCurrentScreen('discovery')}
-//           />
-//         );
-//       case 'discovery':
-//         return (
-//           <PermitDiscovery
-//             onSelectPermit={(permitId: string) => {
-//               setSelectedPermit(permitId);
-//               setCurrentScreen('form');
-//             }}
-//           />
-//         );
-//       case 'form':
-//         return <FormFilling permitId={selectedPermit ?? ''} />;
-//       case 'memory':
-//         return <RegulatoryMemory clientId={selectedClient ?? ''} />;
-//       case 'collaboration':
-//         return <CollaborationView permitId={selectedPermit ?? ''} />;
-//       case 'tracking':
-//         return (
-//           <StatusTracking
-//             clientId={selectedClient ?? ''}
-//             onEditPermit={(permitId: string) => {
-//               setSelectedPermit(permitId);
-//               setCurrentScreen('form');
-//             }}
-//           />
-//         );
-//       default:
-//         return <WorkspaceDashboard onSelectClient={() => {}} onStartPermit={() => {}} />;
-//     }
-//   };
-
-//   return (
-//     <div className="flex h-screen bg-neutral-50 text-neutral-900">
-//       {/* Sidebar */}
-//       <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-//         {/* Logo */}
-//         <div className="px-6 py-5 border-b border-neutral-200 flex items-center gap-3">
-//           <img src="/pilotLogo.png" alt="Pilot Logo" className="h-8 w-8" />
-//           <div>
-//             <h1 className="font-semibold text-lg">Pilot</h1>
-//             <p className="text-xs text-neutral-500">Compliance Platform</p>
-//           </div>
-//         </div>
-
-//         {/* Navigation */}
-//         <nav className="flex-1 p-4">
-//           {navigation.map((item) => {
-//             const Icon = item.icon;
-//             return (
-//               <button
-//                 key={item.id}
-//                 onClick={() => setCurrentScreen(item.id)}
-//                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
-//                   currentScreen === item.id
-//                     ? 'bg-neutral-900 text-white'
-//                     : 'text-neutral-600 hover:bg-neutral-100'
-//                 }`}
-//               >
-//                 <Icon className="w-5 h-5" />
-//                 <span>{item.label}</span>
-//               </button>
-//             );
-//           })}
-//         </nav>
-
-//         {/* User */}
-//         <div className="p-4 border-t border-neutral-200 flex items-center gap-3">
-//           <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-//             JD
-//           </div>
-//           <div>
-//             <p className="text-sm font-medium">John Doe</p>
-//             <p className="text-xs text-neutral-500">Consultant</p>
-//           </div>
-//         </div>
-//       </aside>
-
-//       {/* Main Content */}
-//       <main className="flex-1 overflow-auto">{renderScreen()}</main>
-//     </div>
-//   );
-// }
-
-
-
-
 'use client';
 
-import WorkspaceDashboard from './components/WorkspaceDashboard';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import WorkspaceDashboard from './components/WorkspaceDashboard';
+import { SignIn } from './components/SignIn';
+import { SignUp } from './components/SignUp';
+import { ClientOnboarding } from './components/ClientOnboarding';
+import { FileText, Search, History, Users, Trello, ArrowLeft, LogOut } from 'lucide-react';
+
+type AuthScreen = 'signin' | 'signup';
 
 export default function MainDashboardPage() {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authScreen, setAuthScreen] = useState<AuthScreen>('signin');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // Load auth state from localStorage on mount
+  useEffect(() => {
+    const authStatus = localStorage.getItem('isAuthenticated');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleSignIn = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('isAuthenticated', 'true');
+  };
+
+  const handleSignUp = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('isAuthenticated', 'true');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setShowOnboarding(false);
+    localStorage.removeItem('isAuthenticated');
+    router.push('/');
+  };
+
+  // Show auth screens if not authenticated
+  if (!isAuthenticated) {
+    if (authScreen === 'signin') {
+      return <SignIn onSignIn={handleSignIn} onSwitchToSignUp={() => setAuthScreen('signup')} />;
+    } else {
+      return <SignUp onSignUp={handleSignUp} onSwitchToSignIn={() => setAuthScreen('signin')} />;
+    }
+  }
+
+  // Show client onboarding if active
+  if (showOnboarding) {
+    return (
+      <div className="flex h-screen bg-neutral-50">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
+          <div className="px-6 py-5 border-b border-neutral-200">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/pilotLogo.png" 
+                alt="Pilot" 
+                className="h-8 w-8"
+              />
+              <div>
+                <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
+                <p className="text-neutral-500 text-xs">Compliance Platform</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1"></div>
+          <div className="border-t border-neutral-200">
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+                  JD
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">John Doe</p>
+                  <p className="text-xs text-neutral-500">Consultant</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
+                title="Log out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content - Onboarding */}
+        <main className="flex-1 overflow-auto">
+          <ClientOnboarding
+            onComplete={(clientData) => {
+              setShowOnboarding(false);
+              // Navigate to the new client's workspace
+              if (clientData._id) {
+                router.push(`/clients/${clientData._id}`);
+              } else {
+                // Fallback: navigate using business name
+                router.push(`/clients/${encodeURIComponent(clientData.businessName)}`);
+              }
+            }}
+            onCancel={() => setShowOnboarding(false)}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // Show main dashboard
   return (
-    <WorkspaceDashboard
-      onSelectClient={(clientId: string) => {
-        // Navigate to the client workspace page
-        router.push(`/clients/${clientId}`);
-      }}
-    />
+    <div className="flex h-screen bg-neutral-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
+        <div className="px-6 py-5 border-b border-neutral-200">
+          <div className="flex items-center gap-3">
+            <img 
+              src="/pilotLogo.png" 
+              alt="Pilot" 
+              className="h-8 w-8"
+            />
+            <div>
+              <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
+              <p className="text-neutral-500 text-xs">Compliance Platform</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1"></div>
+        <div className="border-t border-neutral-200">
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+                JD
+              </div>
+              <div>
+                <p className="text-sm font-medium text-neutral-900">John Doe</p>
+                <p className="text-xs text-neutral-500">Consultant</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content - Dashboard */}
+      <main className="flex-1 overflow-auto">
+        <WorkspaceDashboard
+          onSelectClient={(clientId: string) => {
+            router.push(`/clients/${clientId}`);
+          }}
+          onNewClient={() => setShowOnboarding(true)}
+        />
+      </main>
+    </div>
   );
 }
