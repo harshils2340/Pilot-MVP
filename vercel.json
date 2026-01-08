@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd pilot-mvp && npm install && npm run build",
+  "outputDirectory": "pilot-mvp/.next",
+  "installCommand": "cd pilot-mvp && npm install",
+  "framework": "nextjs",
+  "rootDirectory": "pilot-mvp"
+}
+
