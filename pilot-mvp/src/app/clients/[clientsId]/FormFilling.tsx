@@ -537,7 +537,8 @@ const mockContext: ContextItem[] = [
 
 // ✅ Updated props interface
 interface FormFillingProps {
-  clientId: string;
+  clientId?: string;
+  isNewForm?: boolean;
 }
 
 export function FormFilling({ clientId }: FormFillingProps) {

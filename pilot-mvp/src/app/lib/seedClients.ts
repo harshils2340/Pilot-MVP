@@ -1,7 +1,8 @@
 import clientPromise from './mongodb';
 
-const mockClients = [
+export const mockClients = [
   {
+    id: '1',
     businessName: 'Riverside Coffee Co.',
     jurisdiction: 'Portland, OR',
     activePermits: 4,
@@ -10,6 +11,7 @@ const mockClients = [
     completionRate: 75,
   },
   {
+    id: '2',
     businessName: 'Pacific Manufacturing LLC',
     jurisdiction: 'Seattle, WA',
     activePermits: 7,
@@ -18,6 +20,7 @@ const mockClients = [
     completionRate: 100,
   },
   {
+    id: '3',
     businessName: 'Urban Eats Restaurant Group',
     jurisdiction: 'San Francisco, CA',
     activePermits: 12,
@@ -26,6 +29,7 @@ const mockClients = [
     completionRate: 45,
   },
   {
+    id: '4',
     businessName: 'GreenTech Solutions Inc.',
     jurisdiction: 'Austin, TX',
     activePermits: 3,
@@ -34,6 +38,7 @@ const mockClients = [
     completionRate: 100,
   },
   {
+    id: '5',
     businessName: 'Mountain View Brewery',
     jurisdiction: 'Denver, CO',
     activePermits: 8,
@@ -43,10 +48,16 @@ const mockClients = [
   },
 ];
 
+// 🔹 Used by layout, API routes, dashboard, etc.
+export function getClientById(clientsId: string) {
+  return mockClients.find(client => client.id === clientsId);
+}
+
+// 🔹 One-time DB seeding (unchanged behavior)
 export async function seedClients() {
   try {
     const client = await clientPromise;
-    const db = client.db('pilotClients'); // your DB name
+    const db = client.db('pilotClients');
     const collection = db.collection('clients');
 
     const count = await collection.countDocuments();

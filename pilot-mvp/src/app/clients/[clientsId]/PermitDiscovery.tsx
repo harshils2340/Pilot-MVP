@@ -343,7 +343,8 @@ const mockPermits: Permit[] = [
 ];
 
 interface PermitDiscoveryProps {
-  clientId: string;
+  clientId?: string;
+  isNewPermit?: boolean;
 }
 
 export function PermitDiscovery({ clientId }: PermitDiscoveryProps) {

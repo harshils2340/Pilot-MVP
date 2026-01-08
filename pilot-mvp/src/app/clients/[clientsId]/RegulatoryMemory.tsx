@@ -91,7 +91,8 @@ const mockTimeline: TimelineEvent[] = [
 ];
 
 interface RegulatoryMemoryProps {
-  clientId: string | null;
+  clientId?: string | null;
+  isNewMemory?: boolean;
 }
 
 export function RegulatoryMemory({ clientId }: RegulatoryMemoryProps) {

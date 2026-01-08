@@ -120,12 +120,6 @@ import { RegulatoryMemory } from './RegulatoryMemory';
 import { CollaborationView } from './CollaborationView';
 import { StatusTracking } from './StatusTracking';
 
-interface ClientPageProps {
-  params: {
-    clientId: string;
-  };
-}
-
 type Tab = 'discovery' | 'form' | 'memory' | 'collaboration' | 'tracking';
 
 interface Client {
@@ -138,29 +132,38 @@ interface Client {
   completionRate: number;
 }
 
-export default function ClientOverviewPage({ params }: ClientPageProps) {
-  const { clientId } = params;
+interface ClientPageProps {
+  clientId: string; // Pass this from the server component
+}
+
+export default function ClientOverviewPage({ clientId }: ClientPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('discovery');
   const [client, setClient] = useState<Client | null>(null);
 
-  // Fetch client data for heading only
+  // Fetch client data dynamically
   useEffect(() => {
+    if (!clientId) return;
+
     const fetchClient = async () => {
-      console.log('Fetching client for ID or name:', clientId);
       try {
-        const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`);
+        const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
+          cache: 'no-store', // prevent caching
+        });
+
         if (!res.ok) {
-          console.warn('Client fetch failed with status:', res.status);
-          return; // fallback heading
+          setClient(null); // fallback if client not found
+          return;
         }
+
         const data: Client = await res.json();
-        console.log('Fetched client data:', data);
         setClient(data);
       } catch (err) {
-        console.error('Client fetch error:', err);
+        console.error('Failed to fetch client:', err);
+        setClient(null); // fallback
       }
     };
+
     fetchClient();
   }, [clientId]);
 
@@ -193,9 +196,7 @@ export default function ClientOverviewPage({ params }: ClientPageProps) {
 
       {/* Client Workspace Heading */}
       <h1 className="text-2xl font-bold mb-4">
-        {client?.businessName
-          ? `${client.businessName} Workspace`
-          : 'Client Workspace'}
+        {client?.businessName ? `${client.businessName} Workspace` : 'Client Workspace'}
       </h1>
 
       {/* Tabs */}
