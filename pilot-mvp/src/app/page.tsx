@@ -8,6 +8,9 @@ import { SignUp } from './components/SignUp';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { FileText, Search, History, Users, Trello, ArrowLeft, LogOut } from 'lucide-react';
 
+// Force dynamic rendering to prevent static generation issues with localStorage
+export const dynamic = 'force-dynamic';
+
 type AuthScreen = 'signin' | 'signup';
 
 export default function MainDashboardPage() {
@@ -15,31 +18,50 @@ export default function MainDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authScreen, setAuthScreen] = useState<AuthScreen>('signin');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
-  // Load auth state from localStorage on mount
+  // Load auth state from localStorage on mount (client-side only)
   useEffect(() => {
-    const authStatus = localStorage.getItem('isAuthenticated');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
+    setIsClient(true);
+    if (typeof window !== 'undefined') {
+      const authStatus = localStorage.getItem('isAuthenticated');
+      if (authStatus === 'true') {
+        setIsAuthenticated(true);
+      }
     }
   }, []);
 
   const handleSignIn = () => {
     setIsAuthenticated(true);
-    localStorage.setItem('isAuthenticated', 'true');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('isAuthenticated', 'true');
+    }
   };
 
   const handleSignUp = () => {
     setIsAuthenticated(true);
-    localStorage.setItem('isAuthenticated', 'true');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('isAuthenticated', 'true');
+    }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setShowOnboarding(false);
-    localStorage.removeItem('isAuthenticated');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('isAuthenticated');
+    }
     router.push('/');
   };
+
+  // Show loading state during hydration
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+        <div className="text-neutral-600">Loading...</div>
+      </div>
+    );
+  }
 
   // Show auth screens if not authenticated
   if (!isAuthenticated) {

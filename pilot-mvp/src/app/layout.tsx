@@ -1,4 +1,5 @@
 // src/app/layout.tsx
+import React from 'react';
 import './styles/index.css';
 import './styles/fonts.css';
 import './styles/tailwind.css';
