@@ -1,16 +1,14 @@
-// 'use client'; // Only needed if using client-side hooks
-
 import React, { ReactNode } from 'react';
 
 interface ClientLayoutProps {
   children: ReactNode;
-  params: {
+  params: Promise<{
     clientsId: string;
-  };
+  }>;
 }
 
-
-export default function ClientLayout({ children }: ClientLayoutProps) {
+export default async function ClientLayout({ children }: ClientLayoutProps) {
+  // Params are available if needed, but we don't need them in layout
   return (
     <>
       {children}

@@ -266,7 +266,7 @@
 'use client';
 
 import { Search, MapPin, Building2, Briefcase, AlertTriangle, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Permit {
   id: string;
@@ -342,15 +342,33 @@ const mockPermits: Permit[] = [
   },
 ];
 
+interface Client {
+  _id: string;
+  businessName: string;
+  jurisdiction: string;
+  activePermits: number;
+  status: string;
+  lastActivity: string;
+  completionRate: number;
+}
+
 interface PermitDiscoveryProps {
   clientId?: string;
+  client?: Client | null;
   isNewPermit?: boolean;
 }
 
-export function PermitDiscovery({ clientId }: PermitDiscoveryProps) {
+export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
   const [businessType, setBusinessType] = useState('Restaurant');
-  const [location, setLocation] = useState('San Francisco, CA');
+  const [location, setLocation] = useState(client?.jurisdiction || 'San Francisco, CA');
   const [activities, setActivities] = useState('Food preparation and service, indoor dining');
+
+  // Update location when client data is available
+  useEffect(() => {
+    if (client?.jurisdiction) {
+      setLocation(client.jurisdiction);
+    }
+  }, [client]);
 
   const getComplexityColor = (complexity: Permit['complexity']) => {
     switch (complexity) {
@@ -402,7 +420,9 @@ export function PermitDiscovery({ clientId }: PermitDiscoveryProps) {
       <div className="w-96 bg-white border-r border-neutral-200 flex flex-col">
         <div className="p-6 border-b border-neutral-200">
           <h2 className="text-neutral-900 mb-1">Permit Discovery</h2>
-          <p className="text-neutral-600 text-sm">AI-powered permit requirement analysis for client: {clientId}</p>
+          <p className="text-neutral-600 text-sm">
+            AI-powered permit requirement analysis for client: {client?.businessName || clientId}
+          </p>
         </div>
 
         <div className="flex-1 overflow-auto p-6 space-y-6">

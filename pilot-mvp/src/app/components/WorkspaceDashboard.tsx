@@ -424,7 +424,7 @@ export interface Client {
 
 interface WorkspaceDashboardProps {
   onSelectClient: (clientId: string) => void;
-  onStartPermit?: () => void;
+  onNewClient: () => void;
 }
 
 interface Filters {
@@ -436,7 +436,7 @@ interface Filters {
 
 export default function WorkspaceDashboard({
   onSelectClient,
-  onStartPermit,
+  onNewClient,
 }: WorkspaceDashboardProps) {
   const router = useRouter();
 
@@ -483,12 +483,8 @@ export default function WorkspaceDashboard({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleStartPermit = () => {
-    if (onStartPermit) {
-      onStartPermit();
-    } else {
-      router.push('/new-permit');
-    }
+  const handleNewClient = () => {
+    onNewClient();
   };
 
   const getStatusIcon = (status: Client['status']) => {
@@ -593,7 +589,7 @@ export default function WorkspaceDashboard({
             </p>
           </div>
           <button
-            onClick={handleStartPermit}
+            onClick={handleNewClient}
             className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
           >
             <Plus className="w-4 h-4" />
