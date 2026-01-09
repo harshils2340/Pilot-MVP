@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { BUSINESS_TYPES } from "@/constants/businessTypes";
-import { ACTIVITIES } from "@/constants/activities";
 
+// Keep businessType enum for safety, but allow any activity string
 export const permitSearchSchema = z.object({
   location: z.object({
     country: z.string().length(2),
@@ -11,9 +11,7 @@ export const permitSearchSchema = z.object({
   businessType: z.enum(
     BUSINESS_TYPES.map(b => b.slug) as [string, ...string[]]
   ),
-  activities: z.array(
-    z.enum(ACTIVITIES.map(a => a.slug) as [string, ...string[]])
-  ),
+  activities: z.array(z.string()), // allow any string
   options: z
     .object({
       homeBased: z.boolean().optional(),

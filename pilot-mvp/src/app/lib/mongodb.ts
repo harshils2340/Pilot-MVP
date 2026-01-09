@@ -1,33 +1,31 @@
-// app/lib/mongodb.ts
-import { MongoClient } from 'mongodb';
+import mongoose from "mongoose";
 
-const uri: string = process.env.MONGODB_URI || '';
-if (!uri) {
-  throw new Error('Please define the MONGODB_URI environment variable in your environment (local: .env.local, production: Vercel environment variables)');
+const MONGODB_URI = process.env.MONGODB_URI || "";
+
+if (!MONGODB_URI) {
+  throw new Error(
+    "Please define the MONGODB_URI environment variable in .env.local"
+  );
 }
 
-const options = {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  // mongodb+srv:// automatically handles TLS
-};
+let cached = (global as any).mongoose;
 
-
-// Fix for TypeScript global variable
-declare global {
-  // eslint-disable-next-line no-var
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+async function connectToDB() {
+  if (cached.conn) {
+    return cached.conn;
+  }
 
-if (!globalThis._mongoClientPromise) {
-  client = new MongoClient(uri, options);
-  globalThis._mongoClientPromise = client.connect();
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => mongoose);
+  }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
 
-clientPromise = globalThis._mongoClientPromise;
+export default connectToDB;
 
-export default clientPromise;

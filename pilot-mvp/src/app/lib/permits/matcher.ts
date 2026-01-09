@@ -1,8 +1,8 @@
 import { Permit, IPermit } from "./schema";
 
 // Input type for search
-type MatchInput = {
-  location: { country: string; province: string; city: string };
+export type MatchInput = {
+  location: { country: string; province: string; city?: string };
   businessType: string;
   activities: string[];
   options?: { homeBased?: boolean; onlineOnly?: boolean };
@@ -15,7 +15,7 @@ export type ExplainedPermit = {
   authority: string;
   applyUrl: string;
   sourceUrl: string;
-  lastUpdated: string; // <-- now a string
+  lastUpdated: string; // ISO string for frontend/API
   reasons: string[];
   confidence: "required" | "conditional" | "informational";
 };
@@ -34,7 +34,7 @@ export async function findMatchingPermits(input: MatchInput): Promise<ExplainedP
 
     if (permit.businessTypes.includes(input.businessType)) reasons.push("BUSINESS_TYPE");
     if (permit.activities.some((a: string) => input.activities.includes(a))) reasons.push("ACTIVITY");
-    if (permit.jurisdiction.city === input.location.city || !permit.jurisdiction.city) reasons.push("LOCATION");
+    if (!permit.jurisdiction.city || permit.jurisdiction.city === input.location.city) reasons.push("LOCATION");
 
     if (reasons.includes("BUSINESS_TYPE") && reasons.includes("ACTIVITY") && reasons.includes("LOCATION")) {
       confidence = "required";
@@ -48,7 +48,7 @@ export async function findMatchingPermits(input: MatchInput): Promise<ExplainedP
       authority: permit.authority,
       applyUrl: permit.applyUrl,
       sourceUrl: permit.sourceUrl,
-      lastUpdated: permit.lastUpdated.toISOString(), // string for API
+      lastUpdated: permit.lastUpdated.toISOString(),
       reasons,
       confidence
     };

@@ -450,11 +450,11 @@ export default function WorkspaceDashboard({
     lastActivity: '',
   });
   const [loading, setLoading] = useState(true);
-
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
 
+  // Fetch clients
   const fetchClients = async () => {
     try {
       setLoading(true);
@@ -483,9 +483,9 @@ export default function WorkspaceDashboard({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleNewClient = () => {
-    onNewClient();
-  };
+  const handleNewClient = () => onNewClient();
+
+  const handlePermitManagement = () => router.push('/permit-management'); // NEW
 
   const getStatusIcon = (status: Client['status']) => {
     switch (status) {
@@ -588,13 +588,24 @@ export default function WorkspaceDashboard({
               Manage clients and their regulatory compliance
             </p>
           </div>
-          <button
-            onClick={handleNewClient}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
-          >
-            <Plus className="w-4 h-4" />
-            Start New Permit
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleNewClient}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
+            >
+              <Plus className="w-4 h-4" />
+              Start New Permit
+            </button>
+
+            {/* NEW Permit Management Button */}
+            <button
+              onClick={handlePermitManagement}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500"
+            >
+              <FileText className="w-4 h-4" />
+              Permit Management
+            </button>
+          </div>
         </div>
 
         {/* Search + Filter */}
@@ -636,7 +647,9 @@ export default function WorkspaceDashboard({
                 <select
                   className="w-full mb-2 border rounded p-1 text-sm"
                   value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value as Filters['status'] })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, status: e.target.value as Filters['status'] })
+                  }
                 >
                   <option value="">All Statuses</option>
                   <option value="draft">Draft</option>
@@ -656,7 +669,9 @@ export default function WorkspaceDashboard({
                 <select
                   className="w-full mb-3 border rounded p-1 text-sm"
                   value={filters.lastActivity}
-                  onChange={(e) => setFilters({ ...filters, lastActivity: e.target.value as Filters['lastActivity'] })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, lastActivity: e.target.value as Filters['lastActivity'] })
+                  }
                 >
                   <option value="">Any Activity</option>
                   <option value="24h">Last 24 hours</option>

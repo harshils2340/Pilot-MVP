@@ -1,30 +1,24 @@
-// app/api/clients/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import clientPromise from '../../lib/mongodb'; // adjust relative path
-import { ObjectId } from 'mongodb';
-import { seedClients } from '../../lib/seedClients';
+// src/app/api/clients/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import connectToDB from "@/app/lib/mongodb";
+import ClientModel from "../../models/client"; // create this model
 
-const DB_NAME = 'pilotClients'; // Make sure this matches your MongoDB DB name
-const COLLECTION_NAME = 'clients';
+// Helper to convert _id to string
+const serializeClient = (client: any) => ({
+  ...client,
+  _id: client._id.toString(),
+});
 
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db(DB_NAME);
-    const clients = await db.collection(COLLECTION_NAME).find({}).toArray();
-    
-    // Convert _id to string for JSON serialization
-    const clientsWithStringId = clients.map((client: any) => ({
-      ...client,
-      _id: client._id.toString(),
-    }));
-    
-    return NextResponse.json(clientsWithStringId);
+    await connectToDB();
+    const clients = await ClientModel.find().lean(); // lean() returns plain JS objects
+    const clientsWithStringId = clients.map(serializeClient);
+    return NextResponse.json(clientsWithStringId, { status: 200 });
   } catch (err: any) {
-    console.error('GET /clients error:', err);
-    const errorMessage = err?.message || 'Unknown error';
+    console.error("GET /clients error:", err);
     return NextResponse.json(
-      { error: 'Failed to fetch clients', details: errorMessage },
+      { error: "Failed to fetch clients", details: err?.message || "Unknown error" },
       { status: 500 }
     );
   }
@@ -33,39 +27,53 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    if (!body.businessName) {
-      return NextResponse.json({ error: 'businessName is required' }, { status: 400 });
+
+    if (!body.businessName || !body.jurisdiction) {
+      return NextResponse.json(
+        { error: "businessName and jurisdiction are required" },
+        { status: 400 }
+      );
     }
 
-    const client = await clientPromise;
-    const db = client.db(DB_NAME);
-    const result = await db.collection(COLLECTION_NAME).insertOne(body);
+    await connectToDB();
+    const newClient = await ClientModel.create({
+      ...body,
+      activePermits: body.activePermits ?? 0,
+      status: body.status ?? "new",
+      completionRate: body.completionRate ?? 0,
+      lastActivity: new Date(),
+    });
 
-    return NextResponse.json({ _id: result.insertedId, ...body });
+    return NextResponse.json(serializeClient(newClient), { status: 201 });
   } catch (err) {
-    console.error('POST /clients error:', err);
-    return NextResponse.json({ error: 'Failed to add client' }, { status: 500 });
+    console.error("POST /clients error:", err);
+    return NextResponse.json({ error: "Failed to add client" }, { status: 500 });
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
+
     if (!body._id) {
-      return NextResponse.json({ error: '_id is required' }, { status: 400 });
+      return NextResponse.json({ error: "_id is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db(DB_NAME);
-    await db.collection(COLLECTION_NAME).updateOne(
-      { _id: new ObjectId(body._id) },
-      { $set: body }
-    );
+    await connectToDB();
+    const updatedClient = await ClientModel.findByIdAndUpdate(
+      body._id,
+      { ...body, lastActivity: new Date() },
+      { new: true }
+    ).lean();
 
-    return NextResponse.json(body);
+    if (!updatedClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(serializeClient(updatedClient), { status: 200 });
   } catch (err) {
-    console.error('PUT /clients error:', err);
-    return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });
+    console.error("PUT /clients error:", err);
+    return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
   }
 }
 
@@ -73,16 +81,19 @@ export async function DELETE(req: NextRequest) {
   try {
     const { _id } = await req.json();
     if (!_id) {
-      return NextResponse.json({ error: '_id is required' }, { status: 400 });
+      return NextResponse.json({ error: "_id is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db(DB_NAME);
-    await db.collection(COLLECTION_NAME).deleteOne({ _id: new ObjectId(_id) });
+    await connectToDB();
+    const deletedClient = await ClientModel.findByIdAndDelete(_id).lean();
 
-    return NextResponse.json({ success: true });
+    if (!deletedClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
-    console.error('DELETE /clients error:', err);
-    return NextResponse.json({ error: 'Failed to delete client' }, { status: 500 });
+    console.error("DELETE /clients error:", err);
+    return NextResponse.json({ error: "Failed to delete client" }, { status: 500 });
   }
 }
