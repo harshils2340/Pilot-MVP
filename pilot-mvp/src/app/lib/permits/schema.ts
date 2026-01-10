@@ -23,6 +23,22 @@ export interface IPermit extends Document {
     required?: boolean;
     conditional?: boolean;
   };
+  // Extended metadata from BizPaL
+  contactInfo?: {
+    municipality?: string;
+    department?: string;
+    email?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      fullAddress?: string;
+    };
+  };
+  lastVerified?: string;
+  moreInfoUrl?: string;
 }
 
 // Mongoose schema
@@ -48,7 +64,23 @@ const PermitSchema: Schema<IPermit> = new Schema(
     confidenceHints: {
       required: { type: Boolean, required: false },
       conditional: { type: Boolean, required: false }
-    }
+    },
+    // Extended metadata from BizPaL
+    contactInfo: {
+      municipality: { type: String, required: false },
+      department: { type: String, required: false },
+      email: { type: String, required: false },
+      phone: { type: String, required: false },
+      address: {
+        street: { type: String, required: false },
+        city: { type: String, required: false },
+        province: { type: String, required: false },
+        postalCode: { type: String, required: false },
+        fullAddress: { type: String, required: false }
+      }
+    },
+    lastVerified: { type: String, required: false },
+    moreInfoUrl: { type: String, required: false }
   },
   { timestamps: true }
 );
