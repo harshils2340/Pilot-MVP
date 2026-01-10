@@ -1,18 +1,33 @@
-const { Builder, By, until } = require('selenium-webdriver');
+const { Builder, By, until, Key } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
-async function runBizPalSearch({ location, businessType, permitTypes, headless = true }) {
-  // 1️⃣ Configure Chrome options
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+async function typeLikeHuman(element, text = '', delay = 120) {
+  if (typeof text !== 'string') text = String(text ?? '');
+  await element.clear();
+  for (const char of text) {
+    await element.sendKeys(char);
+    await sleep(delay);
+  }
+}
+
+async function waitForAutocompleteAndEnter(driver, input) {
+  await driver.wait(async () => {
+    const expanded = await input.getAttribute('aria-expanded');
+    return expanded === 'true';
+  }, 15000);
+  await sleep(300);
+  await input.sendKeys(Key.ENTER);
+  await sleep(600);
+}
+
+async function runBizPalSearch({ location, businessType, permitKeywords = '' }) {
   const options = new chrome.Options();
-  options.addArguments(`--headless=${headless ? 'new' : 'false'}`); // set false for debugging
   options.addArguments('--disable-gpu');
   options.addArguments('--window-size=1920,1080');
   options.addArguments('--no-sandbox');
   options.addArguments('--disable-dev-shm-usage');
-  options.addArguments('--disable-blink-features=AutomationControlled'); // avoid automation detection
-  options.addArguments(
-    'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
-  );
 
   const driver = await new Builder()
     .forBrowser('chrome')
@@ -20,86 +35,99 @@ async function runBizPalSearch({ location, businessType, permitTypes, headless =
     .build();
 
   try {
-    // 2️⃣ Open BizPaL
+    console.log('Opening BizPaL...');
     await driver.get('https://beta.bizpal-perle.ca/en');
 
-    // 3️⃣ Wait for input fields
+    // --- INPUT 1: LOCATION ---
     const locationInput = await driver.wait(
       until.elementLocated(By.css('input[placeholder*="located"]')),
       30000
     );
-    const businessInput = await driver.wait(
-      until.elementLocated(By.css('input[placeholder*="business"]')),
-      30000
-    );
-    const permitInput = await driver.wait(
-      until.elementLocated(By.css('input[placeholder*="permits"]')),
-      30000
-    );
+    await locationInput.click();
+    console.log(`Typing location: ${location}`);
+    await typeLikeHuman(locationInput, location);
+    await waitForAutocompleteAndEnter(driver, locationInput);
 
-    // 4️⃣ Fill inputs
-    await locationInput.sendKeys(location);
-    await businessInput.sendKeys(businessType);
-    await permitInput.sendKeys(permitTypes);
+    // TAB → INPUT 2
+    await locationInput.sendKeys(Key.TAB);
+    await sleep(500);
+    const businessInput = await driver.switchTo().activeElement();
 
-    // 5️⃣ Click "Find Permits and Licences"
-    const findBtn = await driver.wait(
-      until.elementLocated(
-        By.xpath("//button[contains(text(), 'Find Permits and Licences')]")
-      ),
-      30000
-    );
-    await driver.wait(until.elementIsEnabled(findBtn), 10000);
-    await driver.sleep(500); // small delay before click
-    await findBtn.click();
+    // --- INPUT 2: BUSINESS TYPE ---
+    console.log(`Typing business type: ${businessType}`);
+    await typeLikeHuman(businessInput, businessType);
+    await waitForAutocompleteAndEnter(driver, businessInput);
 
-    // 6️⃣ Wait for the first row of AG Grid
-    await driver.sleep(2000); // give grid time to render
-    let rows = await driver.wait(
-      until.elementsLocated(By.css('[role="row"][row-id]:not(.ag-row-group)')),
-      60000 // increase timeout for slow networks
-    );
+    // TAB → INPUT 3
+    await businessInput.sendKeys(Key.TAB);
+    await sleep(500);
+    const permitInput = await driver.switchTo().activeElement();
 
-    // 7️⃣ Scroll incrementally to load all rows
-    let lastCount = 0;
-    let retries = 0;
-    while (retries < 25) {
-      rows = await driver.findElements(
-        By.css('[role="row"][row-id]:not(.ag-row-group)')
-      );
+    // CLICK to ensure focus (React requires click)
+    await permitInput.click();
+    console.log(`Typing permit keywords: ${permitKeywords}`);
+    await typeLikeHuman(permitInput, permitKeywords, 80);
 
-      if (rows.length === lastCount) retries++;
-      else retries = 0;
+    // TAB → SEARCH BUTTON
+    await permitInput.sendKeys(Key.TAB);
+    await sleep(600);
 
-      lastCount = rows.length;
-
-      if (rows.length > 0) {
-        await driver.executeScript(
-          'arguments[0].scrollIntoView({behavior:"auto", block:"end"})',
-          rows[rows.length - 1]
-        );
-      }
-
-      await driver.sleep(1000); // wait for lazy-load
+    const searchButton = await driver.switchTo().activeElement();
+    const btnText = await searchButton.getText();
+    if (!btnText.includes('Find Permits')) {
+      throw new Error('Search button not focused after TAB.');
     }
 
-    // 8️⃣ Extract permit data safely
+    console.log('Submitting search...');
+    await searchButton.sendKeys(Key.ENTER);
+
+    // --- WAIT FOR RESULTS ---
+    console.log('Waiting for results...');
+    await driver.wait(
+      until.elementLocated(By.css('.ag-center-cols-container')),
+      30000
+    );
+
+    let rows = [];
+    const timeoutAt = Date.now() + 60000;
+
+    while (Date.now() < timeoutAt) {
+      rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+      if (rows.length > 0) break;
+      await sleep(500);
+    }
+
+    if (rows.length === 0) throw new Error('No permit rows found.');
+    console.log(`Rows loaded: ${rows.length}`);
+
+    // --- SCROLL GRID ---
+    let lastCount = 0;
+    let stable = 0;
+    while (stable < 15) {
+      rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+      if (rows.length === lastCount) stable++;
+      else stable = 0;
+      lastCount = rows.length;
+      await driver.executeScript(
+        'arguments[0].scrollIntoView({ block: "end" })',
+        rows[rows.length - 1]
+      );
+      await sleep(800);
+    }
+
+    // --- EXTRACT ---
     const permits = [];
     for (const row of rows) {
       let name = 'N/A';
       let description = '';
-
-      try {
-        name = await row.findElement(By.css('strong')).getText();
-      } catch {}
-      try {
-        description = await row.findElement(By.css('p')).getText();
-      } catch {}
-
+      try { name = await row.findElement(By.css('strong')).getText(); } catch {}
+      try { description = await row.findElement(By.css('p')).getText(); } catch {}
       permits.push({ name, description });
     }
 
+    console.log(`Extracted ${permits.length} permits.`);
     return permits;
+
   } finally {
     await driver.quit();
   }

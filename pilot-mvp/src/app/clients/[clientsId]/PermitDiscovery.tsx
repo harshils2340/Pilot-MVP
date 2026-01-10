@@ -624,46 +624,48 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
   };
 
   const analyzeRequirements = async () => {
-    setError('');
-    setLoading(true);
+  setError('');
+  setLoading(true);
 
-    try {
-      const businessTypeSlug = mapBusinessTypeToSlug(businessType);
-      const activitiesSlugs = mapActivitiesToSlugs(activities);
-
-      if (!businessTypeSlug || activitiesSlugs.length === 0 || !location) {
-        setError('Please enter a valid business type, location, and activities.');
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch('/api/clients/permits/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: { country: 'US', province: 'CA', city: location },
-          businessType: businessTypeSlug,
-          activities: activitiesSlugs
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error('Permit search failed:', data);
-        setError('Permit search failed. Please try again.');
-        setPermits([]);
-      } else {
-        setPermits(data.permits || []);
-      }
-    } catch (err) {
-      console.error('Permit search failed', err);
-      setError('Permit search failed. Please try again.');
-      setPermits([]);
-    } finally {
+  try {
+    if (!businessType || !location) {
+      setError('Please enter business type and location.');
       setLoading(false);
+      return;
     }
-  };
+
+    const payload = {
+      businessType,
+      location,
+      permitKeywords: activities // <-- IMPORTANT
+    };
+
+    console.log('🚀 Sending BizPaL payload:', payload);
+
+    const res = await fetch('/api/bizpal/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error('BizPaL search failed:', data);
+      setError('BizPaL search failed. Please try again.');
+      setPermits([]);
+    } else {
+      setPermits(data.permits || data || []);
+    }
+  } catch (err) {
+    console.error('BizPaL search failed', err);
+    setError('BizPaL search failed. Please try again.');
+    setPermits([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const getConfidenceColor = (confidence: PermitConfidence) => {
     switch (confidence) {

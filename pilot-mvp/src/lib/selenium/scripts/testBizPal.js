@@ -4,7 +4,7 @@ const { runBizPalSearch } = require('../bizpal.worker');
   const data = await runBizPalSearch({
     location: 'Ottawa',
     businessType: 'Restaurant',
-    permitTypes: 'Zoning Plumbing',
+    permitTypes: 'Zoning and Plumbing',
   });
 
   console.log('TOTAL PERMITS:', data.length);
