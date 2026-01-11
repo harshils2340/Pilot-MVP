@@ -2,9 +2,9 @@ const { runBizPalSearch } = require('../bizpal.worker');
 
 (async () => {
   const data = await runBizPalSearch({
-    location: 'Ottawa',
+    location: 'Toronto, ON',
     businessType: 'Restaurant',
-    permitTypes: 'Zoning and Plumbing',
+    permitTypes: 'Food Permits',
   });
 
   console.log('TOTAL PERMITS:', data.length);

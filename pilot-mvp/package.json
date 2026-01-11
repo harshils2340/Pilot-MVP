@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "chromedriver": "^143.0.4",
+    "clipboardy": "^5.0.2",
     "dotenv": "^17.2.3",
     "lucide-react": "^0.562.0",
     "mongodb": "^7.0.0",
@@ -27,6 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/selenium-webdriver": "^4.35.4",
+    "chromedriver": "^143.0.4",
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
