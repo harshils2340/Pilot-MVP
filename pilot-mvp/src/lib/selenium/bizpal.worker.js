@@ -382,43 +382,43 @@
    * - If errors occur, check ERROR_page_source.html in /public/debug/
    */
 
-  const { Builder, By, until, Key } = require('selenium-webdriver');
-  const chrome = require('selenium-webdriver/chrome');
-  const fs = require('fs');
-  const path = require('path');
+const { Builder, By, until, Key } = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
+const fs = require('fs');
+const path = require('path');
 
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  function log(msg) {
-    console.log(`[BIZPAL] ${msg}`);
+function log(msg) {
+  console.log(`[BIZPAL] ${msg}`);
+}
+
+/**
+ * Updated to use process.cwd() so screenshots save to your visible project folder,
+ * not a hidden Next.js build directory.
+ */
+async function screenshot(driver, name) {
+  try {
+    const debugDir = path.join(process.cwd(), 'public', 'debug');
+    if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+    
+    const filePath = path.join(debugDir, `${name}.png`);
+    const image = await driver.takeScreenshot();
+    fs.writeFileSync(filePath, image, 'base64');
+    log(`📸 Screenshot saved to: /public/debug/${name}.png`);
+  } catch (err) {
+    log(`⚠️ Failed to take screenshot ${name}: ${err.message}`);
   }
+}
 
-  /**
-   * Updated to use process.cwd() so screenshots save to your visible project folder,
-   * not a hidden Next.js build directory.
-   */
-  async function screenshot(driver, name) {
-    try {
-      const debugDir = path.join(process.cwd(), 'public', 'debug');
-      if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
-      
-      const filePath = path.join(debugDir, `${name}.png`);
-      const image = await driver.takeScreenshot();
-      fs.writeFileSync(filePath, image, 'base64');
-      log(`📸 Screenshot saved to: /public/debug/${name}.png`);
-    } catch (err) {
-      log(`⚠️ Failed to take screenshot ${name}: ${err.message}`);
-    }
+async function typeLikeHuman(element, text = '', delay = 100) {
+  text = String(text ?? '').trim();
+  await element.clear(); 
+  for (const char of text) {
+    await element.sendKeys(char);
+    await sleep(delay); 
   }
-
-  async function typeLikeHuman(element, text = '', delay = 100) {
-    text = String(text ?? '').trim();
-    await element.clear(); 
-    for (const char of text) {
-      await element.sendKeys(char);
-      await sleep(delay); 
-    }
-  }
+}
 
   // Helper function to copy text to clipboard
   async function copyToClipboard(text) {
@@ -427,14 +427,14 @@
       await clipboardy.write(text);
       log(`📋 Copied to clipboard: "${text}"`);
       return true;
-    } catch (err) {
+  } catch (err) {
       log(`⚠️ Failed to copy to clipboard: ${err.message}`);
       return false;
-    }
   }
+}
 
   async function runBizPalSearch({ location, businessType, permitKeywords, permitTypes }) {
-    log('Worker started');
+  log('Worker started');
     
     // Validate and clean inputs
     // Support both permitKeywords and permitTypes (for backward compatibility with test file)
@@ -448,8 +448,8 @@
     
     log(`[DEBUG] Inputs: location='${location}', businessType='${businessType}', permitKeywords='${permitKeywords || '(none)'}'`);
 
-    // --- Chrome Configuration ---
-    const options = new chrome.Options();
+  // --- Chrome Configuration ---
+  const options = new chrome.Options();
     
     // ============================================================
     // VISIBLE MODE - Browser window will open so you can see it!
@@ -458,8 +458,8 @@
     // Do NOT add --headless or --headless=new - it will hide the window!
     
     // Force visible mode (explicitly disable any headless settings)
-    options.addArguments(
-      '--window-size=1920,1080',
+  options.addArguments(
+    '--window-size=1920,1080',
       '--start-maximized',              // Browser opens maximized
       '--disable-infobars',             // Cleaner browser window
       '--no-sandbox',                   // Required for some environments
@@ -482,9 +482,9 @@
     log('   2. Check Task Manager for Chrome processes');
     log('   3. Look for minimized Chrome windows in taskbar');
 
-    let driver;
-    try {
-      log('⏳ Building Chrome Driver...');
+  let driver;
+  try {
+    log('⏳ Building Chrome Driver...');
       log('📝 Checking for Chrome and ChromeDriver availability...');
       
       // Check for existing Chrome processes that might block
@@ -554,14 +554,14 @@
       // Build the driver with timeout - MUST match test script approach
       const buildPromise = serviceBuilder
         ? new Builder()
-            .forBrowser('chrome')
-            .setChromeOptions(options)
-            .setChromeService(serviceBuilder)
+      .forBrowser('chrome')
+      .setChromeOptions(options)
+      .setChromeService(serviceBuilder)
             .build()
         : new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
-            .build();
+      .build();
       
       // Create a timeout promise - Increased timeout to match real Chrome startup time
       const buildTimeout = new Promise((_, reject) => {
@@ -575,7 +575,7 @@
       
       const buildDuration = ((Date.now() - buildStartTime) / 1000).toFixed(2);
       log(`✅ Chrome Driver built successfully in ${buildDuration} seconds!`);
-      log('✅ Chrome launched');
+    log('✅ Chrome launched');
       
       // CRITICAL: Verify Chrome is running in visible mode and bring to front
       try {
@@ -623,14 +623,14 @@
         log(`⚠️  Window management warning: ${e.message} - Browser may still be running`);
       }
 
-      log('🌐 Opening BizPaL...');
+    log('🌐 Opening BizPaL...');
       await driver.get('https://beta.bizpal-perle.ca/en');
       log('⏳ Waiting for page to load...');
-      await driver.wait(until.elementLocated(By.css('input')), 20000);
+    await driver.wait(until.elementLocated(By.css('input')), 20000);
       await sleep(5000); // Increased wait to see what's happening
       const pageTitle = await driver.getTitle();
       log(`📄 Page title: ${pageTitle}`);
-      await screenshot(driver, '01-home');
+    await screenshot(driver, '01-home');
       log('✅ Page loaded and screenshot taken');
 
       // ====================================================================
@@ -647,33 +647,83 @@
       log(`   Value: "${location}"`);
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      const locInput = await driver.wait(
-      until.elementLocated(By.css('input[placeholder*="located"], input[type="text"]')), 
-      15000
-    );
-    
-    // Scroll into view and click
-    await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', locInput);
-    await sleep(500); // Increased delay so you can see it
-    await locInput.click();
-    await sleep(1000); // Increased delay so you can see the click
-    
-    // Type the location
-    log('   ⌨️  Typing location...');
-    await typeLikeHuman(locInput, location, 150); // Slower typing so you can see it
-    await sleep(2000); // Wait for autocomplete dropdown (increased)
-    
-    // Press Enter
-    log('   ⌨️  Pressing Enter...');
-    await locInput.sendKeys(Key.ENTER);
-    await sleep(1500); // Increased delay
-    
-    // Press Tab
-    log('   ⌨️  Pressing Tab...');
-    await locInput.sendKeys(Key.TAB);
-    await sleep(1200); // Increased delay
+      // Find the first input field (location) - be very specific for headlessui combobox
+      let locInput;
+      try {
+        // Primary: Try to find by specific ID first (headlessui-combobox-input-v-190)
+        locInput = await driver.wait(
+          until.elementLocated(By.id('headlessui-combobox-input-v-190')), 
+          5000
+        );
+        log('   ✅ Found location field by specific ID (headlessui-combobox-input-v-190)');
+      } catch {
+        try {
+          // Secondary: Find by placeholder (most specific)
+          locInput = await driver.wait(
+            until.elementLocated(By.css('input[placeholder*="Where is your business located"], input[placeholder*="located"], input[placeholder*="Where"]')), 
+            10000
+          );
+          log('   ✅ Found location field by placeholder');
+        } catch {
+          // Fallback: Find all combobox inputs and get the first one (location)
+          try {
+            const allComboboxInputs = await driver.findElements(By.css('input[role="combobox"][aria-autocomplete="list"]'));
+            if (allComboboxInputs.length >= 1) {
+              locInput = allComboboxInputs[0]; // First combobox is location
+              const placeholder = await locInput.getAttribute('placeholder').catch(() => '');
+              log(`   ✅ Found location field as first combobox input (placeholder: "${placeholder}")`);
+            } else {
+              // Final fallback: get all text inputs
+              const allInputs = await driver.findElements(By.css('input[type="text"]'));
+              if (allInputs.length > 0) {
+                locInput = allInputs[0];
+                log(`   ✅ Found location field as first text input (${allInputs.length} inputs found)`);
+              } else {
+                throw new Error('No input fields found');
+              }
+            }
+          } catch (e) {
+            throw new Error(`Could not find location input field: ${e.message}`);
+          }
+        }
+      }
       
-      await screenshot(driver, '02-location-set');
+      // Store location input ID for later verification
+      const locInputId = await locInput.getAttribute('id').catch(() => '');
+      log(`   📌 Location input ID: "${locInputId}"`);
+    
+      // Scroll into view and click
+      await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', locInput);
+      await sleep(500);
+      await locInput.click();
+      await sleep(1000);
+      
+      // Clear any existing value
+      await locInput.clear();
+      await sleep(500);
+      
+      // Type the location
+      log('   ⌨️  Typing location...');
+      await typeLikeHuman(locInput, location, 150);
+      await sleep(2000); // Wait for autocomplete dropdown
+      
+      // Press Enter to select from autocomplete
+      log('   ⌨️  Pressing Enter...');
+      await locInput.sendKeys(Key.ENTER);
+      await sleep(1500);
+      
+      // Press Tab to move to next field
+      log('   ⌨️  Pressing Tab...');
+      await locInput.sendKeys(Key.TAB);
+      await sleep(1200);
+      
+      // Verify the value was set
+      try {
+        const locValue = await locInput.getAttribute('value');
+        log(`   ✅ Location field value: "${locValue}"`);
+      } catch {}
+      
+    await screenshot(driver, '02-location-set');
       log('   ✅ Location field completed');
 
       // STEP 2: BUSINESS TYPE FIELD - Type input → Press Enter → Press Tab
@@ -683,28 +733,289 @@
       log(`   Value: "${businessType}"`);
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      // Get the currently focused element (should be business type field after TAB)
-      const busInput = await driver.switchTo().activeElement();
+      // Find the business type input field (2nd input) - be very specific for headlessui combobox
+      let busInput;
+      try {
+        // Primary: Try to find by specific ID first (headlessui-combobox-input-v-193)
+        busInput = await driver.wait(
+          until.elementLocated(By.id('headlessui-combobox-input-v-193')), 
+          5000
+        );
+        log('   ✅ Found business type field by specific ID (headlessui-combobox-input-v-193)');
+      } catch {
+        try {
+          // Secondary: Find by placeholder (most specific for business type)
+          busInput = await driver.wait(
+            until.elementLocated(By.css('input[placeholder*="What type of business"], input[placeholder*="business type"], input[placeholder*="Ex: restaurant"]')), 
+            10000
+          );
+          const placeholder = await busInput.getAttribute('placeholder').catch(() => '');
+          log(`   ✅ Found business type field by placeholder: "${placeholder}"`);
+        } catch {
+          // Fallback: Get all combobox inputs and select the second one (index 1)
+          try {
+            const allComboboxInputs = await driver.findElements(By.css('input[role="combobox"][aria-autocomplete="list"]'));
+            if (allComboboxInputs.length >= 2) {
+              busInput = allComboboxInputs[1]; // Second combobox is business type
+              const placeholder = await busInput.getAttribute('placeholder').catch(() => '');
+              log(`   ✅ Found business type field as second combobox input (placeholder: "${placeholder}")`);
+              
+              // Verify it's not the location field
+              if (placeholder.includes('located') || placeholder.includes('Where')) {
+                throw new Error('Second combobox is location field, not business type');
+              }
+            } else if (allComboboxInputs.length === 1) {
+              // Only one combobox found - check if it's location (we already filled it)
+              const placeholder = await allComboboxInputs[0].getAttribute('placeholder').catch(() => '');
+              if (placeholder.includes('located') || placeholder.includes('Where')) {
+                // This is location field, wait a bit and try again or use active element
+                await sleep(1000);
+                busInput = await driver.switchTo().activeElement();
+                log('   ✅ Using active element as business type field (after location)');
+              } else {
+                busInput = allComboboxInputs[0];
+                log('   ✅ Using single combobox as business type field');
+              }
+            } else {
+              // Final fallback: Get all text inputs and select the second one
+              const allInputs = await driver.findElements(By.css('input[type="text"]'));
+              if (allInputs.length >= 2) {
+                busInput = allInputs[1]; // Second input is business type
+                log(`   ✅ Found business type field as second text input (${allInputs.length} inputs found)`);
+              } else {
+                // Last resort: Get the currently focused element (should be business type field after TAB)
+                busInput = await driver.switchTo().activeElement();
+                log('   ✅ Using active element as business type field (final fallback)');
+              }
+            }
+          } catch (e) {
+            throw new Error(`Could not find business type input field: ${e.message}`);
+          }
+        }
+      }
+      
+      // Store business input ID and placeholder for later verification
+      let busInputId = await busInput.getAttribute('id').catch(() => '');
+      let busInputPlaceholder = await busInput.getAttribute('placeholder').catch(() => '');
+      log(`   📌 Business type input ID: "${busInputId}", placeholder: "${busInputPlaceholder}"`);
+      
+      // Verify we didn't get the location field by mistake
+      if (busInputPlaceholder.includes('located') || busInputPlaceholder.includes('Where') || busInputId === 'headlessui-combobox-input-v-190') {
+        log(`   ⚠️  WARNING: Selected field appears to be location field! Trying to find correct field...`);
+        // Try to find by specific business type ID
+        try {
+          busInput = await driver.findElement(By.id('headlessui-combobox-input-v-193'));
+          busInputId = 'headlessui-combobox-input-v-193';
+          busInputPlaceholder = await busInput.getAttribute('placeholder').catch(() => '');
+          log(`   ✅ Corrected to business type field by ID: "${busInputId}"`);
+        } catch {
+          // Fallback: find second combobox
+          try {
+            const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+            if (allComboboxes.length >= 2) {
+              busInput = allComboboxes[1];
+              busInputPlaceholder = await busInput.getAttribute('placeholder').catch(() => '');
+              const newId = await busInput.getAttribute('id').catch(() => '');
+              if (newId) {
+                busInputId = newId;
+              }
+              log(`   ✅ Corrected to second combobox (ID: "${newId}", placeholder: "${busInputPlaceholder}")`);
+            }
+          } catch {}
+        }
+      }
+      
       await driver.wait(until.elementIsVisible(busInput), 5000);
       
-    // Click to ensure focus
-    await busInput.click();
-    await sleep(1000); // Increased delay so you can see it
-    
-    // Type the business type
-    log('   ⌨️  Typing business type...');
-    await typeLikeHuman(busInput, businessType, 150); // Slower typing so you can see it
-    await sleep(2000); // Wait for autocomplete dropdown (increased)
-    
-    // Press Enter
-    log('   ⌨️  Pressing Enter...');
-    await busInput.sendKeys(Key.ENTER);
-    await sleep(1500); // Increased delay
-    
-    // Press Tab
-    log('   ⌨️  Pressing Tab...');
-    await busInput.sendKeys(Key.TAB);
-    await sleep(1200); // Increased delay
+      // Click to ensure focus
+      await busInput.click();
+      await sleep(1000);
+      
+      // Clear any existing value
+      await busInput.clear();
+      await sleep(500);
+      
+      // Type the business type
+      log('   ⌨️  Typing business type...');
+      await typeLikeHuman(busInput, businessType, 150);
+      await sleep(3000); // Wait longer for autocomplete dropdown to appear
+      
+      // Re-verify we're still on business type field before selecting dropdown
+      log(`   📌 Verifying business input ID: "${busInputId}", placeholder: "${busInputPlaceholder}"`);
+      
+      // Instead of pressing Enter (which might reset focus), click on the first dropdown option
+      log('   🔽 Selecting first dropdown option...');
+      let optionSelected = false;
+      try {
+        // Wait for dropdown to appear and click first option
+        const firstOption = await driver.wait(
+          until.elementLocated(By.css('ul[role="listbox"] li[role="option"]:first-child, ul[role="listbox"] li:first-child, [role="listbox"] [role="option"]:first-child')),
+          5000
+        );
+        await sleep(500);
+        await firstOption.click();
+        optionSelected = true;
+        log('   ✅ Clicked first dropdown option');
+        await sleep(1500); // Wait for selection to process
+      } catch {
+        // Fallback: Try pressing Arrow Down then Enter
+        try {
+          log('   ⚠️  Could not find dropdown option, trying keyboard navigation...');
+          await busInput.sendKeys(Key.ARROW_DOWN);
+          await sleep(500);
+          await busInput.sendKeys(Key.ENTER);
+          await sleep(1500);
+          optionSelected = true;
+          log('   ✅ Used keyboard navigation to select (fallback)');
+        } catch (e) {
+          log(`   ⚠️  Could not select dropdown option: ${e.message}`);
+          // Just continue - maybe the value is already set
+        }
+      }
+      
+        // After selecting, re-find the business type field to ensure we have the correct element
+        await sleep(1000);
+        try {
+          // Re-find business type field using stored ID or placeholder to ensure we have the correct element
+          let currentBusInput = busInput;
+          try {
+            if (busInputId) {
+              // Find by ID (most reliable)
+              currentBusInput = await driver.findElement(By.id(busInputId));
+              log(`   ✅ Refound business type field by ID: "${busInputId}"`);
+            } else if (busInputPlaceholder) {
+              // Find by placeholder (specific to business type)
+              currentBusInput = await driver.findElement(By.css(`input[placeholder*="What type of business"], input[placeholder*="business type"]`));
+              log(`   ✅ Refound business type field by placeholder`);
+            } else {
+              // Find all comboboxes and get the second one
+              const allComboboxes = await driver.findElements(By.css('input[role="combobox"][aria-autocomplete="list"]'));
+              if (allComboboxes.length >= 2) {
+                currentBusInput = allComboboxes[1]; // Second combobox is business type
+                const placeholder = await currentBusInput.getAttribute('placeholder').catch(() => '');
+                // Verify it's not location
+                if (placeholder.includes('located') || placeholder.includes('Where')) {
+                  throw new Error('Second combobox is location field');
+                }
+                log(`   ✅ Refound business type field as second combobox`);
+              } else {
+                throw new Error('Could not refind business type field');
+              }
+            }
+          } catch (e) {
+            log(`   ⚠️  Could not refind business type field: ${e.message}, using original reference`);
+            // Use the original busInput
+            currentBusInput = busInput;
+          }
+          
+          // Click to ensure focus is on business type field (NOT location)
+          await currentBusInput.click();
+          await sleep(500);
+          
+          // Verify we're on business type field, not location
+          const clickCheckActive = await driver.switchTo().activeElement();
+          const clickCheckId = await clickCheckActive.getAttribute('id').catch(() => '');
+          const clickCheckPlaceholder = await clickCheckActive.getAttribute('placeholder').catch(() => '');
+          
+          if (clickCheckPlaceholder.includes('located') || clickCheckPlaceholder.includes('Where')) {
+            log(`   ⚠️  Click moved focus to location field! Clicking business type field again...`);
+            await currentBusInput.click();
+            await sleep(1000);
+          }
+        
+        // Verify the business type value is still there
+        const busValue = await currentBusInput.getAttribute('value');
+        log(`   ✅ Business type field value after selection: "${busValue}"`);
+        
+        if (!busValue || !busValue.includes(businessType.substring(0, 10))) {
+          log(`   ⚠️  Business type value seems lost or incorrect, retyping...`);
+          await currentBusInput.clear();
+          await sleep(500);
+          await typeLikeHuman(currentBusInput, businessType, 150);
+          await sleep(2000);
+          // Try selecting first option again
+          try {
+            await currentBusInput.sendKeys(Key.ARROW_DOWN);
+            await sleep(500);
+            await currentBusInput.sendKeys(Key.ENTER);
+            await sleep(1500);
+          } catch {}
+        }
+        
+        // Verify we're still on business type field, not location
+        const activeElement = await driver.switchTo().activeElement();
+        const activeId = await activeElement.getAttribute('id').catch(() => '');
+        const activePlaceholder = await activeElement.getAttribute('placeholder').catch(() => '');
+        const activeRole = await activeElement.getAttribute('role').catch(() => '');
+        
+        log(`   📍 Active element check: ID: "${activeId}", placeholder: "${activePlaceholder}", role: "${activeRole}"`);
+        
+        // If we're on location field, click business type field again
+        if (activePlaceholder.includes('located') || activePlaceholder.includes('Where') || (!activeRole.includes('combobox') && activePlaceholder && !activePlaceholder.includes('business'))) {
+          log('   ⚠️  Focus appears to be on wrong field! Refocusing business type field...');
+          await currentBusInput.click();
+          await sleep(1000);
+          // Verify value again
+          const recheckValue = await currentBusInput.getAttribute('value');
+          log(`   ✅ Re-checked business type value: "${recheckValue}"`);
+        }
+        
+        // Now press Tab to move to next field (permit keywords)
+        log('   ⌨️  Pressing Tab to move to permit keywords field...');
+        await currentBusInput.sendKeys(Key.TAB);
+        await sleep(1200);
+        
+        // Verify we moved to permit keywords field, not back to location
+        const nextActiveElement = await driver.switchTo().activeElement();
+        const nextPlaceholder = await nextActiveElement.getAttribute('placeholder').catch(() => '');
+        const nextRole = await nextActiveElement.getAttribute('role').catch(() => '');
+        log(`   📍 Active element after Tab: placeholder: "${nextPlaceholder}", role: "${nextRole}"`);
+        
+        // If Tab moved back to location field, skip it by pressing Tab again
+        if (nextPlaceholder.includes('located') || nextPlaceholder.includes('Where')) {
+          log('   ⚠️  Tab moved back to location field! Skipping past it...');
+          // Verify location field value wasn't corrupted
+          const locValueCheck = await nextActiveElement.getAttribute('value').catch(() => '');
+          if (locValueCheck && !locValueCheck.includes(location.substring(0, 5))) {
+            log(`   ⚠️  Location field value corrupted: "${locValueCheck}" - restoring...`);
+            await nextActiveElement.clear();
+            await typeLikeHuman(nextActiveElement, location, 150);
+            await sleep(2000);
+            await nextActiveElement.sendKeys(Key.ENTER);
+            await sleep(1500);
+          }
+          // Skip past location field
+          await nextActiveElement.sendKeys(Key.TAB);
+          await sleep(1200);
+          // Verify we're now on the right field
+          const afterSkip = await driver.switchTo().activeElement();
+          const afterSkipPlaceholder = await afterSkip.getAttribute('placeholder').catch(() => '');
+          log(`   📍 After skipping location: placeholder: "${afterSkipPlaceholder}"`);
+          
+          // If still on location, try one more Tab
+          if (afterSkipPlaceholder.includes('located') || afterSkipPlaceholder.includes('Where')) {
+            await afterSkip.sendKeys(Key.TAB);
+            await sleep(1200);
+          }
+        }
+        
+        // Final verification: check that location field still has correct value
+        try {
+          const locInputFinal = await driver.findElement(By.css('input[placeholder*="located"], input[placeholder*="Where"]'));
+          const locValueFinal = await locInputFinal.getAttribute('value');
+          if (!locValueFinal || (!locValueFinal.includes(location.substring(0, 5)) && !locValueFinal.includes(location.split(',')[0]))) {
+            log(`   ⚠️  WARNING: Location field value may have been corrupted: "${locValueFinal}"`);
+            // Don't restore automatically - just log warning
+          } else {
+            log(`   ✅ Location field verified: "${locValueFinal}"`);
+          }
+        } catch (e) {
+          log(`   ⚠️  Could not verify location field: ${e.message}`);
+        }
+      } catch (e) {
+        log(`   ⚠️  Error in field verification: ${e.message}`);
+        // Try to continue anyway
+      }
       
       await screenshot(driver, '03-business-set');
       log('   ✅ Business type field completed');
@@ -748,7 +1059,7 @@
           } else {
             log('   ✅ Found permit keywords field via active element');
           }
-        } catch (e) {
+    } catch (e) {
           log(`   ❌ Could not find permit keywords field: ${e.message}`);
           throw new Error(`Failed to locate permit keywords input field: ${e.message}`);
         }
@@ -803,31 +1114,62 @@
       await permitInput.sendKeys(Key.TAB);
       await sleep(1200); // Increased delay so you can see focus move
       
-      // Step 3.6: Press Enter to submit
-      log('   ⌨️  Pressing Enter to submit form...');
-      const focusedElement = await driver.switchTo().activeElement();
-      const focusedTag = await focusedElement.getTagName();
-      const focusedText = await focusedElement.getText().catch(() => '');
-      log(`   📍 Focused element: ${focusedTag}, text: "${focusedText}"`);
+      // Step 3.5: Press Tab to move to submit button
+      log('   ⌨️  Pressing Tab to move to submit button...');
+      await permitInput.sendKeys(Key.TAB);
+      await sleep(1200);
       
-      await sleep(1000); // Pause before submitting so you can see it
-      await focusedElement.sendKeys(Key.ENTER);
-      await sleep(2000); // Increased delay after submission
-        
-        await screenshot(driver, '03b-permit-keywords-submitted');
-        log('   ✅ Permit keywords field completed: Pasted → Tab → Enter');
+      // Step 3.6: Submit the form
+      log('   ⌨️  Submitting form...');
+      let formSubmitted = false;
+      
+      // Try to find and click the submit button
+      try {
+        const submitButton = await driver.findElement(By.xpath('//button[contains(text(), "Find") or contains(text(), "Search") or contains(text(), "Submit")] | //button[@type="submit"]'));
+        await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', submitButton);
+        await sleep(500);
+        await submitButton.click();
+        formSubmitted = true;
+        log('   ✅ Clicked submit button');
+      } catch {
+        // Fallback: Press Enter on focused element
+        try {
+          const focusedElement = await driver.switchTo().activeElement();
+          const focusedTag = await focusedElement.getTagName();
+          log(`   📍 Focused element: ${focusedTag}, pressing Enter...`);
+          await focusedElement.sendKeys(Key.ENTER);
+          formSubmitted = true;
+          log('   ✅ Pressed Enter on focused element');
+        } catch (e) {
+          log(`   ⚠️  Could not submit form: ${e.message}`);
+        }
+      }
+      
+      await screenshot(driver, '03b-permit-keywords-submitted');
+      log('   ✅ Permit keywords field completed: Pasted → Tab → Submit');
       } else {
         // No permit keywords, but still need to submit
-        log('   ℹ️  No permit keywords provided, pressing Tab then Enter to submit...');
+        log('   ℹ️  No permit keywords provided, submitting form...');
         const activeElement = await driver.switchTo().activeElement();
         await activeElement.sendKeys(Key.TAB);
         await sleep(800);
-        const focusedElement = await driver.switchTo().activeElement();
-        await focusedElement.sendKeys(Key.ENTER);
-        log('   ✅ Pressed Tab → Enter to submit');
+        
+        // Try to find and click submit button
+        let submitted = false;
+        try {
+          const submitButton = await driver.findElement(By.xpath('//button[contains(text(), "Find") or contains(text(), "Search")] | //button[@type="submit"]'));
+          await submitButton.click();
+          submitted = true;
+          log('   ✅ Clicked submit button');
+        } catch {
+          const focusedElement = await driver.switchTo().activeElement();
+          await focusedElement.sendKeys(Key.ENTER);
+          submitted = true;
+          log('   ✅ Pressed Enter to submit');
+        }
       }
       
-      await sleep(2000); // Wait to see the submission
+      await sleep(3000); // Wait for form submission and page navigation
 
       // STEP 4: WAIT FOR RESULTS AND ENSURE THEY ARE VISIBLE
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -839,13 +1181,41 @@
       log('   ⏳ Waiting for results container...');
       let resultsContainer;
       try {
+        // Wait longer and try multiple selectors for AG Grid
         resultsContainer = await driver.wait(
-          until.elementLocated(By.css('.ag-center-cols-container, .results-list, [class*="result"], [id*="result"]')),
-          30000
+          until.elementLocated(By.css('.ag-center-cols-container, .ag-row, .ag-row[role="row"], [role="rowgroup"], .results-list, [class*="result"], [id*="result"]')),
+          45000 // Increased timeout to 45 seconds
         );
         log('   ✅ Results container found');
+        
+        // Additional wait for rows to appear
+        await sleep(2000);
+        const initialRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .ag-row[role="row"]'));
+        log(`   📊 Found ${initialRows.length} initial result rows`);
+        
+        if (initialRows.length === 0) {
+          log('   ⏳ No rows yet, waiting longer...');
+    await sleep(3000); 
+          const retryRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .ag-row[role="row"]'));
+          log(`   📊 After retry: ${retryRows.length} rows found`);
+        }
       } catch (e) {
         log(`   ❌ Results container not found: ${e.message}`);
+        
+        // Try to get debugging info
+        try {
+          const currentUrl = await driver.getCurrentUrl();
+          log(`   📍 Current URL: ${currentUrl}`);
+          const pageTitle = await driver.getTitle();
+          log(`   📄 Page title: ${pageTitle}`);
+          const pageSource = await driver.getPageSource();
+          if (pageSource.includes('error') || pageSource.includes('Error')) {
+            log('   ⚠️  Page source contains error text');
+          }
+        } catch (debugErr) {
+          log(`   ⚠️  Could not get debug info: ${debugErr.message}`);
+        }
+        
         await screenshot(driver, 'ERROR_no_results_container');
         throw new Error('Results table did not appear within timeout');
       }
@@ -868,7 +1238,7 @@
       }
 
       // Wait a bit more for content to load
-      await sleep(3000); 
+    await sleep(3000); 
       
       // Check if there are any result rows
       const initialRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .results-list .result-item, [class*="result"] [class*="row"]'));
@@ -881,7 +1251,7 @@
         log(`   📊 Retry result rows found: ${retryRows.length}`);
       }
       
-      await screenshot(driver, '04-results-loaded');
+    await screenshot(driver, '04-results-loaded');
       log('   ✅ Results table is visible and loaded');
 
       // STEP 5: SCROLL TO LOAD ALL ROWS AND VERIFY
@@ -896,7 +1266,7 @@
       let allResultsFetched = false;
 
       while (stableCount < maxStable) {
-        const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+    const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
         
         if (rows.length === lastCount) {
           stableCount++;
@@ -975,8 +1345,8 @@
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       log('📄 STEP 6: EXTRACTING PERMIT DATA WITH ALL DETAILS');
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      const permits = [];
-      
+    const permits = [];
+    
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         log(`\n📋 Extracting permit ${i + 1}/${rows.length}...`);
@@ -1007,8 +1377,8 @@
             }
           } catch (e) {
             // Fallback: try to find strong/h3 for name
-            try { name = await row.findElement(By.css('strong, h3')).getText(); } catch {}
-            try { description = await row.findElement(By.css('p, .description')).getText(); } catch {}
+      try { name = await row.findElement(By.css('strong, h3')).getText(); } catch {}
+      try { description = await row.findElement(By.css('p, .description')).getText(); } catch {}
           }
           
           // Extract jurisdiction from jurisdiction column
@@ -1577,9 +1947,781 @@
         }
       }
 
-      log(`\n🎯 Extracted ${permits.length} permits with full details`);
+      log(`\n🎯 Extracted ${permits.length} permits with full details from first search`);
+      
+      // STEP 7: ITERATE THROUGH ALL DROPDOWN OPTIONS
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      log('🔄 STEP 7: ITERATING THROUGH ALL DROPDOWN OPTIONS');
+      log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      // Function to go back to input fields
+      const goBackToInputFields = async () => {
+        log('   🔙 Going back to input fields...');
+        try {
+          // Navigate back to home page
+          await driver.get('https://beta.bizpal-perle.ca/en');
+          await sleep(3000);
+          await driver.wait(until.elementLocated(By.css('input')), 20000);
+          log('   ✅ Navigated back to home page');
+        } catch (e) {
+          log(`   ⚠️  Error navigating back: ${e.message}`);
+          throw e;
+        }
+      };
+      
+      // Function to get all dropdown options from business type field (headlessui combobox)
+      const getAllDropdownOptions = async (businessTypeInput) => {
+        log('   🔍 Getting all dropdown options from headlessui combobox...');
+        const options = [];
+        
+        try {
+          // Wait for dropdown to appear (check aria-expanded)
+          await sleep(2000);
+          
+          // Check if dropdown is expanded
+          const ariaExpanded = await businessTypeInput.getAttribute('aria-expanded');
+          log(`   📊 aria-expanded: ${ariaExpanded}`);
+          
+          if (ariaExpanded !== 'true') {
+            log('   ⚠️  Dropdown not expanded, trying to trigger it...');
+            await businessTypeInput.click();
+            await sleep(1000);
+            await businessTypeInput.sendKeys(Key.ARROW_DOWN);
+            await sleep(1000);
+          }
+          
+          // Try multiple selectors for headlessui combobox dropdown
+          const dropdownSelectors = [
+            'ul[role="listbox"] li[role="option"]',
+            'ul[role="listbox"] li',
+            'div[role="listbox"] div[role="option"]',
+            '[role="listbox"] [role="option"]',
+            'ul[role="listbox"] > *',
+            'div[role="listbox"] > *',
+            '[class*="combobox"] [role="option"]',
+            '[class*="combobox"] li'
+          ];
+          
+          let optionElements = [];
+          for (const selector of dropdownSelectors) {
+            try {
+              const elements = await driver.findElements(By.css(selector));
+              if (elements.length > 0) {
+                log(`   🔍 Found ${elements.length} elements with selector: ${selector}`);
+                // Check if visible
+                for (const elem of elements) {
+                  try {
+                    const isDisplayed = await elem.isDisplayed();
+                    if (isDisplayed) {
+                      optionElements.push(elem);
+                    }
+                  } catch {}
+                }
+                if (optionElements.length > 0) {
+                  log(`   ✅ Found ${optionElements.length} visible dropdown options`);
+                  break;
+                }
+              }
+            } catch (e) {
+              log(`   ⚠️  Selector ${selector} failed: ${e.message}`);
+            }
+          }
+          
+          // If no elements found, try JavaScript approach for headlessui
+          if (optionElements.length === 0) {
+            log('   ℹ️  Trying JavaScript to find headlessui combobox options...');
+            const jsOptions = await driver.executeScript(`
+              const input = arguments[0];
+              let dropdown = null;
+              
+              // Find headlessui combobox dropdown
+              let parent = input.closest('[class*="combobox"], [class*="Combobox"]');
+              if (!parent) {
+                parent = input.parentElement;
+                for (let i = 0; i < 5 && parent; i++) {
+                  dropdown = parent.querySelector('ul[role="listbox"], div[role="listbox"]');
+                  if (dropdown) break;
+                  parent = parent.parentElement;
+                }
+              } else {
+                dropdown = parent.querySelector('ul[role="listbox"], div[role="listbox"]');
+              }
+              
+              if (!dropdown) {
+                // Search entire document for listbox
+                dropdown = document.querySelector('ul[role="listbox"], div[role="listbox"]');
+              }
+              
+              if (dropdown) {
+                const items = dropdown.querySelectorAll('li[role="option"], [role="option"], li, div[role="option"]');
+                return Array.from(items).map((item, idx) => {
+                  const text = item.textContent.trim();
+                  const visible = item.offsetParent !== null && window.getComputedStyle(item).display !== 'none';
+                  return {
+                    index: idx,
+                    text: text,
+                    visible: visible,
+                    element: item
+                  };
+                }).filter(item => item.text.length > 0 && item.visible);
+              }
+              return [];
+            `, businessTypeInput);
+            
+            if (jsOptions && jsOptions.length > 0) {
+              log(`   📋 Found ${jsOptions.length} options via JavaScript`);
+              // Find elements by text for clicking
+              for (const opt of jsOptions) {
+                try {
+                  // Try to find by exact text match first
+                  let elem = null;
+                  try {
+                    elem = await driver.findElement(By.xpath(`//li[role="option"][contains(., "${opt.text.substring(0, 50)}")] | //div[role="option"][contains(., "${opt.text.substring(0, 50)}")]`));
+                  } catch {
+                    try {
+                      elem = await driver.findElement(By.xpath(`//li[contains(., "${opt.text.substring(0, 50)}")] | //div[contains(., "${opt.text.substring(0, 50)}")]`));
+                    } catch {}
+                  }
+                  
+                  if (elem) {
+                    optionElements.push(elem);
+                    options.push({
+                      index: opt.index,
+                      text: opt.text,
+                      element: elem
+                    });
+                  } else {
+                    options.push({
+                      index: opt.index,
+                      text: opt.text,
+                      element: null
+                    });
+                  }
+                } catch {
+                  options.push({
+                    index: opt.index,
+                    text: opt.text,
+                    element: null
+                  });
+                }
+              }
+            }
+          } else {
+            log(`   📋 Found ${optionElements.length} dropdown options`);
+            for (let i = 0; i < optionElements.length; i++) {
+              try {
+                const optionText = await optionElements[i].getText();
+                if (optionText && optionText.trim()) {
+                  options.push({
+                    index: i,
+                    text: optionText.trim(),
+                    element: optionElements[i]
+                  });
+                }
+              } catch (e) {
+                log(`   ⚠️  Could not get text for option ${i}: ${e.message}`);
+              }
+            }
+          }
+          
+          log(`   ✅ Total options found: ${options.length}`);
+        } catch (e) {
+          log(`   ⚠️  Error getting dropdown options: ${e.message}`);
+        }
+        
+        return options;
+      };
+      
+      // Go back to input fields
+      await goBackToInputFields();
+      
+      // Re-enter location
+      log('   📍 Re-entering location...');
+      let locInput2;
+      try {
+        locInput2 = await driver.wait(
+          until.elementLocated(By.css('input[placeholder*="located"], input[placeholder*="Where"], input[placeholder*="location"]')), 
+          15000
+        );
+      } catch {
+        // Fallback: get first input
+        const allInputs = await driver.findElements(By.css('input[type="text"]'));
+        if (allInputs.length > 0) {
+          locInput2 = allInputs[0];
+        } else {
+          throw new Error('Could not find location input field');
+        }
+      }
+      await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', locInput2);
+      await sleep(500);
+      await locInput2.click();
+      await sleep(1000);
+      await locInput2.clear();
+      await sleep(500);
+      await typeLikeHuman(locInput2, location, 150);
+      await sleep(2000);
+      await locInput2.sendKeys(Key.ENTER);
+      await sleep(1500);
+      await locInput2.sendKeys(Key.TAB);
+      await sleep(1200);
+      
+      // Verify location was set
+      try {
+        const locValue = await locInput2.getAttribute('value');
+        log(`   ✅ Location re-entered: "${locValue}"`);
+      } catch {}
+      
+      // Re-enter business type to trigger dropdown
+      log('   🏢 Re-entering business type to get dropdown options...');
+      let busInput2;
+      try {
+        busInput2 = await driver.wait(
+          until.elementLocated(By.css('input[role="combobox"][aria-autocomplete="list"], input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
+          15000
+        );
+        log('   ✅ Found business type field using combobox selector');
+      } catch {
+        busInput2 = await driver.switchTo().activeElement();
+        log('   ✅ Using active element as business type field');
+      }
+      await busInput2.click();
+      await sleep(1000);
+      await busInput2.clear();
+      await typeLikeHuman(busInput2, businessType, 150);
+      await sleep(3000); // Wait for dropdown to appear
+      
+      // Ensure dropdown is expanded
+      try {
+        const ariaExpanded = await busInput2.getAttribute('aria-expanded');
+        if (ariaExpanded !== 'true') {
+          log('   🔽 Triggering dropdown expansion...');
+          await busInput2.sendKeys(Key.ARROW_DOWN);
+          await sleep(1000);
+        }
+      } catch {}
+      
+      // Get all dropdown options
+      const dropdownOptions = await getAllDropdownOptions(busInput2);
+      log(`   📋 Found ${dropdownOptions.length} dropdown options total`);
+      
+      if (dropdownOptions.length <= 1) {
+        log('   ℹ️  Only 1 or fewer dropdown options found, skipping iteration');
+    return permits;
+      }
+      
+      // Iterate through options starting from the 2nd one (index 1)
+      let currentBusInput = busInput2; // Keep reference to current business input
+      
+      for (let optionIndex = 1; optionIndex < dropdownOptions.length; optionIndex++) {
+        const option = dropdownOptions[optionIndex];
+        log(`\n   🔄 Processing dropdown option ${optionIndex + 1}/${dropdownOptions.length}: "${option.text.substring(0, 60)}..."`);
+        
+        try {
+          // Re-enter business type if needed (to refresh dropdown)
+          if (optionIndex > 1) {
+            await currentBusInput.click();
+            await sleep(500);
+            await currentBusInput.clear();
+            await typeLikeHuman(currentBusInput, businessType, 150);
+            await sleep(3000);
+            // Refresh dropdown options
+            const refreshedOptions = await getAllDropdownOptions(currentBusInput);
+            if (refreshedOptions.length > optionIndex) {
+              dropdownOptions[optionIndex] = refreshedOptions[optionIndex];
+            }
+          }
+          
+          // Click on the dropdown option (headlessui combobox)
+          let optionSelected = false;
+          
+          if (option.element) {
+            try {
+              await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', option.element);
+              await sleep(500);
+              try {
+                await option.element.click();
+                optionSelected = true;
+                log(`   ✅ Clicked option element directly`);
+              } catch {
+                await driver.executeScript('arguments[0].click();', option.element);
+                optionSelected = true;
+                log(`   ✅ Clicked option element via JavaScript`);
+              }
+            } catch (e) {
+              log(`   ⚠️  Could not click option element: ${e.message}`);
+            }
+          }
+          
+          if (!optionSelected) {
+            // Try finding by text
+            try {
+              const optionElement = await driver.findElement(By.xpath(`//li[role="option"][contains(., "${option.text.substring(0, 50)}")] | //div[role="option"][contains(., "${option.text.substring(0, 50)}")] | //li[contains(., "${option.text.substring(0, 50)}")]`));
+              await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', optionElement);
+              await sleep(500);
+              await optionElement.click();
+              optionSelected = true;
+              log(`   ✅ Found and clicked option by text`);
+            } catch (e) {
+              log(`   ⚠️  Could not find option by text: ${e.message}, trying keyboard navigation...`);
+              // Try arrow keys to navigate to the option
+              try {
+                // Clear and retype to refresh dropdown
+                await currentBusInput.click();
+                await sleep(300);
+                await currentBusInput.clear();
+                await typeLikeHuman(currentBusInput, businessType, 100);
+                await sleep(2000);
+                
+                // Navigate to the option using arrow keys
+                for (let i = 0; i < optionIndex; i++) {
+                  await currentBusInput.sendKeys(Key.ARROW_DOWN);
+                  await sleep(200);
+                }
+                await currentBusInput.sendKeys(Key.ENTER);
+                optionSelected = true;
+                log(`   ✅ Selected option using keyboard navigation`);
+              } catch (keyboardError) {
+                log(`   ❌ Keyboard navigation also failed: ${keyboardError.message}`);
+              }
+            }
+          }
+          
+          await sleep(2000);
+          if (optionSelected) {
+            log(`   ✅ Selected dropdown option ${optionIndex + 1}: "${option.text.substring(0, 50)}..."`);
+          } else {
+            log(`   ⚠️  Failed to select dropdown option ${optionIndex + 1}, continuing anyway...`);
+          }
+          
+          // Press Tab to move to next field
+          await currentBusInput.sendKeys(Key.TAB);
+          await sleep(1200);
+          
+          // Handle permit keywords field if provided
+          if (permitKeywords) {
+            const permitInput2 = await driver.switchTo().activeElement();
+            await permitInput2.click();
+            await sleep(1000);
+            await permitInput2.clear();
+            await sleep(500);
+            
+            // Copy and paste permit keywords
+            const copied = await copyToClipboard(permitKeywords);
+            if (copied) {
+              const modifier = process.platform === 'darwin' ? Key.COMMAND : Key.CONTROL;
+              await permitInput2.sendKeys(modifier, 'v');
+              await sleep(1500);
+            } else {
+              await driver.executeScript(`
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+              `, permitInput2, permitKeywords);
+              await sleep(300);
+            }
+            
+            await permitInput2.sendKeys(Key.TAB);
+            await sleep(1200);
+          }
+          
+          // Submit the form
+          log('   🔍 Submitting search...');
+          let formSubmitted = false;
+          try {
+            const searchButton2 = await driver.findElement(By.xpath('//button[contains(text(), "Find") or contains(text(), "Search") or contains(text(), "Submit")] | //button[@type="submit"]'));
+            await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', searchButton2);
+            await sleep(500);
+            await searchButton2.click();
+            formSubmitted = true;
+            log('   ✅ Clicked submit button');
+          } catch {
+            try {
+              const focusedElement = await driver.switchTo().activeElement();
+              await focusedElement.sendKeys(Key.ENTER);
+              formSubmitted = true;
+              log('   ✅ Pressed Enter on focused element');
+            } catch (e) {
+              log(`   ⚠️  Could not submit form: ${e.message}`);
+            }
+          }
+          await sleep(3000);
+          
+          // Wait for results
+          try {
+            await driver.wait(
+              until.elementLocated(By.css('.ag-center-cols-container .ag-row, .ag-row[role="row"], [role="rowgroup"]')),
+              45000 // Increased timeout
+            );
+            await sleep(3000);
+            log('   ✅ Results page loaded');
+          } catch (e) {
+            log(`   ⚠️  Results wait timeout: ${e.message}`);
+            // Try to continue anyway - maybe results are there but selector is different
+            await sleep(2000);
+          }
+          
+          // Scroll to load all results
+          let lastRowCount = 0;
+          let stableCount = 0;
+          for (let attempt = 0; attempt < 20; attempt++) {
+            const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+            if (rows.length === lastRowCount) {
+              stableCount++;
+              if (stableCount >= 2) break;
+            } else {
+              stableCount = 0;
+              lastRowCount = rows.length;
+            }
+            if (rows.length > 0) {
+              await driver.executeScript('arguments[0].scrollIntoView({ block: "end", behavior: "smooth" });', rows[rows.length - 1]);
+            }
+            await sleep(800);
+          }
+          
+          // Extract permits from this search (use the same comprehensive extraction as first search)
+          const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+          log(`   📊 Found ${rows.length} rows to extract`);
+          
+          // Use the same extraction logic as the first search (lines 980-1614)
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            log(`   📋 Extracting permit ${i + 1}/${rows.length} from option ${optionIndex + 1}...`);
+            
+            try {
+              // Extract basic info from the row (same as first search)
+              let name = '', description = '', jurisdiction = 'provincial', activities = [], relevance = 'Medium';
+              
+              // Extract name and description from title column
+              try {
+                const titleCell = await row.findElement(By.css('[col-id="title"], [role="gridcell"]:first-child, .ag-cell:first-child'));
+                const titleText = await titleCell.getText();
+                const titleLines = titleText.split('\n').filter(line => line.trim());
+                
+                if (titleLines.length > 0) {
+                  try {
+                    const linkElement = await titleCell.findElement(By.css('a'));
+                    name = (await linkElement.getText()).trim();
+                  } catch {
+                    name = titleLines[0]?.trim() || '';
+                  }
+                  if (titleLines.length > 1) {
+                    description = titleLines.slice(1).join(' ').trim();
+                  }
+                }
+              } catch (e) {
+                try { name = await row.findElement(By.css('strong, h3')).getText(); } catch {}
+                try { description = await row.findElement(By.css('p, .description')).getText(); } catch {}
+              }
+              
+              // Extract jurisdiction
+              try {
+                const jurisdictionCell = await row.findElement(By.css('[col-id="jurisdiction"], [role="gridcell"][col-id*="jurisdiction"]'));
+                const jurisdictionText = (await jurisdictionCell.getText()).trim().toLowerCase();
+                if (jurisdictionText === 'municipal') jurisdiction = 'municipal';
+                else if (jurisdictionText === 'federal') jurisdiction = 'federal';
+                else if (jurisdictionText === 'provincial') jurisdiction = 'provincial';
+              } catch (e) {
+                jurisdiction = 'provincial';
+              }
+              
+              // Extract activities
+              try {
+                const activitiesCell = await row.findElement(By.css('[col-id="activities"], [role="gridcell"][col-id*="activities"]'));
+                const activitiesText = (await activitiesCell.getText()).trim();
+                activities = activitiesText.split(',').map(a => a.trim()).filter(a => a.length > 0);
+              } catch (e) {
+                activities = [];
+              }
+              
+              // Extract relevance
+              try {
+                const relevanceCell = await row.findElement(By.css('[col-id="relevance"], [role="gridcell"][col-id*="relevance"]'));
+                const relevanceText = (await relevanceCell.getText()).trim();
+                if (relevanceText.toLowerCase().includes('high')) relevance = 'High';
+                else if (relevanceText.toLowerCase().includes('low')) relevance = 'Low';
+                else relevance = 'Medium';
+              } catch (e) {
+                relevance = 'Medium';
+              }
+              
+              if (!name) {
+                log(`   ⚠️  Skipping row ${i + 1}: No permit name found`);
+                continue;
+              }
+              
+              // Extract expanded details (same comprehensive logic as first search)
+              let prerequisites = '';
+              let contactInfo = {};
+              let lastVerified = '';
+              let moreInfoUrl = '';
+              let onlineApplicationUrl = '';
+              let bylawUrl = '';
+              let expandedDetails = {};
+              let fullHtmlContent = '';
+              let allTextContent = '';
+              let permitTitle = '';
+              let fullDescription = '';
+              
+              // Click expand button and extract all details (same as lines 1094-1585)
+              try {
+                await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', row);
+                await sleep(500);
+                
+                let isExpanded = false;
+                let expandButton = null;
+                
+                try {
+                  expandButton = await row.findElement(By.css('span.ag-icon.ag-icon-tree-open'));
+                } catch {
+                  try {
+                    const closedButton = await row.findElement(By.css('span.ag-icon.ag-icon-tree-closed'));
+                    isExpanded = true;
+                  } catch {}
+                }
+                
+                if (!isExpanded && expandButton) {
+                  await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', expandButton);
+                  await sleep(300);
+                  try {
+                    await expandButton.click();
+                  } catch {
+                    await driver.executeScript('arguments[0].click();', expandButton);
+                  }
+                  await sleep(1500);
+                  isExpanded = true;
+                }
+                
+                await sleep(1500);
+                
+                // Extract all expanded details (same comprehensive extraction)
+                try {
+                  let expandedContent = null;
+                  try {
+                    expandedContent = await driver.findElement(By.css('.permit-detail'));
+                  } catch {
+                    try {
+                      expandedContent = await row.findElement(By.css('.ag-row-detail'));
+                    } catch {}
+                  }
+                  
+                  if (expandedContent) {
+                    try {
+                      fullHtmlContent = await expandedContent.getAttribute('innerHTML');
+                      allTextContent = await expandedContent.getText();
+                    } catch {}
+                    
+                    // Extract prerequisites
+                    try {
+                      const prereqHeading = await expandedContent.findElement(By.xpath('.//h3[contains(text(), "Prerequisites")]'));
+                      const prereqParent = await prereqHeading.findElement(By.xpath('./ancestor::div[1]'));
+                      try {
+                        const prereqParagraph = await prereqParent.findElement(By.css('p'));
+                        prerequisites = (await prereqParagraph.getText()).trim();
+                      } catch {
+                        const prereqText = await prereqParent.getText();
+                        const prereqMatch = prereqText.match(/Prerequisites[:\s]*(.+)/is);
+                        if (prereqMatch) prerequisites = prereqMatch[1].trim();
+                      }
+                    } catch {}
+                    
+                    // Extract contact info
+                    try {
+                      const contactHeading = await expandedContent.findElement(By.xpath('.//h3[contains(text(), "Contact")]'));
+                      const contactSection = await contactHeading.findElement(By.xpath('./following-sibling::div[1] | ./parent::div'));
+                      const contactText = await contactSection.getText();
+                      
+                      try {
+                        const municipalityLink = await contactSection.findElement(By.css('a[href*="toronto"], a[href*="municipal"], a b'));
+                        contactInfo.municipality = (await municipalityLink.getText()).trim();
+                        contactInfo.municipalityUrl = await municipalityLink.getAttribute('href');
+                      } catch {}
+                      
+                      const emailMatch = contactText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+                      if (emailMatch) contactInfo.email = emailMatch[1];
+                      
+                      const phoneMatch = contactText.match(/(?:Tel|Phone|Tel:)\s*:?\s*([0-9\-\(\)\s]+)/i);
+                      if (phoneMatch) contactInfo.phone = phoneMatch[1].trim();
+                      
+                      const faxMatch = contactText.match(/(?:Fax|Fax:)\s*:?\s*([0-9\-\(\)\s]+)/i);
+                      if (faxMatch) contactInfo.fax = faxMatch[1].trim();
+                      
+                      const addressLines = [];
+                      const addressSpans = await contactSection.findElements(By.css('span'));
+                      for (const span of addressSpans) {
+                        try {
+                          const spanText = (await span.getText()).trim();
+                          if (spanText && !spanText.includes('@') && !spanText.match(/^Tel:|^Fax:/i) && spanText.length > 2) {
+                            addressLines.push(spanText);
+                          }
+                        } catch {}
+                      }
+                      if (addressLines.length > 0) {
+                        contactInfo.address = { fullAddress: addressLines.join(', '), lines: addressLines };
+                      }
+                    } catch {}
+                    
+                    // Extract last verified
+                    try {
+                      const verifiedElements = await expandedContent.findElements(By.xpath('.//*[contains(text(), "Last verified")]'));
+                      if (verifiedElements.length > 0) {
+                        const verifiedText = await verifiedElements[0].getText();
+                        const dateMatch = verifiedText.match(/(\d{4}-\d{2}-\d{2})/);
+                        if (dateMatch) lastVerified = dateMatch[1];
+                      }
+                    } catch {}
+                    
+                    // Extract all links
+                    const allButtonLinks = [];
+                    try {
+                      const allLinks = await expandedContent.findElements(By.css('a[href], button a[href]'));
+                      for (const link of allLinks) {
+                        try {
+                          const linkText = (await link.getText()).trim();
+                          const linkHref = await link.getAttribute('href');
+                          if (linkHref && linkHref.startsWith('http')) {
+                            allButtonLinks.push({ text: linkText, url: linkHref, target: await link.getAttribute('target') || '_self' });
+                            const linkTextLower = linkText.toLowerCase();
+                            if (linkTextLower.includes('more information')) moreInfoUrl = linkHref;
+                            else if (linkTextLower.includes('online application')) onlineApplicationUrl = linkHref;
+                            else if (linkTextLower.includes('by-law')) bylawUrl = linkHref;
+                          }
+                        } catch {}
+                      }
+                    } catch {}
+                    
+                    // Extract images
+                    const allImageLinks = [];
+                    try {
+                      const images = await expandedContent.findElements(By.css('img'));
+                      for (const img of images) {
+                        try {
+                          const imgSrc = await img.getAttribute('src');
+                          if (imgSrc) {
+                            allImageLinks.push({
+                              src: imgSrc,
+                              alt: await img.getAttribute('alt') || '',
+                              title: await img.getAttribute('title') || ''
+                            });
+                          }
+                        } catch {}
+                      }
+                    } catch {}
+                    
+                    if (allButtonLinks.length > 0) expandedDetails.buttonLinks = allButtonLinks;
+                    if (allImageLinks.length > 0) expandedDetails.images = allImageLinks;
+                    if (fullHtmlContent) expandedDetails.fullHtml = fullHtmlContent;
+                    if (allTextContent) expandedDetails.fullText = allTextContent;
+                  }
+                } catch {}
+                
+                // Collapse
+                if (isExpanded) {
+                  try {
+                    const collapseButton = await row.findElement(By.css('span.ag-icon.ag-icon-tree-closed'));
+                    await driver.executeScript('arguments[0].click();', collapseButton);
+                    await sleep(500);
+                  } catch {}
+                }
+              } catch {}
+              
+              const permit = {
+                name: name.trim(),
+                description: fullDescription || description.trim(),
+                jurisdiction: jurisdiction,
+                activities: activities,
+                relevance: relevance,
+                prerequisites: prerequisites || undefined,
+                contactInfo: Object.keys(contactInfo).length > 0 ? contactInfo : undefined,
+                lastVerified: lastVerified || undefined,
+                moreInfoUrl: moreInfoUrl || undefined,
+                onlineApplicationUrl: onlineApplicationUrl || undefined,
+                bylawUrl: bylawUrl || undefined,
+                expandedDetails: Object.keys(expandedDetails).length > 0 ? expandedDetails : undefined,
+                fullText: allTextContent || undefined,
+                fullHtml: fullHtmlContent || undefined,
+                permitTitle: permitTitle || undefined,
+              };
+              
+              permits.push(permit);
+              log(`   ✅ Extracted: "${name}"`);
+  } catch (err) {
+              log(`   ❌ Error extracting permit ${i + 1}: ${err.message}`);
+            }
+          }
+          
+          log(`   ✅ Extracted ${rows.length} permits from option ${optionIndex + 1}`);
+          
+          // Go back to input fields for next iteration
+          if (optionIndex < dropdownOptions.length - 1) {
+            await goBackToInputFields();
+            
+            // Re-enter location
+            let locInput3;
+            try {
+              locInput3 = await driver.wait(
+                until.elementLocated(By.css('input[placeholder*="located"], input[placeholder*="Where"], input[placeholder*="location"]')), 
+                15000
+              );
+            } catch {
+              const allInputs = await driver.findElements(By.css('input[type="text"]'));
+              if (allInputs.length > 0) {
+                locInput3 = allInputs[0];
+              } else {
+                throw new Error('Could not find location input field');
+              }
+            }
+            await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', locInput3);
+            await sleep(500);
+            await locInput3.click();
+            await sleep(1000);
+            await locInput3.clear();
+            await sleep(500);
+            await typeLikeHuman(locInput3, location, 150);
+            await sleep(2000);
+            await locInput3.sendKeys(Key.ENTER);
+            await sleep(1500);
+            await locInput3.sendKeys(Key.TAB);
+            await sleep(1200);
+            
+            // Re-enter business type
+            try {
+              currentBusInput = await driver.wait(
+                until.elementLocated(By.css('input[role="combobox"][aria-autocomplete="list"], input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
+                15000
+              );
+            } catch {
+              currentBusInput = await driver.switchTo().activeElement();
+            }
+            await currentBusInput.click();
+            await sleep(1000);
+            await currentBusInput.clear();
+            await typeLikeHuman(currentBusInput, businessType, 150);
+            await sleep(3000);
+            
+            // Ensure dropdown is expanded
+            try {
+              const ariaExpanded = await currentBusInput.getAttribute('aria-expanded');
+              if (ariaExpanded !== 'true') {
+                await currentBusInput.sendKeys(Key.ARROW_DOWN);
+                await sleep(1000);
+              }
+            } catch {}
+            
+            // Update dropdown options reference
+            const refreshedOptions = await getAllDropdownOptions(currentBusInput);
+            if (refreshedOptions.length > optionIndex + 1) {
+              dropdownOptions[optionIndex + 1] = refreshedOptions[optionIndex + 1];
+            }
+          }
+        } catch (e) {
+          log(`   ❌ Error processing option ${optionIndex + 1}: ${e.message}`);
+          // Continue with next option
+        }
+      }
+      
+      log(`\n🎯 Total extracted ${permits.length} permits from all dropdown options`);
       return permits;
-
+      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const errorStack = err instanceof Error ? err.stack : 'No stack trace available';
@@ -1684,4 +2826,4 @@
   }
 }
 
-  module.exports = { runBizPalSearch };
+module.exports = { runBizPalSearch };
