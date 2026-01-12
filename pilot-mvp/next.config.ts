@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // Turbopack configuration (Next.js 16 uses Turbopack by default)
   turbopack: {},
   // Server components can use Node.js packages
-  serverExternalPackages: ['selenium-webdriver', 'mongoose', 'mongodb'],
+  serverExternalPackages: ['selenium-webdriver', 'mongoose', 'mongodb', 'chromedriver'],
 };
 
 export default nextConfig;

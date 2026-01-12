@@ -14,18 +14,46 @@ import {
 interface Permit {
   _id: string;
   name: string;
-  description: string;
-  category: string;
-  authority: string;
-  complexity: 'High' | 'Medium' | 'Low';
-  estimatedTime: string;
-  fees: string;
+  description?: string;
+  category?: string;
+  authority?: string;
+  complexity?: 'High' | 'Medium' | 'Low';
+  estimatedTime?: string;
+  fees?: string;
+  prerequisites?: string;
+  contactInfo?: {
+    email?: string;
+    phone?: string;
+    fax?: string;
+    address?: {
+      fullAddress?: string;
+      city?: string;
+      province?: string;
+      postalCode?: string;
+      lines?: string[];
+    };
+    municipality?: string;
+    municipalityUrl?: string;
+    department?: string;
+  };
+  moreInfoUrl?: string;
+  applyUrl?: string;
+  lastVerified?: string;
+  fullText?: string;
+  fullHtml?: string;
+  permitTitle?: string;
+  expandedDetails?: {
+    buttonLinks?: Array<{ text: string; url: string; target?: string }>;
+    images?: Array<{ src: string; alt?: string; title?: string }>;
+  };
 }
 
 export default function PermitManagementPage() {
   const [permits, setPermits] = useState<Permit[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [expandedPermits, setExpandedPermits] = useState<Set<string>>(new Set());
+  const [permitDetails, setPermitDetails] = useState<Record<string, Permit>>({});
 
   useEffect(() => {
     const fetchPermits = async () => {
@@ -48,6 +76,32 @@ export default function PermitManagementPage() {
       .toLowerCase()
       .includes(search.toLowerCase())
   );
+
+  const togglePermitDetails = async (permitId: string) => {
+    if (expandedPermits.has(permitId)) {
+      // Collapse
+      setExpandedPermits(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(permitId);
+        return newSet;
+      });
+    } else {
+      // Expand - fetch full details if not already loaded
+      setExpandedPermits(prev => new Set(prev).add(permitId));
+      
+      if (!permitDetails[permitId]) {
+        try {
+          const res = await fetch(`/api/permits/${permitId}`);
+          if (res.ok) {
+            const details = await res.json();
+            setPermitDetails(prev => ({ ...prev, [permitId]: details }));
+          }
+        } catch (err) {
+          console.error('Error fetching permit details:', err);
+        }
+      }
+    }
+  };
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -137,48 +191,217 @@ export default function PermitManagementPage() {
                 <div className="col-span-1 text-right">Actions</div>
               </div>
 
-              {filteredPermits.map((p) => (
-                <div
-                  key={p._id}
-                  className="grid grid-cols-12 px-6 py-4 border-t hover:bg-neutral-50"
-                >
-                  <div className="col-span-3">
-                    <p className="font-medium text-neutral-900">{p.name}</p>
-                    <p className="text-xs text-neutral-500">{p.description}</p>
-                  </div>
+              {filteredPermits.map((p, index) => {
+                const isExpanded = expandedPermits.has(p._id);
+                const details = permitDetails[p._id] || p;
+                
+                // Use combination of _id and index to ensure unique keys
+                const uniqueKey = `${p._id}-${index}`;
+                
+                return (
+                  <div key={uniqueKey}>
+                    <div className="grid grid-cols-12 px-6 py-4 border-t hover:bg-neutral-50">
+                      <div className="col-span-3">
+                        <p className="font-medium text-neutral-900">{p.name}</p>
+                        <p className="text-xs text-neutral-500">{p.description || 'No description available'}</p>
+                      </div>
 
-                  <div className="col-span-2">
-                    <span className="px-2 py-1 text-xs bg-neutral-100 rounded-full">
-                      {p.category}
-                    </span>
-                  </div>
+                      <div className="col-span-2">
+                        <span className="px-2 py-1 text-xs bg-neutral-100 rounded-full">
+                          {p.category || 'N/A'}
+                        </span>
+                      </div>
 
-                  <div className="col-span-3 text-sm text-neutral-600">
-                    {p.authority}
-                  </div>
+                      <div className="col-span-3 text-sm text-neutral-600">
+                        {p.authority || 'N/A'}
+                      </div>
 
-                  <div className="col-span-1">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        p.complexity === 'High'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}
-                    >
-                      {p.complexity}
-                    </span>
-                  </div>
+                      <div className="col-span-1">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            p.complexity === 'High'
+                              ? 'bg-red-100 text-red-700'
+                              : p.complexity === 'Low'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
+                          {p.complexity || 'Medium'}
+                        </span>
+                      </div>
 
-                  <div className="col-span-1 text-sm">{p.estimatedTime}</div>
-                  <div className="col-span-1 text-sm">{p.fees}</div>
+                      <div className="col-span-1 text-sm">{p.estimatedTime || 'N/A'}</div>
+                      <div className="col-span-1 text-sm">{p.fees || 'N/A'}</div>
 
-                  <div className="col-span-1 flex justify-end gap-2">
-                    <Eye className="w-4 h-4 text-neutral-500 cursor-pointer" />
-                    <Pencil className="w-4 h-4 text-neutral-500 cursor-pointer" />
-                    <Trash2 className="w-4 h-4 text-red-500 cursor-pointer" />
+                      <div className="col-span-1 flex justify-end gap-2">
+                        <Eye className="w-4 h-4 text-neutral-500 cursor-pointer hover:text-neutral-700" />
+                        <Pencil 
+                          className={`w-4 h-4 cursor-pointer transition-colors ${
+                            isExpanded ? 'text-blue-600' : 'text-neutral-500 hover:text-neutral-700'
+                          }`}
+                          onClick={() => togglePermitDetails(p._id)}
+                        />
+                        <Trash2 className="w-4 h-4 text-red-500 cursor-pointer hover:text-red-700" />
+                      </div>
+                    </div>
+                    
+                    {/* Expanded Details Section */}
+                    {isExpanded && (
+                      <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-200">
+                        <div className="grid grid-cols-2 gap-6">
+                          {/* Left Column */}
+                          <div className="space-y-4">
+                            {details.permitTitle && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Permit Title</h4>
+                                <p className="text-sm text-neutral-600 font-medium">{details.permitTitle}</p>
+                              </div>
+                            )}
+                            
+                            <div>
+                              <h4 className="text-sm font-semibold text-neutral-900 mb-2">Description</h4>
+                              <p className="text-sm text-neutral-600">{details.description || 'No description available'}</p>
+                            </div>
+                            
+                            {details.prerequisites && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Prerequisites</h4>
+                                <p className="text-sm text-neutral-600 whitespace-pre-wrap">{details.prerequisites}</p>
+                              </div>
+                            )}
+                            
+                            {details.contactInfo && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Contact Information</h4>
+                                <div className="text-sm text-neutral-600 space-y-1">
+                                  {details.contactInfo.municipality && (
+                                    <p>
+                                      Municipality: {details.contactInfo.municipalityUrl ? (
+                                        <a href={details.contactInfo.municipalityUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                          {details.contactInfo.municipality}
+                                        </a>
+                                      ) : (
+                                        details.contactInfo.municipality
+                                      )}
+                                    </p>
+                                  )}
+                                  {details.contactInfo.department && (
+                                    <p>Department: {details.contactInfo.department}</p>
+                                  )}
+                                  {details.contactInfo.email && (
+                                    <p>Email: <a href={`mailto:${details.contactInfo.email}`} className="text-blue-600 hover:underline">{details.contactInfo.email}</a></p>
+                                  )}
+                                  {details.contactInfo.phone && (
+                                    <p>Phone: {details.contactInfo.phone}</p>
+                                  )}
+                                  {details.contactInfo.fax && (
+                                    <p>Fax: {details.contactInfo.fax}</p>
+                                  )}
+                                  {details.contactInfo.address?.fullAddress && (
+                                    <p>Address: {details.contactInfo.address.fullAddress}</p>
+                                  )}
+                                  {details.contactInfo.address?.lines && details.contactInfo.address.lines.length > 0 && (
+                                    <div>
+                                      <p className="font-medium">Address:</p>
+                                      {details.contactInfo.address.lines.map((line, idx) => (
+                                        <p key={idx} className="pl-2">{line}</p>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Right Column */}
+                          <div className="space-y-4">
+                            {details.lastVerified && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Last Verified</h4>
+                                <p className="text-sm text-neutral-600">{details.lastVerified}</p>
+                              </div>
+                            )}
+                            
+                            {/* All Links from expandedDetails */}
+                            {details.expandedDetails?.buttonLinks && details.expandedDetails.buttonLinks.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">All Links</h4>
+                                <div className="space-y-2">
+                                  {details.expandedDetails.buttonLinks.map((link, idx) => (
+                                    <a 
+                                      key={idx}
+                                      href={link.url} 
+                                      target={link.target || '_blank'} 
+                                      rel="noopener noreferrer"
+                                      className="block text-sm text-blue-600 hover:underline"
+                                    >
+                                      {link.text || link.url}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Fallback to individual URLs if expandedDetails not available */}
+                            {(!details.expandedDetails?.buttonLinks || details.expandedDetails.buttonLinks.length === 0) && (details.applyUrl || details.moreInfoUrl) && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Links</h4>
+                                <div className="space-y-2">
+                                  {details.applyUrl && details.applyUrl !== 'https://beta.bizpal-perle.ca/en' && (
+                                    <a 
+                                      href={details.applyUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="block text-sm text-blue-600 hover:underline"
+                                    >
+                                      Online Application Form
+                                    </a>
+                                  )}
+                                  {details.moreInfoUrl && (
+                                    <a 
+                                      href={details.moreInfoUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="block text-sm text-blue-600 hover:underline"
+                                    >
+                                      More Information
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Images */}
+                            {details.expandedDetails?.images && details.expandedDetails.images.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Images</h4>
+                                <div className="space-y-2">
+                                  {details.expandedDetails.images.map((img, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <img src={img.src} alt={img.alt || ''} className="max-w-xs max-h-32 object-contain" />
+                                      {img.alt && <span className="text-xs text-neutral-500">{img.alt}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Full Text Content (if available) */}
+                        {details.fullText && (
+                          <div className="mt-4 pt-4 border-t border-neutral-200">
+                            <h4 className="text-sm font-semibold text-neutral-900 mb-2">Full Text Content</h4>
+                            <div className="text-xs text-neutral-600 bg-white p-3 rounded border max-h-40 overflow-y-auto">
+                              <pre className="whitespace-pre-wrap font-sans">{details.fullText}</pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

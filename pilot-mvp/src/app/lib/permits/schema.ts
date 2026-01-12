@@ -39,6 +39,17 @@ export interface IPermit extends Document {
   };
   lastVerified?: string;
   moreInfoUrl?: string;
+  prerequisites?: string;
+  // Comprehensive extracted data
+  fullText?: string;
+  fullHtml?: string;
+  permitTitle?: string;
+  expandedDetails?: {
+    buttonLinks?: Array<{ text: string; url: string; target?: string }>;
+    images?: Array<{ src: string; alt?: string; title?: string }>;
+    fullHtml?: string;
+    fullText?: string;
+  };
 }
 
 // Mongoose schema
@@ -80,7 +91,29 @@ const PermitSchema: Schema<IPermit> = new Schema(
       }
     },
     lastVerified: { type: String, required: false },
-    moreInfoUrl: { type: String, required: false }
+    moreInfoUrl: { type: String, required: false },
+    prerequisites: { type: String, required: false },
+    // Comprehensive extracted data
+    fullText: { type: String, required: false },
+    fullHtml: { type: String, required: false },
+    permitTitle: { type: String, required: false },
+    expandedDetails: {
+      type: {
+        buttonLinks: [{
+          text: String,
+          url: String,
+          target: String
+        }],
+        images: [{
+          src: String,
+          alt: String,
+          title: String
+        }],
+        fullHtml: String,
+        fullText: String
+      },
+      required: false
+    }
   },
   { timestamps: true }
 );

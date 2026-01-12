@@ -4,7 +4,8 @@ const { runBizPalSearch } = require('../bizpal.worker');
   const data = await runBizPalSearch({
     location: 'Toronto, ON',
     businessType: 'Restaurant',
-    permitTypes: 'Food Permits',
+    permitKeywords: 'Food Permits', // Third input field value from API/website
+    // Note: permitTypes also works for backward compatibility
   });
 
   console.log('TOTAL PERMITS:', data.length);
