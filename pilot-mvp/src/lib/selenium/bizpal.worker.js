@@ -825,7 +825,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         }
       }
       
-      await driver.wait(until.elementIsVisible(busInput), 5000);
+    await driver.wait(until.elementIsVisible(busInput), 5000);
       
       // Click to ensure focus
       await busInput.click();
@@ -927,8 +927,10 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         const busValue = await currentBusInput.getAttribute('value');
         log(`   ✅ Business type field value after selection: "${busValue}"`);
         
-        if (!busValue || !busValue.includes(businessType.substring(0, 10))) {
-          log(`   ⚠️  Business type value seems lost or incorrect, retyping...`);
+        // Don't retype if value is already set - this causes duplicate typing
+        // Only retype if value is completely missing or clearly wrong
+        if (!busValue || busValue.trim().length === 0) {
+          log(`   ⚠️  Business type value is empty, retyping...`);
           await currentBusInput.clear();
           await sleep(500);
           await typeLikeHuman(currentBusInput, businessType, 150);
@@ -940,6 +942,8 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             await currentBusInput.sendKeys(Key.ENTER);
             await sleep(1500);
           } catch {}
+        } else {
+          log(`   ✅ Business type value is present, no need to retype`);
         }
         
         // Verify we're still on business type field, not location
@@ -1017,7 +1021,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         // Try to continue anyway
       }
       
-      await screenshot(driver, '03-business-set');
+    await screenshot(driver, '03-business-set');
       log('   ✅ Business type field completed');
 
       // STEP 3: PERMIT KEYWORDS FIELD - Copy/Paste from API → Tab → Enter
@@ -1346,6 +1350,8 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       log('📄 STEP 6: EXTRACTING PERMIT DATA WITH ALL DETAILS');
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     const permits = [];
+    // Track extracted permit names to avoid duplicates
+    const extractedPermitNames = new Set();
     
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -1938,8 +1944,16 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             permitTitle: permitTitle || undefined,
           };
           
-          permits.push(permit);
-          log(`   ✅ Extracted full details for: "${name}"`);
+          // Check if this permit has already been extracted (by name)
+          const permitNameKey = name.trim().toLowerCase();
+          if (extractedPermitNames.has(permitNameKey)) {
+            log(`   ⏭️  Skipping duplicate permit: "${name}" (already extracted)`);
+          } else {
+            // Add to tracking set and push to permits array
+            extractedPermitNames.add(permitNameKey);
+            permits.push(permit);
+            log(`   ✅ Extracted full details for: "${name}"`);
+          }
           
         } catch (err) {
           log(`   ❌ Error extracting permit ${i + 1}: ${err.message}`);
@@ -2175,18 +2189,54 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       log('   🏢 Re-entering business type to get dropdown options...');
       let busInput2;
       try {
+        // Use specific ID for business type field
         busInput2 = await driver.wait(
-          until.elementLocated(By.css('input[role="combobox"][aria-autocomplete="list"], input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
-          15000
+          until.elementLocated(By.id('headlessui-combobox-input-v-193')), 
+          10000
         );
-        log('   ✅ Found business type field using combobox selector');
+        log('   ✅ Found business type field by specific ID (headlessui-combobox-input-v-193)');
       } catch {
-        busInput2 = await driver.switchTo().activeElement();
-        log('   ✅ Using active element as business type field');
+        try {
+          // Fallback: Find by placeholder
+          busInput2 = await driver.wait(
+            until.elementLocated(By.css('input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
+            10000
+          );
+          log('   ✅ Found business type field by placeholder');
+        } catch {
+          // Final fallback: Get all comboboxes and select the second one
+          const allComboboxes = await driver.findElements(By.css('input[role="combobox"][aria-autocomplete="list"]'));
+          if (allComboboxes.length >= 2) {
+            busInput2 = allComboboxes[1]; // Second combobox is business type
+            log('   ✅ Found business type field as second combobox');
+          } else {
+            busInput2 = await driver.switchTo().activeElement();
+            log('   ✅ Using active element as business type field (fallback)');
+          }
+        }
       }
+      
+      // Verify we're on business type field, not location
+      const busPlaceholder = await busInput2.getAttribute('placeholder').catch(() => '');
+      const busId = await busInput2.getAttribute('id').catch(() => '');
+      if (busPlaceholder.includes('located') || busPlaceholder.includes('Where') || busId === 'headlessui-combobox-input-v-190') {
+        log(`   ⚠️  WARNING: Selected field is location field! Finding correct business type field...`);
+        try {
+          busInput2 = await driver.findElement(By.id('headlessui-combobox-input-v-193'));
+          log('   ✅ Corrected to business type field by ID');
+        } catch {
+          const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+          if (allComboboxes.length >= 2) {
+            busInput2 = allComboboxes[1];
+            log('   ✅ Corrected to second combobox');
+          }
+        }
+      }
+      
       await busInput2.click();
       await sleep(1000);
       await busInput2.clear();
+      await sleep(500);
       await typeLikeHuman(busInput2, businessType, 150);
       await sleep(3000); // Wait for dropdown to appear
       
@@ -2218,10 +2268,27 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         
         try {
           // Re-enter business type if needed (to refresh dropdown)
+          // Note: optionIndex starts at 1 (second option), so we don't need to re-enter for the first iteration
+          // We only re-enter if we're past the second option (optionIndex > 1 means we're on 3rd option or later)
           if (optionIndex > 1) {
+            // Re-find business type field to ensure we have the correct element (use specific ID)
+            try {
+              currentBusInput = await driver.findElement(By.id('headlessui-combobox-input-v-193'));
+            } catch {
+              try {
+                currentBusInput = await driver.findElement(By.css('input[placeholder*="What type of business"]'));
+              } catch {
+                const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+                if (allComboboxes.length >= 2) {
+                  currentBusInput = allComboboxes[1];
+                }
+              }
+            }
+            
             await currentBusInput.click();
             await sleep(500);
             await currentBusInput.clear();
+            await sleep(500);
             await typeLikeHuman(currentBusInput, businessType, 150);
             await sleep(3000);
             // Refresh dropdown options
@@ -2265,21 +2332,37 @@ async function typeLikeHuman(element, text = '', delay = 100) {
               log(`   ⚠️  Could not find option by text: ${e.message}, trying keyboard navigation...`);
               // Try arrow keys to navigate to the option
               try {
-                // Clear and retype to refresh dropdown
+                // Ensure we're on business type field (use specific ID)
+                try {
+                  currentBusInput = await driver.findElement(By.id('headlessui-combobox-input-v-193'));
+                } catch {
+                  const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+                  if (allComboboxes.length >= 2) {
+                    currentBusInput = allComboboxes[1];
+                  }
+                }
+                
                 await currentBusInput.click();
                 await sleep(300);
-                await currentBusInput.clear();
-                await typeLikeHuman(currentBusInput, businessType, 100);
-                await sleep(2000);
+                
+                // Only clear and retype if value is not already set (prevents duplicate typing)
+                const currentValue = await currentBusInput.getAttribute('value');
+                if (!currentValue || currentValue.trim().length === 0) {
+                  await currentBusInput.clear();
+                  await typeLikeHuman(currentBusInput, businessType, 100);
+                  await sleep(2000);
+                }
                 
                 // Navigate to the option using arrow keys
+                // optionIndex is 1 for 2nd option, 2 for 3rd option, etc.
+                // So we need to press arrow down (optionIndex) times to get to the right option
                 for (let i = 0; i < optionIndex; i++) {
                   await currentBusInput.sendKeys(Key.ARROW_DOWN);
                   await sleep(200);
                 }
                 await currentBusInput.sendKeys(Key.ENTER);
                 optionSelected = true;
-                log(`   ✅ Selected option using keyboard navigation`);
+                log(`   ✅ Selected option ${optionIndex + 1} using keyboard navigation`);
               } catch (keyboardError) {
                 log(`   ❌ Keyboard navigation also failed: ${keyboardError.message}`);
               }
@@ -2642,8 +2725,16 @@ async function typeLikeHuman(element, text = '', delay = 100) {
                 permitTitle: permitTitle || undefined,
               };
               
-              permits.push(permit);
-              log(`   ✅ Extracted: "${name}"`);
+              // Check if this permit has already been extracted (by name)
+              const permitNameKey = name.trim().toLowerCase();
+              if (extractedPermitNames.has(permitNameKey)) {
+                log(`   ⏭️  Skipping duplicate permit: "${name}" (already extracted)`);
+              } else {
+                // Add to tracking set and push to permits array
+                extractedPermitNames.add(permitNameKey);
+                permits.push(permit);
+                log(`   ✅ Extracted: "${name}"`);
+              }
   } catch (err) {
               log(`   ❌ Error extracting permit ${i + 1}: ${err.message}`);
             }
@@ -2655,21 +2746,40 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           if (optionIndex < dropdownOptions.length - 1) {
             await goBackToInputFields();
             
-            // Re-enter location
+            // Re-enter location (use specific ID to avoid confusion)
+            log('   📍 Re-entering location for next iteration...');
             let locInput3;
             try {
               locInput3 = await driver.wait(
-                until.elementLocated(By.css('input[placeholder*="located"], input[placeholder*="Where"], input[placeholder*="location"]')), 
-                15000
+                until.elementLocated(By.id('headlessui-combobox-input-v-190')), 
+                10000
               );
+              log('   ✅ Found location field by specific ID');
             } catch {
-              const allInputs = await driver.findElements(By.css('input[type="text"]'));
-              if (allInputs.length > 0) {
-                locInput3 = allInputs[0];
-              } else {
-                throw new Error('Could not find location input field');
+              try {
+                locInput3 = await driver.wait(
+                  until.elementLocated(By.css('input[placeholder*="Where is your business located"], input[placeholder*="located"], input[placeholder*="Where"]')), 
+                  10000
+                );
+                log('   ✅ Found location field by placeholder');
+              } catch {
+                const allInputs = await driver.findElements(By.css('input[type="text"]'));
+                if (allInputs.length > 0) {
+                  locInput3 = allInputs[0];
+                  log('   ✅ Found location field as first input');
+                } else {
+                  throw new Error('Could not find location input field');
+                }
               }
             }
+            
+            // Verify it's the location field
+            const locPlaceholder = await locInput3.getAttribute('placeholder').catch(() => '');
+            const locId = await locInput3.getAttribute('id').catch(() => '');
+            if (!locPlaceholder.includes('located') && !locPlaceholder.includes('Where') && locId !== 'headlessui-combobox-input-v-190') {
+              log(`   ⚠️  WARNING: Selected field may not be location field! ID: "${locId}", placeholder: "${locPlaceholder}"`);
+            }
+            
             await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', locInput3);
             await sleep(500);
             await locInput3.click();
@@ -2683,20 +2793,68 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             await locInput3.sendKeys(Key.TAB);
             await sleep(1200);
             
-            // Re-enter business type
+            // Verify location value was set correctly
+            const locValueCheck = await locInput3.getAttribute('value');
+            log(`   ✅ Location re-entered: "${locValueCheck}"`);
+            
+            // Re-enter business type (use specific ID to avoid confusion)
+            log('   🏢 Re-entering business type for next iteration...');
             try {
+              // Use specific ID for business type field
               currentBusInput = await driver.wait(
-                until.elementLocated(By.css('input[role="combobox"][aria-autocomplete="list"], input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
-                15000
+                until.elementLocated(By.id('headlessui-combobox-input-v-193')), 
+                10000
               );
+              log('   ✅ Found business type field by specific ID (headlessui-combobox-input-v-193)');
             } catch {
-              currentBusInput = await driver.switchTo().activeElement();
+              try {
+                // Fallback: Find by placeholder
+                currentBusInput = await driver.wait(
+                  until.elementLocated(By.css('input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
+                  10000
+                );
+                log('   ✅ Found business type field by placeholder');
+              } catch {
+                // Final fallback: Get all comboboxes and select the second one
+                const allComboboxes = await driver.findElements(By.css('input[role="combobox"][aria-autocomplete="list"]'));
+                if (allComboboxes.length >= 2) {
+                  currentBusInput = allComboboxes[1];
+                  log('   ✅ Found business type field as second combobox');
+                } else {
+                  currentBusInput = await driver.switchTo().activeElement();
+                  log('   ✅ Using active element as business type field (fallback)');
+                }
+              }
             }
+            
+            // Verify we're on business type field, not location
+            const busPlaceholderCheck = await currentBusInput.getAttribute('placeholder').catch(() => '');
+            const busIdCheck = await currentBusInput.getAttribute('id').catch(() => '');
+            if (busPlaceholderCheck.includes('located') || busPlaceholderCheck.includes('Where') || busIdCheck === 'headlessui-combobox-input-v-190') {
+              log(`   ⚠️  WARNING: Selected field is location field! ID: "${busIdCheck}", placeholder: "${busPlaceholderCheck}"`);
+              log('   🔄 Finding correct business type field...');
+              try {
+                currentBusInput = await driver.findElement(By.id('headlessui-combobox-input-v-193'));
+                log('   ✅ Corrected to business type field by ID');
+              } catch {
+                const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+                if (allComboboxes.length >= 2) {
+                  currentBusInput = allComboboxes[1];
+                  log('   ✅ Corrected to second combobox');
+                }
+              }
+            }
+            
             await currentBusInput.click();
             await sleep(1000);
             await currentBusInput.clear();
+            await sleep(500);
             await typeLikeHuman(currentBusInput, businessType, 150);
             await sleep(3000);
+            
+            // Verify business type value was set correctly
+            const busValueCheck = await currentBusInput.getAttribute('value');
+            log(`   ✅ Business type re-entered: "${busValueCheck}"`);
             
             // Ensure dropdown is expanded
             try {
