@@ -4,12 +4,13 @@ import { Permit } from '@/app/lib/permits/schema';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDB();
     
-    const permit = await Permit.findById(params.id).lean();
+    const { id } = await params;
+    const permit = await Permit.findById(id).lean();
     
     if (!permit) {
       return NextResponse.json(
@@ -42,10 +43,19 @@ export async function GET(
       permitTitle: permit.permitTitle,
       expandedDetails: permit.expandedDetails,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error fetching permit details:', error);
+    
+    // If it's a validation error or not found, return 404
+    if (error.name === 'CastError' || error.message?.includes('not found')) {
+      return NextResponse.json(
+        { error: 'Permit not found' },
+        { status: 404 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch permit details' },
+      { error: 'Failed to fetch permit details', details: error.message },
       { status: 500 }
     );
   }

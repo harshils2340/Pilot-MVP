@@ -51,63 +51,157 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     console.log('🔍 Starting permit discovery...');
     console.log('📋 Form data:', formData);
     
+    let scrapingStarted = false;
+    let permitsFromResponse: Permit[] = [];
+    
     try {
-      // Call BizPaL scraping API
+      // Call BizPaL scraping API with a longer timeout
       console.log('📡 Calling BizPaL scraping API...');
-      const response = await fetch('/api/bizpal/scrape', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: formData.location,
-          businessType: formData.businessType,
-          permitKeywords: formData.permitKeywords,
-        }),
-      });
-
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          // If JSON parsing fails, get text instead
-          const text = await response.text();
-          console.error('❌ API Error - Response text:', text);
-          throw new Error(`Server error (${response.status}): ${text || 'Unknown error'}`);
-        }
-        console.error('❌ API Error:', errorData);
-        throw new Error(errorData.error || errorData.details || 'Failed to fetch permits');
-      }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        const text = await response.text();
-        console.error('❌ Failed to parse JSON response:', text);
-        throw new Error('Invalid response from server');
-      }
-      console.log('✅ API Response received:', data);
-      console.log(`📊 Found ${data.totalFound} permits, saved ${data.totalSaved} to database`);
+      console.log('⏳ This may take several minutes. Please wait...');
       
-      // Transform permits to match our display format
-      const transformedPermits: Permit[] = data.permits.map((p: any, index: number) => ({
-        _id: p._id,
-        name: p.name,
-        level: p.level,
-        jurisdiction: p.jurisdiction,
-        authority: p.authority || p.jurisdiction?.province || 'Unknown',
-        activities: p.activities || [],
-        sourceUrl: p.sourceUrl,
-        priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
-        category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
-      }));
+      // Create an AbortController for timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minute timeout
+      
+      try {
+        const response = await fetch('/api/bizpal/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: formData.location,
+            businessType: formData.businessType,
+            permitKeywords: formData.permitKeywords,
+          }),
+          signal: controller.signal,
+        });
 
-      setPermits(transformedPermits);
-      setShowPermits(true);
-      console.log(`✅ Displaying ${transformedPermits.length} permits to user`);
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            const text = await response.text();
+            console.error('❌ API Error - Response text:', text);
+            throw new Error(`Server error (${response.status}): ${text || 'Unknown error'}`);
+          }
+          console.error('❌ API Error:', errorData);
+          throw new Error(errorData.error || errorData.details || 'Failed to fetch permits');
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (e) {
+          const text = await response.text();
+          console.error('❌ Failed to parse JSON response:', text);
+          throw new Error('Invalid response from server');
+        }
+        
+        scrapingStarted = true;
+        console.log('✅ API Response received:', data);
+        console.log(`📊 Found ${data.totalFound} permits, saved ${data.totalSaved} to database`);
+        
+        // Transform permits to match our display format
+        permitsFromResponse = data.permits.map((p: any, index: number) => ({
+          _id: p._id,
+          name: p.name,
+          level: p.level,
+          jurisdiction: p.jurisdiction,
+          authority: p.authority || p.jurisdiction?.province || 'Unknown',
+          activities: p.activities || [],
+          sourceUrl: p.sourceUrl,
+          priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
+          category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
+        }));
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        // If it's an abort (timeout) or network error, try fetching from database
+        if (fetchError.name === 'AbortError' || fetchError.message.includes('fetch')) {
+          console.log('⏱️ Request timed out or failed. Fetching permits from database...');
+          scrapingStarted = true; // Assume scraping may have completed
+          
+          // Wait a bit for scraping to potentially complete, then fetch from database
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Try to fetch permits from database
+          try {
+            const dbResponse = await fetch('/api/permits');
+            if (dbResponse.ok) {
+              const dbPermits = await dbResponse.json();
+              console.log(`📊 Fetched ${dbPermits.length} permits from database`);
+              
+              // Filter permits that match the business type or location
+              const relevantPermits = dbPermits
+                .filter((p: any) => {
+                  const nameMatch = p.name?.toLowerCase().includes(formData.businessType.toLowerCase()) ||
+                                   p.name?.toLowerCase().includes(formData.location.toLowerCase());
+                  const activityMatch = p.activities?.some((a: string) => 
+                    a.toLowerCase().includes(formData.businessType.toLowerCase())
+                  );
+                  return nameMatch || activityMatch;
+                })
+                .slice(0, 50) // Limit to 50 most recent
+                .map((p: any, index: number) => ({
+                  _id: p._id,
+                  name: p.name,
+                  level: p.level,
+                  jurisdiction: p.jurisdiction,
+                  authority: p.authority || p.jurisdiction?.province || 'Unknown',
+                  activities: p.activities || [],
+                  sourceUrl: p.sourceUrl,
+                  priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
+                  category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
+                }));
+              
+              if (relevantPermits.length > 0) {
+                permitsFromResponse = relevantPermits;
+                console.log(`✅ Found ${relevantPermits.length} relevant permits from database`);
+              } else {
+                // If no relevant permits found, show all recent permits
+                permitsFromResponse = dbPermits.slice(0, 20).map((p: any, index: number) => ({
+                  _id: p._id,
+                  name: p.name,
+                  level: p.level,
+                  jurisdiction: p.jurisdiction,
+                  authority: p.authority || p.jurisdiction?.province || 'Unknown',
+                  activities: p.activities || [],
+                  sourceUrl: p.sourceUrl,
+                  priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
+                  category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
+                }));
+                console.log(`✅ Showing ${permitsFromResponse.length} most recent permits from database`);
+              }
+            }
+          } catch (dbError) {
+            console.error('❌ Failed to fetch from database:', dbError);
+            throw fetchError; // Re-throw original error
+          }
+        } else {
+          throw fetchError;
+        }
+      }
+      
+      // Display permits (either from API response or database)
+      if (permitsFromResponse.length > 0) {
+        setPermits(permitsFromResponse);
+        setShowPermits(true);
+        console.log(`✅ Displaying ${permitsFromResponse.length} permits to user`);
+      } else {
+        throw new Error('No permits found. The scraping may still be in progress. Please try again in a few minutes or check the permit management page.');
+      }
     } catch (error: any) {
       console.error('❌ Error fetching permits:', error);
-      alert(`Failed to fetch permits: ${error.message}. Check the browser console and server logs for details.`);
+      const errorMessage = error.message || 'Unknown error occurred';
+      
+      // If scraping started but no permits found, suggest checking database
+      if (scrapingStarted) {
+        alert(`Scraping completed but no permits were returned. The permits may have been saved to the database. Please check the permit management page or try again. Error: ${errorMessage}`);
+      } else {
+        alert(`Failed to start permit discovery: ${errorMessage}. Check the browser console and server logs for details.`);
+      }
     } finally {
       setLoading(false);
       console.log('🏁 Permit discovery process completed');

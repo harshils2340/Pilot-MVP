@@ -1427,6 +1427,13 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             continue;
           }
           
+          // Check if this permit has already been extracted (by name) BEFORE expanding details
+          const permitNameKey = name.trim().toLowerCase();
+          if (extractedPermitNames.has(permitNameKey)) {
+            log(`   ⏭️  Skipping duplicate permit: "${name}" (already extracted - skipping detail extraction)`);
+            continue; // Skip this permit entirely, don't expand or extract details
+          }
+          
           log(`   ✅ Name: "${name}"`);
           log(`   ✅ Jurisdiction: "${jurisdiction}"`);
           log(`   ✅ Activities: ${activities.length} found`);
@@ -1944,16 +1951,11 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             permitTitle: permitTitle || undefined,
           };
           
-          // Check if this permit has already been extracted (by name)
-          const permitNameKey = name.trim().toLowerCase();
-          if (extractedPermitNames.has(permitNameKey)) {
-            log(`   ⏭️  Skipping duplicate permit: "${name}" (already extracted)`);
-          } else {
-            // Add to tracking set and push to permits array
-            extractedPermitNames.add(permitNameKey);
-            permits.push(permit);
-            log(`   ✅ Extracted full details for: "${name}"`);
-          }
+          // Add to tracking set and push to permits array (duplicate check already done before expansion)
+          // permitNameKey already defined earlier in this scope
+          extractedPermitNames.add(permitNameKey);
+          permits.push(permit);
+          log(`   ✅ Extracted full details for: "${name}"`);
           
         } catch (err) {
           log(`   ❌ Error extracting permit ${i + 1}: ${err.message}`);
@@ -2267,31 +2269,302 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         log(`\n   🔄 Processing dropdown option ${optionIndex + 1}/${dropdownOptions.length}: "${option.text.substring(0, 60)}..."`);
         
         try {
+        // Retry logic: if 0 permits found/extracted, retry this option
+        const MAX_RETRIES = 3;
+        let retryCount = 0;
+        let permitsExtractedThisOption = 0;
+        let shouldRetry = true;
+        
+        while (shouldRetry && retryCount < MAX_RETRIES) {
+          if (retryCount > 0) {
+            log(`   🔄 RETRY ${retryCount}/${MAX_RETRIES - 1}: Re-attempting option ${optionIndex + 1}...`);
+            // Go back to input fields before retry
+            await goBackToInputFields();
+            
+            // Re-enter location for retry
+            log('   📍 Re-entering location for retry...');
+            let locInputRetry;
+            try {
+              locInputRetry = await driver.wait(
+                until.elementLocated(By.id('headlessui-combobox-input-v-190')), 
+                10000
+              );
+            } catch {
+              try {
+                locInputRetry = await driver.wait(
+                  until.elementLocated(By.css('input[placeholder*="located"], input[placeholder*="Where"]')), 
+                  10000
+                );
+              } catch {
+                const allInputs = await driver.findElements(By.css('input[type="text"]'));
+                if (allInputs.length > 0) {
+                  locInputRetry = allInputs[0];
+                } else {
+                  throw new Error('Could not find location input field for retry');
+                }
+              }
+            }
+            await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', locInputRetry);
+            await sleep(500);
+            await locInputRetry.click();
+            await sleep(1000);
+            await locInputRetry.clear();
+            await sleep(500);
+            await typeLikeHuman(locInputRetry, location, 150);
+            await sleep(2000);
+            await locInputRetry.sendKeys(Key.ENTER);
+            await sleep(1500);
+            await locInputRetry.sendKeys(Key.TAB);
+            await sleep(1200);
+            
+            // Re-enter business type for retry
+            log('   🏢 Re-entering business type for retry...');
+            let busInputFound = false;
+            let attempts = 0;
+            const maxAttempts = 5;
+            
+            while (!busInputFound && attempts < maxAttempts) {
+              attempts++;
+              try {
+                // Try specific ID first
+                try {
+                  currentBusInput = await driver.wait(
+                    until.elementLocated(By.id('headlessui-combobox-input-v-193')), 
+                    5000
+                  );
+                  const busId = await currentBusInput.getAttribute('id');
+                  const busPlaceholder = await currentBusInput.getAttribute('placeholder').catch(() => '');
+                  if (busId === 'headlessui-combobox-input-v-193' || busPlaceholder.includes('business')) {
+                    busInputFound = true;
+                    log(`   ✅ Found business type field by ID (attempt ${attempts})`);
+                    break;
+                  }
+                } catch {}
+                
+                // Try placeholder
+                try {
+                  currentBusInput = await driver.wait(
+                    until.elementLocated(By.css('input[placeholder*="What type of business"], input[placeholder*="business type"]')), 
+                    5000
+                  );
+                  const busPlaceholder = await currentBusInput.getAttribute('placeholder').catch(() => '');
+                  if (busPlaceholder.includes('business')) {
+                    busInputFound = true;
+                    log(`   ✅ Found business type field by placeholder (attempt ${attempts})`);
+                    break;
+                  }
+                } catch {}
+                
+                // Try all comboboxes and find the second one
+                const allComboboxes = await driver.findElements(By.css('input[role="combobox"], input[aria-autocomplete="list"]'));
+                if (allComboboxes.length >= 2) {
+                  // Verify it's the business type field
+                  for (let i = 1; i < allComboboxes.length; i++) {
+                    const placeholder = await allComboboxes[i].getAttribute('placeholder').catch(() => '');
+                    const id = await allComboboxes[i].getAttribute('id').catch(() => '');
+                    if (placeholder.includes('business') || id === 'headlessui-combobox-input-v-193') {
+                      currentBusInput = allComboboxes[i];
+                      busInputFound = true;
+                      log(`   ✅ Found business type field as combobox ${i + 1} (attempt ${attempts})`);
+                      break;
+                    }
+                  }
+                  if (!busInputFound && allComboboxes.length >= 2) {
+                    currentBusInput = allComboboxes[1];
+                    busInputFound = true;
+                    log(`   ✅ Using second combobox as business type field (attempt ${attempts})`);
+                  }
+                }
+                
+                if (!busInputFound) {
+                  // Last resort: try active element
+                  currentBusInput = await driver.switchTo().activeElement();
+                  const tagName = await currentBusInput.getTagName();
+                  if (tagName === 'input') {
+                    busInputFound = true;
+                    log(`   ✅ Using active element as business type field (attempt ${attempts})`);
+                  }
+                }
+              } catch (e) {
+                log(`   ⚠️  Attempt ${attempts} failed: ${e.message}`);
+                if (attempts < maxAttempts) {
+                  await sleep(1000);
+                  // Try clicking somewhere else to reset focus
+                  try {
+                    await driver.executeScript('document.body.click();');
+                    await sleep(500);
+                  } catch {}
+                }
+              }
+            }
+            
+            if (!busInputFound) {
+              throw new Error('Could not find business type input field after multiple attempts');
+            }
+            
+            // Verify we have the correct field
+            const busPlaceholderCheck = await currentBusInput.getAttribute('placeholder').catch(() => '');
+            const busIdCheck = await currentBusInput.getAttribute('id').catch(() => '');
+            if (busPlaceholderCheck.includes('located') || busPlaceholderCheck.includes('Where') || busIdCheck === 'headlessui-combobox-input-v-190') {
+              log(`   ⚠️  WARNING: Selected field appears to be location field! Finding correct business type field...`);
+              // Try to find the correct one
+              const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+              for (const cb of allComboboxes) {
+                const placeholder = await cb.getAttribute('placeholder').catch(() => '');
+                const id = await cb.getAttribute('id').catch(() => '');
+                if (placeholder.includes('business') || id === 'headlessui-combobox-input-v-193') {
+                  currentBusInput = cb;
+                  log(`   ✅ Corrected to business type field`);
+                  break;
+                }
+              }
+            }
+            
+            // Interact with the field
+            await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', currentBusInput);
+            await sleep(500);
+            await currentBusInput.click();
+            await sleep(1000);
+            
+            // Clear and verify it's cleared
+            await currentBusInput.clear();
+            await sleep(500);
+            const currentValue = await currentBusInput.getAttribute('value');
+            if (currentValue && currentValue.trim().length > 0) {
+              log(`   ⚠️  Field not cleared, trying JavaScript clear...`);
+              await driver.executeScript('arguments[0].value = "";', currentBusInput);
+              await sleep(300);
+            }
+            
+            // Type the business type
+            await typeLikeHuman(currentBusInput, businessType, 150);
+            await sleep(2000);
+            
+            // Verify the value was set
+            const typedValue = await currentBusInput.getAttribute('value');
+            if (!typedValue || !typedValue.includes(businessType.substring(0, 5))) {
+              log(`   ⚠️  Value not set correctly, retrying...`);
+              await currentBusInput.clear();
+              await sleep(300);
+              await typeLikeHuman(currentBusInput, businessType, 150);
+              await sleep(2000);
+            }
+            
+            log(`   ✅ Business type entered: "${typedValue || businessType}"`);
+            
+            // Refresh dropdown options for retry
+            try {
+              const ariaExpanded = await currentBusInput.getAttribute('aria-expanded');
+              if (ariaExpanded !== 'true') {
+                await currentBusInput.sendKeys(Key.ARROW_DOWN);
+                await sleep(1000);
+              }
+            } catch {}
+            const refreshedOptionsRetry = await getAllDropdownOptions(currentBusInput);
+            if (refreshedOptionsRetry.length > optionIndex) {
+              dropdownOptions[optionIndex] = refreshedOptionsRetry[optionIndex];
+            }
+          }
+          
+          // Track permits count before extraction
+          const permitsBefore = permits.length;
+          
+        try {
           // Re-enter business type if needed (to refresh dropdown)
           // Note: optionIndex starts at 1 (second option), so we don't need to re-enter for the first iteration
           // We only re-enter if we're past the second option (optionIndex > 1 means we're on 3rd option or later)
           if (optionIndex > 1) {
             // Re-find business type field to ensure we have the correct element (use specific ID)
+            let busInputFound = false;
             try {
               currentBusInput = await driver.findElement(By.id('headlessui-combobox-input-v-193'));
-            } catch {
+              const busId = await currentBusInput.getAttribute('id');
+              if (busId === 'headlessui-combobox-input-v-193') {
+                busInputFound = true;
+              }
+            } catch {}
+            
+            if (!busInputFound) {
               try {
-                currentBusInput = await driver.findElement(By.css('input[placeholder*="What type of business"]'));
-              } catch {
-                const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
-                if (allComboboxes.length >= 2) {
+                currentBusInput = await driver.findElement(By.css('input[placeholder*="What type of business"], input[placeholder*="business type"]'));
+                const busPlaceholder = await currentBusInput.getAttribute('placeholder').catch(() => '');
+                if (busPlaceholder.includes('business')) {
+                  busInputFound = true;
+                }
+              } catch {}
+            }
+            
+            if (!busInputFound) {
+              const allComboboxes = await driver.findElements(By.css('input[role="combobox"], input[aria-autocomplete="list"]'));
+              if (allComboboxes.length >= 2) {
+                // Verify it's the business type field
+                for (let i = 1; i < allComboboxes.length; i++) {
+                  const placeholder = await allComboboxes[i].getAttribute('placeholder').catch(() => '');
+                  const id = await allComboboxes[i].getAttribute('id').catch(() => '');
+                  if (placeholder.includes('business') || id === 'headlessui-combobox-input-v-193') {
+                    currentBusInput = allComboboxes[i];
+                    busInputFound = true;
+                    break;
+                  }
+                }
+                if (!busInputFound) {
                   currentBusInput = allComboboxes[1];
                 }
               }
             }
             
-            await currentBusInput.click();
+            // Verify we have the correct field
+            const busPlaceholderCheck = await currentBusInput.getAttribute('placeholder').catch(() => '');
+            const busIdCheck = await currentBusInput.getAttribute('id').catch(() => '');
+            if (busPlaceholderCheck.includes('located') || busPlaceholderCheck.includes('Where') || busIdCheck === 'headlessui-combobox-input-v-190') {
+              log(`   ⚠️  WARNING: Selected field appears to be location field! Finding correct business type field...`);
+              const allComboboxes = await driver.findElements(By.css('input[role="combobox"]'));
+              for (const cb of allComboboxes) {
+                const placeholder = await cb.getAttribute('placeholder').catch(() => '');
+                const id = await cb.getAttribute('id').catch(() => '');
+                if (placeholder.includes('business') || id === 'headlessui-combobox-input-v-193') {
+                  currentBusInput = cb;
+                  log(`   ✅ Corrected to business type field`);
+                  break;
+                }
+              }
+            }
+            
+            await driver.executeScript('arguments[0].scrollIntoView({behavior: "smooth", block: "center"});', currentBusInput);
             await sleep(500);
+            await currentBusInput.click();
+            await sleep(1000);
             await currentBusInput.clear();
             await sleep(500);
+            
+            // Verify cleared
+            const currentValue = await currentBusInput.getAttribute('value');
+            if (currentValue && currentValue.trim().length > 0) {
+              await driver.executeScript('arguments[0].value = "";', currentBusInput);
+              await sleep(300);
+            }
+            
             await typeLikeHuman(currentBusInput, businessType, 150);
-            await sleep(3000);
+            await sleep(2000);
+            
+            // Verify value was set
+            const typedValue = await currentBusInput.getAttribute('value');
+            if (!typedValue || !typedValue.includes(businessType.substring(0, 5))) {
+              log(`   ⚠️  Value not set correctly, retrying...`);
+              await currentBusInput.clear();
+              await sleep(300);
+              await typeLikeHuman(currentBusInput, businessType, 150);
+              await sleep(2000);
+            }
+            
             // Refresh dropdown options
+            try {
+              const ariaExpanded = await currentBusInput.getAttribute('aria-expanded');
+              if (ariaExpanded !== 'true') {
+                await currentBusInput.sendKeys(Key.ARROW_DOWN);
+                await sleep(1000);
+              }
+            } catch {}
             const refreshedOptions = await getAllDropdownOptions(currentBusInput);
             if (refreshedOptions.length > optionIndex) {
               dropdownOptions[optionIndex] = refreshedOptions[optionIndex];
@@ -2446,8 +2719,9 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           // Scroll to load all results
           let lastRowCount = 0;
           let stableCount = 0;
+          let rows = [];
           for (let attempt = 0; attempt < 20; attempt++) {
-            const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+            rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
             if (rows.length === lastRowCount) {
               stableCount++;
               if (stableCount >= 2) break;
@@ -2462,8 +2736,13 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           }
           
           // Extract permits from this search (use the same comprehensive extraction as first search)
-          const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
+          rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
           log(`   📊 Found ${rows.length} rows to extract`);
+          
+          // Track statistics for this extraction
+          let duplicatesSkipped = 0;
+          let permitsProcessed = 0;
+          let permitsExtracted = 0;
           
           // Use the same extraction logic as the first search (lines 980-1614)
           for (let i = 0; i < rows.length; i++) {
@@ -2473,6 +2752,8 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             try {
               // Extract basic info from the row (same as first search)
               let name = '', description = '', jurisdiction = 'provincial', activities = [], relevance = 'Medium';
+              
+              // Extract name first to check for duplicates BEFORE expanding
               
               // Extract name and description from title column
               try {
@@ -2530,6 +2811,16 @@ async function typeLikeHuman(element, text = '', delay = 100) {
               if (!name) {
                 log(`   ⚠️  Skipping row ${i + 1}: No permit name found`);
                 continue;
+              }
+              
+              permitsProcessed++;
+              
+              // Check if this permit has already been extracted (by name) BEFORE expanding details
+              const permitNameKey = name.trim().toLowerCase();
+              if (extractedPermitNames.has(permitNameKey)) {
+                duplicatesSkipped++;
+                log(`   ⏭️  Skipping duplicate permit: "${name}" (already extracted - skipping detail extraction)`);
+                continue; // Skip this permit entirely, don't expand or extract details
               }
               
               // Extract expanded details (same comprehensive logic as first search)
@@ -2725,25 +3016,76 @@ async function typeLikeHuman(element, text = '', delay = 100) {
                 permitTitle: permitTitle || undefined,
               };
               
-              // Check if this permit has already been extracted (by name)
-              const permitNameKey = name.trim().toLowerCase();
-              if (extractedPermitNames.has(permitNameKey)) {
-                log(`   ⏭️  Skipping duplicate permit: "${name}" (already extracted)`);
-              } else {
-                // Add to tracking set and push to permits array
-                extractedPermitNames.add(permitNameKey);
-                permits.push(permit);
-                log(`   ✅ Extracted: "${name}"`);
-              }
+              // Add to tracking set and push to permits array (duplicate check already done before expansion)
+              // permitNameKey already defined earlier in this scope
+              extractedPermitNames.add(permitNameKey);
+              permits.push(permit);
+              permitsExtracted++;
+              log(`   ✅ Extracted: "${name}"`);
   } catch (err) {
               log(`   ❌ Error extracting permit ${i + 1}: ${err.message}`);
             }
           }
           
-          log(`   ✅ Extracted ${rows.length} permits from option ${optionIndex + 1}`);
+          // Calculate how many new permits were actually extracted (not skipped as duplicates)
+          permitsExtractedThisOption = permits.length - permitsBefore;
+          const rowsFound = rows.length;
           
-          // Go back to input fields for next iteration
-          if (optionIndex < dropdownOptions.length - 1) {
+          log(`   📊 Results: Found ${rowsFound} rows, processed ${permitsProcessed} permits, skipped ${duplicatesSkipped} duplicates, extracted ${permitsExtractedThisOption} new permits from option ${optionIndex + 1}`);
+          
+          // Check if we need to retry: 
+          // - 0 rows found (no results at all) - retry
+          // - 0 permits extracted BUT all were duplicates (permitsProcessed === duplicatesSkipped) - don't retry, move on
+          // - 0 permits extracted AND not all duplicates (permitsProcessed > duplicatesSkipped) - retry
+          if (rowsFound === 0) {
+            // No rows found - retry
+            retryCount++;
+            if (retryCount < MAX_RETRIES) {
+              log(`   ⚠️  WARNING: 0 rows found for option ${optionIndex + 1}. Will retry (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+              shouldRetry = true;
+              continue; // Retry this option
+            } else {
+              log(`   ❌ FAILED: 0 rows found after ${MAX_RETRIES} attempts for option ${optionIndex + 1}. Moving to next option.`);
+              shouldRetry = false;
+            }
+          } else if (permitsExtractedThisOption === 0 && permitsProcessed === duplicatesSkipped && permitsProcessed > 0) {
+            // All permits were duplicates - don't retry, just move on
+            log(`   ℹ️  All ${permitsProcessed} permit(s) from option ${optionIndex + 1} were duplicates (already extracted). Moving to next option.`);
+            shouldRetry = false;
+          } else if (permitsExtractedThisOption === 0) {
+            // 0 permits extracted but not all were duplicates - retry
+            retryCount++;
+            if (retryCount < MAX_RETRIES) {
+              log(`   ⚠️  WARNING: 0 permits extracted for option ${optionIndex + 1}. Will retry (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+              shouldRetry = true;
+              continue; // Retry this option
+            } else {
+              log(`   ❌ FAILED: 0 permits extracted after ${MAX_RETRIES} attempts for option ${optionIndex + 1}. Moving to next option.`);
+              shouldRetry = false;
+            }
+          } else {
+            // Success - extracted at least 1 permit
+            log(`   ✅ Successfully extracted ${permitsExtractedThisOption} permit(s) from option ${optionIndex + 1}`);
+            shouldRetry = false;
+          }
+          
+        } catch (err) {
+          // Error during extraction - retry if we haven't exceeded max retries
+          retryCount++;
+          log(`   ❌ Error during extraction for option ${optionIndex + 1}: ${err.message}`);
+          if (retryCount < MAX_RETRIES) {
+            log(`   🔄 Will retry (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+            shouldRetry = true;
+          } else {
+            log(`   ❌ FAILED after ${MAX_RETRIES} attempts for option ${optionIndex + 1}. Moving to next option.`);
+            shouldRetry = false;
+          }
+        }
+        
+        } // End of retry while loop
+        
+        // Go back to input fields for next iteration (only if not retrying)
+        if (!shouldRetry && optionIndex < dropdownOptions.length - 1) {
             await goBackToInputFields();
             
             // Re-enter location (use specific ID to avoid confusion)

@@ -95,9 +95,22 @@ export default function PermitManagementPage() {
           if (res.ok) {
             const details = await res.json();
             setPermitDetails(prev => ({ ...prev, [permitId]: details }));
+          } else {
+            // If fetch failed, set error state or use basic permit data
+            console.error(`Failed to fetch permit details: ${res.status} ${res.statusText}`);
+            // Use the basic permit data from the list as fallback
+            const basicPermit = permits.find(p => p._id === permitId);
+            if (basicPermit) {
+              setPermitDetails(prev => ({ ...prev, [permitId]: basicPermit }));
+            }
           }
         } catch (err) {
           console.error('Error fetching permit details:', err);
+          // Use the basic permit data from the list as fallback
+          const basicPermit = permits.find(p => p._id === permitId);
+          if (basicPermit) {
+            setPermitDetails(prev => ({ ...prev, [permitId]: basicPermit }));
+          }
         }
       }
     }
@@ -248,154 +261,164 @@ export default function PermitManagementPage() {
                     {/* Expanded Details Section */}
                     {isExpanded && (
                       <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-200">
-                        <div className="grid grid-cols-2 gap-6">
-                          {/* Left Column */}
-                          <div className="space-y-4">
-                            {details.permitTitle && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Permit Title</h4>
-                                <p className="text-sm text-neutral-600 font-medium">{details.permitTitle}</p>
-                              </div>
-                            )}
-                            
-                            <div>
-                              <h4 className="text-sm font-semibold text-neutral-900 mb-2">Description</h4>
-                              <p className="text-sm text-neutral-600">{details.description || 'No description available'}</p>
-                            </div>
-                            
-                            {details.prerequisites && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Prerequisites</h4>
-                                <p className="text-sm text-neutral-600 whitespace-pre-wrap">{details.prerequisites}</p>
-                              </div>
-                            )}
-                            
-                            {details.contactInfo && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Contact Information</h4>
-                                <div className="text-sm text-neutral-600 space-y-1">
-                                  {details.contactInfo.municipality && (
-                                    <p>
-                                      Municipality: {details.contactInfo.municipalityUrl ? (
-                                        <a href={details.contactInfo.municipalityUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                          {details.contactInfo.municipality}
-                                        </a>
-                                      ) : (
-                                        details.contactInfo.municipality
+                        {/* Check if permit has any details at all */}
+                        {(!details.permitTitle && !details.prerequisites && !details.contactInfo && !details.expandedDetails?.buttonLinks?.length && !details.fullText && !details.lastVerified && !details.applyUrl && !details.moreInfoUrl) ? (
+                          <div className="text-center py-8">
+                            <p className="text-sm text-neutral-500">No detailed information available for this permit.</p>
+                            <p className="text-xs text-neutral-400 mt-2">This permit may not have been fully extracted or may not have additional details on the source website.</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-2 gap-6">
+                              {/* Left Column */}
+                              <div className="space-y-4">
+                                {details.permitTitle && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Permit Title</h4>
+                                    <p className="text-sm text-neutral-600 font-medium">{details.permitTitle}</p>
+                                  </div>
+                                )}
+                                
+                                <div>
+                                  <h4 className="text-sm font-semibold text-neutral-900 mb-2">Description</h4>
+                                  <p className="text-sm text-neutral-600">{details.description || 'No description available'}</p>
+                                </div>
+                              
+                                {details.prerequisites && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Prerequisites</h4>
+                                    <p className="text-sm text-neutral-600 whitespace-pre-wrap">{details.prerequisites}</p>
+                                  </div>
+                                )}
+                                
+                                {details.contactInfo && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Contact Information</h4>
+                                    <div className="text-sm text-neutral-600 space-y-1">
+                                      {details.contactInfo.municipality && (
+                                        <p>
+                                          Municipality: {details.contactInfo.municipalityUrl ? (
+                                            <a href={details.contactInfo.municipalityUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                              {details.contactInfo.municipality}
+                                            </a>
+                                          ) : (
+                                            details.contactInfo.municipality
+                                          )}
+                                        </p>
                                       )}
-                                    </p>
-                                  )}
-                                  {details.contactInfo.department && (
-                                    <p>Department: {details.contactInfo.department}</p>
-                                  )}
-                                  {details.contactInfo.email && (
-                                    <p>Email: <a href={`mailto:${details.contactInfo.email}`} className="text-blue-600 hover:underline">{details.contactInfo.email}</a></p>
-                                  )}
-                                  {details.contactInfo.phone && (
-                                    <p>Phone: {details.contactInfo.phone}</p>
-                                  )}
-                                  {details.contactInfo.fax && (
-                                    <p>Fax: {details.contactInfo.fax}</p>
-                                  )}
-                                  {details.contactInfo.address?.fullAddress && (
-                                    <p>Address: {details.contactInfo.address.fullAddress}</p>
-                                  )}
-                                  {details.contactInfo.address?.lines && details.contactInfo.address.lines.length > 0 && (
-                                    <div>
-                                      <p className="font-medium">Address:</p>
-                                      {details.contactInfo.address.lines.map((line, idx) => (
-                                        <p key={idx} className="pl-2">{line}</p>
+                                      {details.contactInfo.department && (
+                                        <p>Department: {details.contactInfo.department}</p>
+                                      )}
+                                      {details.contactInfo.email && (
+                                        <p>Email: <a href={`mailto:${details.contactInfo.email}`} className="text-blue-600 hover:underline">{details.contactInfo.email}</a></p>
+                                      )}
+                                      {details.contactInfo.phone && (
+                                        <p>Phone: {details.contactInfo.phone}</p>
+                                      )}
+                                      {details.contactInfo.fax && (
+                                        <p>Fax: {details.contactInfo.fax}</p>
+                                      )}
+                                      {details.contactInfo.address?.fullAddress && (
+                                        <p>Address: {details.contactInfo.address.fullAddress}</p>
+                                      )}
+                                      {details.contactInfo.address?.lines && details.contactInfo.address.lines.length > 0 && (
+                                        <div>
+                                          <p className="font-medium">Address:</p>
+                                          {details.contactInfo.address.lines.map((line, idx) => (
+                                            <p key={idx} className="pl-2">{line}</p>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Right Column */}
+                              <div className="space-y-4">
+                                {details.lastVerified && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Last Verified</h4>
+                                    <p className="text-sm text-neutral-600">{details.lastVerified}</p>
+                                  </div>
+                                )}
+                                
+                                {/* All Links from expandedDetails */}
+                                {details.expandedDetails?.buttonLinks && details.expandedDetails.buttonLinks.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">All Links</h4>
+                                    <div className="space-y-2">
+                                      {details.expandedDetails.buttonLinks.map((link, idx) => (
+                                        <a 
+                                          key={idx}
+                                          href={link.url} 
+                                          target={link.target || '_blank'} 
+                                          rel="noopener noreferrer"
+                                          className="block text-sm text-blue-600 hover:underline"
+                                        >
+                                          {link.text || link.url}
+                                        </a>
                                       ))}
                                     </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Right Column */}
-                          <div className="space-y-4">
-                            {details.lastVerified && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Last Verified</h4>
-                                <p className="text-sm text-neutral-600">{details.lastVerified}</p>
-                              </div>
-                            )}
-                            
-                            {/* All Links from expandedDetails */}
-                            {details.expandedDetails?.buttonLinks && details.expandedDetails.buttonLinks.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">All Links</h4>
-                                <div className="space-y-2">
-                                  {details.expandedDetails.buttonLinks.map((link, idx) => (
-                                    <a 
-                                      key={idx}
-                                      href={link.url} 
-                                      target={link.target || '_blank'} 
-                                      rel="noopener noreferrer"
-                                      className="block text-sm text-blue-600 hover:underline"
-                                    >
-                                      {link.text || link.url}
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Fallback to individual URLs if expandedDetails not available */}
-                            {(!details.expandedDetails?.buttonLinks || details.expandedDetails.buttonLinks.length === 0) && (details.applyUrl || details.moreInfoUrl) && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Links</h4>
-                                <div className="space-y-2">
-                                  {details.applyUrl && details.applyUrl !== 'https://beta.bizpal-perle.ca/en' && (
-                                    <a 
-                                      href={details.applyUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="block text-sm text-blue-600 hover:underline"
-                                    >
-                                      Online Application Form
-                                    </a>
-                                  )}
-                                  {details.moreInfoUrl && (
-                                    <a 
-                                      href={details.moreInfoUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="block text-sm text-blue-600 hover:underline"
-                                    >
-                                      More Information
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Images */}
-                            {details.expandedDetails?.images && details.expandedDetails.images.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Images</h4>
-                                <div className="space-y-2">
-                                  {details.expandedDetails.images.map((img, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                      <img src={img.src} alt={img.alt || ''} className="max-w-xs max-h-32 object-contain" />
-                                      {img.alt && <span className="text-xs text-neutral-500">{img.alt}</span>}
+                                  </div>
+                                )}
+                                
+                                {/* Fallback to individual URLs if expandedDetails not available */}
+                                {(!details.expandedDetails?.buttonLinks || details.expandedDetails.buttonLinks.length === 0) && (details.applyUrl || details.moreInfoUrl) && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Links</h4>
+                                    <div className="space-y-2">
+                                      {details.applyUrl && details.applyUrl !== 'https://beta.bizpal-perle.ca/en' && (
+                                        <a 
+                                          href={details.applyUrl} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="block text-sm text-blue-600 hover:underline"
+                                        >
+                                          Online Application Form
+                                        </a>
+                                      )}
+                                      {details.moreInfoUrl && (
+                                        <a 
+                                          href={details.moreInfoUrl} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="block text-sm text-blue-600 hover:underline"
+                                        >
+                                          More Information
+                                        </a>
+                                      )}
                                     </div>
-                                  ))}
+                                  </div>
+                                )}
+                                
+                                {/* Images */}
+                                {details.expandedDetails?.images && details.expandedDetails.images.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Images</h4>
+                                    <div className="space-y-2">
+                                      {details.expandedDetails.images.map((img, idx) => (
+                                        <div key={idx} className="flex items-center gap-2">
+                                          <img src={img.src} alt={img.alt || ''} className="max-w-xs max-h-32 object-contain" />
+                                          {img.alt && <span className="text-xs text-neutral-500">{img.alt}</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Full Text Content (if available) */}
+                            {details.fullText && (
+                              <div className="mt-4 pt-4 border-t border-neutral-200">
+                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Full Text Content</h4>
+                                <div className="text-xs text-neutral-600 bg-white p-3 rounded border max-h-40 overflow-y-auto">
+                                  <pre className="whitespace-pre-wrap font-sans">{details.fullText}</pre>
                                 </div>
                               </div>
                             )}
-                          </div>
-                        </div>
-                        
-                        {/* Full Text Content (if available) */}
-                        {details.fullText && (
-                          <div className="mt-4 pt-4 border-t border-neutral-200">
-                            <h4 className="text-sm font-semibold text-neutral-900 mb-2">Full Text Content</h4>
-                            <div className="text-xs text-neutral-600 bg-white p-3 rounded border max-h-40 overflow-y-auto">
-                              <pre className="whitespace-pre-wrap font-sans">{details.fullText}</pre>
-                            </div>
-                          </div>
+                          </>
                         )}
                       </div>
                     )}
