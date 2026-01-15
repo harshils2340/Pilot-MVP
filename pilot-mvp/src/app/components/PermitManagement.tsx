@@ -495,6 +495,16 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
   const activeFilterCount =
     selectedCategories.length + selectedComplexities.length + selectedAuthorities.length;
 
+  // Show full-page loading state until data is loaded
+  if (loading) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-neutral-50">
+        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+        <p className="mt-4 text-neutral-600">Loading permits...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-neutral-50">
       {/* Header */}
@@ -634,13 +644,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
       {/* Permits Table */}
       <div className="flex-1 overflow-auto px-8 py-6">
         <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
-              <span className="ml-2 text-neutral-600">Loading permits...</span>
-            </div>
-          ) : (
-            <table className="w-full">
+          <table className="w-full">
               <thead className="bg-neutral-50 border-b border-neutral-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
@@ -733,7 +737,6 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                 )}
               </tbody>
             </table>
-          )}
         </div>
       </div>
 
