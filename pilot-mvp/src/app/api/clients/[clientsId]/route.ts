@@ -1,6 +1,6 @@
 // app/api/clients/[clientsId]/route.ts
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../lib/mongodb'; // default import
+import { clientPromise } from '../../../lib/mongodb'; // named export
 import { ObjectId, Document, WithId } from 'mongodb';
 
 export async function GET(
