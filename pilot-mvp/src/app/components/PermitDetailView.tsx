@@ -1,5 +1,5 @@
-import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface PermitDetailViewProps {
   permitId: string;
@@ -55,6 +55,43 @@ interface CityFeedbackItem {
 
 type Section = 'overview' | 'city-feedback' | 'discussion' | 'history';
 
+interface ClientEmail {
+  _id: string;
+  permitId: string;
+  permitName: string;
+  clientId?: string;
+  clientName?: string;
+  subject: string;
+  from: {
+    email: string;
+    name?: string;
+  };
+  to: {
+    email: string;
+    name?: string;
+  };
+  body: string;
+  htmlBody?: string;
+  attachments?: Array<{
+    filename: string;
+    contentType: string;
+    size: number;
+    url?: string;
+  }>;
+  direction: 'inbound' | 'outbound';
+  status: 'unread' | 'read' | 'replied' | 'archived';
+  priority: 'high' | 'medium' | 'low';
+  receivedAt: string;
+  sentAt?: string;
+  threadId?: string;
+  inReplyTo?: string;
+  metadata?: {
+    messageId?: string;
+    headers?: Record<string, string>;
+    consultantResponse?: string;
+  };
+}
+
 const mockComments: Comment[] = [
   {
     id: '1',
@@ -108,6 +145,9 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
   const [expandedFeedback, setExpandedFeedback] = useState<string>('1');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [cityEmails, setCityEmails] = useState<ClientEmail[]>([]);
+  const [loadingCityEmails, setLoadingCityEmails] = useState(false);
+  const [cityEmailResponses, setCityEmailResponses] = useState<Record<string, string>>({});
 
   // Mock data - would come from props or API
   const permit = {
@@ -309,6 +349,155 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
   const feedbackInProgress = cityFeedback.filter(item => item.status === 'in_progress').length;
   const feedbackNotStarted = cityFeedback.filter(item => item.status === 'not_started').length;
 
+  const [clientEmails, setClientEmails] = useState<ClientEmail[]>([]);
+  const [loadingClientEmails, setLoadingClientEmails] = useState(false);
+  const [clientEmailResponses, setClientEmailResponses] = useState<Record<string, string>>({});
+  const [testMode, setTestMode] = useState<boolean>(false);
+
+  // Fetch test mode status
+  useEffect(() => {
+    const fetchTestMode = async () => {
+      try {
+        const response = await fetch('/api/emails/config');
+        if (response.ok) {
+          const data = await response.json();
+          setTestMode(data.testMode || false);
+        }
+      } catch (error) {
+        console.error('Error fetching test mode:', error);
+      }
+    };
+    fetchTestMode();
+  }, []);
+
+  // Fetch city/authority emails for this permit
+  useEffect(() => {
+    const fetchEmails = async () => {
+      try {
+        setLoadingCityEmails(true);
+        setLoadingClientEmails(true);
+        // Fetch all emails for this permit
+        const response = await fetch(`/api/emails?permitId=${permitId}&status=all`);
+        if (response.ok) {
+          const data = await response.json();
+          const allEmails = data.emails || [];
+          
+          // Filter for city/authority emails (emails from city domains or marked as city feedback)
+          const cityEmailsList = allEmails.filter((email: ClientEmail) => {
+            const fromEmail = email.from.email.toLowerCase();
+            const isCityEmail = 
+              fromEmail.includes('.gov') || 
+              fromEmail.includes('city') || 
+              fromEmail.includes('municipal') ||
+              fromEmail.includes('department') ||
+              email.metadata?.headers?.['X-City-Feedback'] === 'true' ||
+              (!email.clientName && email.direction === 'inbound' && !fromEmail.includes('@'));
+            
+            return isCityEmail;
+          });
+          
+          // Filter for client emails (emails that have clientName or are from non-city domains)
+          const clientEmailsList = allEmails.filter((email: ClientEmail) => {
+            const fromEmail = email.from.email.toLowerCase();
+            const isClientEmail = 
+              email.clientName ||
+              (email.direction === 'inbound' && 
+               !fromEmail.includes('.gov') && 
+               !fromEmail.includes('city') && 
+               !fromEmail.includes('municipal') &&
+               !fromEmail.includes('department') &&
+               email.metadata?.headers?.['X-City-Feedback'] !== 'true');
+            
+            return isClientEmail;
+          });
+          
+          setCityEmails(cityEmailsList);
+          setClientEmails(clientEmailsList);
+          
+          // Load saved responses for both
+          const cityResponses: Record<string, string> = {};
+          const clientResponses: Record<string, string> = {};
+          
+          cityEmailsList.forEach((email: ClientEmail) => {
+            if (email.metadata?.consultantResponse) {
+              cityResponses[email._id] = email.metadata.consultantResponse;
+            }
+          });
+          
+          clientEmailsList.forEach((email: ClientEmail) => {
+            if (email.metadata?.consultantResponse) {
+              clientResponses[email._id] = email.metadata.consultantResponse;
+            }
+          });
+          
+          setCityEmailResponses(cityResponses);
+          setClientEmailResponses(clientResponses);
+        }
+      } catch (error) {
+        console.error('Error fetching emails:', error);
+      } finally {
+        setLoadingCityEmails(false);
+        setLoadingClientEmails(false);
+      }
+    };
+
+    if (permitId) {
+      fetchEmails();
+    }
+  }, [permitId]);
+
+  const formatEmailDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return `Today at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    } else if (diffDays === 1) {
+      return `Yesterday at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+  };
+
+  const handleMarkCityEmailAsRead = async (emailId: string) => {
+    try {
+      await fetch(`/api/emails/${emailId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'read' })
+      });
+      setCityEmails(cityEmails.map(e => e._id === emailId ? { ...e, status: 'read' as const } : e));
+    } catch (error) {
+      console.error('Error marking email as read:', error);
+    }
+  };
+
+  const handleSaveCityResponse = async (emailId: string, response: string) => {
+    try {
+      await fetch(`/api/emails/${emailId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: {
+            consultantResponse: response
+          }
+        })
+      });
+      // Update local state
+      setCityEmailResponses({
+        ...cityEmailResponses,
+        [emailId]: response
+      });
+    } catch (error) {
+      console.error('Error saving response:', error);
+      throw error;
+    }
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'overview':
@@ -396,6 +585,12 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
         );
 
       case 'city-feedback':
+        // Combine mock city feedback with actual city emails
+        const allCityFeedback = [...cityFeedback];
+        const totalCityItems = allCityFeedback.length + cityEmails.length;
+        const unreadCityEmails = cityEmails.filter(e => e.status === 'unread').length;
+        const unreadClientEmails = clientEmails.filter(e => e.status === 'unread').length;
+        
         return (
           <div className="space-y-4">
             {/* Summary Bar */}
@@ -404,20 +599,24 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
                 <div className="flex items-center gap-6">
                   <div>
                     <p className="text-sm font-semibold text-neutral-900">
-                      {cityFeedback.length} feedback items from city
+                      {totalCityItems} feedback item{totalCityItems !== 1 ? 's' : ''} from city
                     </p>
                     <p className="text-xs text-neutral-500 mt-0.5">
                       {feedbackNotStarted} not started • {feedbackInProgress} in progress • {cityFeedback.length - feedbackNotStarted - feedbackInProgress} addressed
+                      {unreadCityEmails > 0 && ` • ${unreadCityEmails} unread city email${unreadCityEmails !== 1 ? 's' : ''}`}
+                      {unreadClientEmails > 0 && ` • ${unreadClientEmails} unread client email${unreadClientEmails !== 1 ? 's' : ''}`}
                     </p>
                   </div>
-                  <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-green-500 transition-all duration-300"
-                      style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
-                    />
-                  </div>
+                  {cityFeedback.length > 0 && (
+                    <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-500 transition-all duration-300"
+                        style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
-                {allFeedbackAddressed ? (
+                {allFeedbackAddressed && unreadCityEmails === 0 && unreadClientEmails === 0 ? (
                   <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
                     <CheckCircle className="w-4 h-4 text-green-600" />
                     <span className="text-sm font-medium text-green-700">Ready to Resubmit</span>
@@ -425,11 +624,508 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
                 ) : (
                   <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
                     <Clock className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-700">{feedbackInProgress + feedbackNotStarted} items need attention</span>
+                    <span className="text-sm font-medium text-amber-700">
+                      {feedbackInProgress + feedbackNotStarted + unreadCityEmails + unreadClientEmails} item{feedbackInProgress + feedbackNotStarted + unreadCityEmails + unreadClientEmails !== 1 ? 's' : ''} need attention
+                    </span>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Loading State for City Emails */}
+            {loadingCityEmails && (
+              <div className="bg-white border border-neutral-200 rounded-lg p-6 text-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-900 mx-auto mb-2"></div>
+                <p className="text-xs text-neutral-600">Loading city emails...</p>
+              </div>
+            )}
+
+            {/* City Emails from Database */}
+            {!loadingCityEmails && cityEmails.length > 0 && (
+              <div className="space-y-3">
+                {cityEmails
+                  .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime())
+                  .map((email) => {
+                    const isExpanded = expandedFeedback === email._id;
+                    const isUnread = email.status === 'unread';
+                    
+                    return (
+                      <div
+                        key={email._id}
+                        className={`bg-white border rounded-lg overflow-hidden ${
+                          isUnread ? 'border-l-4 border-l-red-500 border-neutral-200' : 'border-l-4 border-l-blue-500 border-neutral-200'
+                        }`}
+                      >
+                        {/* Header - Always Visible */}
+                        <div
+                          className={`px-6 py-4 cursor-pointer hover:bg-neutral-50 transition-colors ${
+                            isUnread ? 'bg-red-50/30' : ''
+                          }`}
+                          onClick={() => {
+                            setExpandedFeedback(isExpanded ? '' : email._id);
+                            if (isUnread) {
+                              handleMarkCityEmailAsRead(email._id);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                              {isExpanded ? (
+                                <ChevronDown className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <h3 className={`font-semibold text-base text-neutral-900 ${isUnread ? 'font-bold' : ''}`}>
+                                    {email.subject}
+                                  </h3>
+                                  {isUnread && (
+                                    <span className="w-2 h-2 bg-red-600 rounded-full"></span>
+                                  )}
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                                    email.priority === 'high' 
+                                      ? 'bg-red-50 text-red-700 border-red-200'
+                                      : email.priority === 'medium'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+                                  }`}>
+                                    {email.priority}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-neutral-600">
+                                  <span className="font-medium">{email.from.name || email.from.email}</span>
+                                  <span className="text-neutral-400">•</span>
+                                  <span>{formatEmailDate(email.receivedAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Content */}
+                        {isExpanded && (
+                          <div className="border-t border-neutral-200">
+                            {/* City's Message */}
+                            <div className="px-6 py-4 bg-red-50/30">
+                              <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-2">
+                                City's Request:
+                              </p>
+                              <p className="text-sm text-neutral-900 leading-relaxed whitespace-pre-line mb-3">
+                                {email.body}
+                              </p>
+
+                              {/* City Attachments */}
+                              {email.attachments && email.attachments.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-xs font-medium text-neutral-500 mb-2">City Attachments</p>
+                                  <div className="space-y-1.5">
+                                    {email.attachments.map((attachment, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center justify-between p-2 bg-white border border-neutral-200 rounded group hover:bg-neutral-50 cursor-pointer"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="w-4 h-4 text-neutral-500" />
+                                          <span className="text-xs font-medium text-neutral-900">{attachment.filename}</span>
+                                          <span className="text-xs text-neutral-500">{(attachment.size / 1024).toFixed(1)} KB</span>
+                                        </div>
+                                        <Download className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Your Response to City */}
+                            <div className="px-6 py-4 border-t border-neutral-200 bg-blue-50">
+                              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                                Your Response to City
+                              </p>
+                              <textarea
+                                rows={6}
+                                value={cityEmailResponses[email._id] || ''}
+                                onChange={(e) => {
+                                  setCityEmailResponses({
+                                    ...cityEmailResponses,
+                                    [email._id]: e.target.value
+                                  });
+                                }}
+                                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
+                                placeholder="Explain what you fixed and how you addressed the city's concerns. This will be included when you resubmit..."
+                              />
+                              <div className="flex items-center justify-between mt-3">
+                                <p className="text-xs text-neutral-500">This response will be sent to the city when you resubmit</p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await handleSaveCityResponse(email._id, cityEmailResponses[email._id] || '');
+                                        alert('Response saved successfully');
+                                      } catch (error) {
+                                        console.error('Error saving response:', error);
+                                        alert('Failed to save response');
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 text-xs font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                                  >
+                                    Save Response
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const responseText = cityEmailResponses[email._id] || '';
+                                        if (!responseText.trim()) {
+                                          alert('Please enter a response before sending');
+                                          return;
+                                        }
+
+                                        if (!email.from?.email) {
+                                          alert('Cannot send email: No recipient email address found');
+                                          return;
+                                        }
+
+                                        // Prepare email data (permitId and permitName are optional)
+                                        const emailData: any = {
+                                          subject: email.subject ? `Re: ${email.subject}` : 'Re: City Feedback',
+                                          to: email.from.email,
+                                          body: responseText,
+                                          direction: 'outbound' as const
+                                        };
+
+                                        // Add optional fields only if they exist
+                                        if (email.permitId || permitId) {
+                                          emailData.permitId = email.permitId || permitId;
+                                        }
+                                        if (email.permitName || permit.name) {
+                                          emailData.permitName = email.permitName || permit.name;
+                                        }
+                                        if (email.clientId) {
+                                          emailData.clientId = email.clientId;
+                                        }
+                                        if (email.clientName) {
+                                          emailData.clientName = email.clientName;
+                                        }
+                                        if (email.metadata?.messageId || email._id) {
+                                          emailData.inReplyTo = email.metadata?.messageId || email._id;
+                                        }
+                                        if (email.threadId || email._id) {
+                                          emailData.threadId = email.threadId || email._id;
+                                        }
+
+                                        console.log('Sending email with data:', emailData);
+
+                                        const response = await fetch('/api/emails/send', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify(emailData)
+                                        });
+                                        
+                                        if (response.ok) {
+                                          const result = await response.json();
+                                          alert('Email sent successfully!');
+                                          // Mark original email as replied
+                                          await handleMarkCityEmailAsRead(email._id);
+                                          // Update status to replied
+                                          await fetch(`/api/emails/${email._id}`, {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ status: 'replied' })
+                                          });
+                                          // Refresh emails to show the sent email
+                                          window.location.reload();
+                                        } else {
+                                          const error = await response.json();
+                                          alert(`Failed to send email: ${error.error || 'Unknown error'}`);
+                                        }
+                                      } catch (error) {
+                                        console.error('Error sending email:', error);
+                                        alert('Failed to send email');
+                                      }
+                                    }}
+                                    disabled={!cityEmailResponses[email._id] || cityEmailResponses[email._id].trim().length === 0}
+                                    className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                    Send Reply
+                                  </button>
+                                  {testMode && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Are you sure you want to delete this email?')) {
+                                          try {
+                                            const response = await fetch(`/api/emails/${email._id}`, {
+                                              method: 'DELETE'
+                                            });
+                                            if (response.ok) {
+                                              setCityEmails(cityEmails.filter(e => e._id !== email._id));
+                                              alert('Email deleted successfully');
+                                            } else {
+                                              alert('Failed to delete email');
+                                            }
+                                          } catch (error) {
+                                            console.error('Error deleting email:', error);
+                                            alert('Failed to delete email');
+                                          }
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                                      title="Delete email"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Client Emails from Database */}
+            {!loadingClientEmails && clientEmails.length > 0 && (
+              <div className="space-y-3">
+                <div className="bg-white border border-neutral-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-neutral-900">Client Messages</h3>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    {clientEmails.length} message{clientEmails.length !== 1 ? 's' : ''} from client{clientEmails.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                {clientEmails
+                  .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime())
+                  .map((email) => {
+                    const isExpanded = expandedFeedback === `client-${email._id}`;
+                    const isUnread = email.status === 'unread';
+                    
+                    return (
+                      <div
+                        key={email._id}
+                        className={`bg-white border rounded-lg overflow-hidden ${
+                          isUnread ? 'border-l-4 border-l-blue-500 border-neutral-200' : 'border-neutral-200'
+                        }`}
+                      >
+                        {/* Header - Always Visible */}
+                        <div
+                          className={`px-6 py-4 cursor-pointer hover:bg-neutral-50 transition-colors ${
+                            isUnread ? 'bg-blue-50/30' : ''
+                          }`}
+                          onClick={() => {
+                            setExpandedFeedback(isExpanded ? '' : `client-${email._id}`);
+                            if (isUnread) {
+                              handleMarkCityEmailAsRead(email._id);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                              {isExpanded ? (
+                                <ChevronDown className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <h3 className={`font-semibold text-base text-neutral-900 ${isUnread ? 'font-bold' : ''}`}>
+                                    {email.subject}
+                                  </h3>
+                                  {isUnread && (
+                                    <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                                  )}
+                                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                    Client
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-neutral-600">
+                                  <span className="font-medium">{email.from.name || email.from.email}</span>
+                                  {email.clientName && (
+                                    <>
+                                      <span className="text-neutral-400">•</span>
+                                      <span>{email.clientName}</span>
+                                    </>
+                                  )}
+                                  <span className="text-neutral-400">•</span>
+                                  <span>{formatEmailDate(email.receivedAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Content */}
+                        {isExpanded && (
+                          <div className="border-t border-neutral-200">
+                            {/* Client's Message */}
+                            <div className="px-6 py-4 bg-blue-50/30">
+                              <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-2">
+                                Client's Message:
+                              </p>
+                              <p className="text-sm text-neutral-900 leading-relaxed whitespace-pre-line mb-3">
+                                {email.body}
+                              </p>
+
+                              {/* Client Attachments */}
+                              {email.attachments && email.attachments.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-xs font-medium text-neutral-500 mb-2">Attachments</p>
+                                  <div className="space-y-1.5">
+                                    {email.attachments.map((attachment, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center justify-between p-2 bg-white border border-neutral-200 rounded group hover:bg-neutral-50 cursor-pointer"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="w-4 h-4 text-neutral-500" />
+                                          <span className="text-xs font-medium text-neutral-900">{attachment.filename}</span>
+                                          <span className="text-xs text-neutral-500">{(attachment.size / 1024).toFixed(1)} KB</span>
+                                        </div>
+                                        <Download className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Your Response to Client */}
+                            <div className="px-6 py-4 border-t border-neutral-200 bg-blue-50">
+                              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                                Your Response to Client
+                              </p>
+                              <textarea
+                                rows={6}
+                                value={clientEmailResponses[email._id] || ''}
+                                onChange={(e) => {
+                                  setClientEmailResponses({
+                                    ...clientEmailResponses,
+                                    [email._id]: e.target.value
+                                  });
+                                }}
+                                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
+                                placeholder="Type your reply to the client here..."
+                              />
+                              <div className="flex items-center justify-between mt-3">
+                                <p className="text-xs text-neutral-500">This reply will be sent to the client</p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await fetch(`/api/emails/${email._id}`, {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            metadata: {
+                                              ...email.metadata,
+                                              consultantResponse: clientEmailResponses[email._id]
+                                            }
+                                          })
+                                        });
+                                        alert('Response saved successfully');
+                                      } catch (error) {
+                                        console.error('Error saving response:', error);
+                                        alert('Failed to save response');
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 text-xs font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                                  >
+                                    Save Draft
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const responseText = clientEmailResponses[email._id] || '';
+                                        if (!responseText.trim()) {
+                                          alert('Please enter a response before sending');
+                                          return;
+                                        }
+
+                                        if (!email.from?.email) {
+                                          alert('Cannot send email: No recipient email address found');
+                                          return;
+                                        }
+
+                                        // Prepare email data (permitId and permitName are optional)
+                                        const emailData: any = {
+                                          subject: email.subject ? `Re: ${email.subject}` : 'Re: Client Inquiry',
+                                          to: email.from.email,
+                                          body: responseText,
+                                          direction: 'outbound' as const
+                                        };
+
+                                        // Add optional fields only if they exist
+                                        if (email.permitId || permitId) {
+                                          emailData.permitId = email.permitId || permitId;
+                                        }
+                                        if (email.permitName || permit.name) {
+                                          emailData.permitName = email.permitName || permit.name;
+                                        }
+                                        if (email.clientId) {
+                                          emailData.clientId = email.clientId;
+                                        }
+                                        if (email.clientName) {
+                                          emailData.clientName = email.clientName;
+                                        }
+                                        if (email.metadata?.messageId || email._id) {
+                                          emailData.inReplyTo = email.metadata?.messageId || email._id;
+                                        }
+                                        if (email.threadId || email._id) {
+                                          emailData.threadId = email.threadId || email._id;
+                                        }
+
+                                        console.log('Sending email with data:', emailData);
+
+                                        const response = await fetch('/api/emails/send', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify(emailData)
+                                        });
+                                        
+                                        if (response.ok) {
+                                          const result = await response.json();
+                                          alert('Email sent successfully to client!');
+                                          // Mark original email as replied
+                                          await handleMarkCityEmailAsRead(email._id);
+                                          await fetch(`/api/emails/${email._id}`, {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ status: 'replied' })
+                                          });
+                                          // Clear the response text
+                                          setClientEmailResponses({
+                                            ...clientEmailResponses,
+                                            [email._id]: ''
+                                          });
+                                        } else {
+                                          const error = await response.json();
+                                          alert(`Failed to send email: ${error.error || 'Unknown error'}`);
+                                        }
+                                      } catch (error) {
+                                        console.error('Error sending email:', error);
+                                        alert('Failed to send email');
+                                      }
+                                    }}
+                                    disabled={!clientEmailResponses[email._id] || clientEmailResponses[email._id].trim().length === 0}
+                                    className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                    Send Reply
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
 
             {/* Feedback Items */}
             {cityFeedback.map((feedback) => {
@@ -582,13 +1278,31 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
                         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">Your Response to City</p>
                         <textarea
                           rows={6}
+                          value={cityEmailResponses[feedback.id] || feedback.consultantResponse || ''}
+                          onChange={(e) => {
+                            setCityEmailResponses({
+                              ...cityEmailResponses,
+                              [feedback.id]: e.target.value
+                            });
+                          }}
                           className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
                           placeholder="Explain what you fixed and how you addressed the city's concerns. This will be included when you resubmit..."
-                          defaultValue={feedback.consultantResponse}
                         />
                         <div className="flex items-center justify-between mt-3">
                           <p className="text-xs text-neutral-500">This response will be sent to the city when you resubmit</p>
-                          <button className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors">
+                          <button
+                            onClick={async () => {
+                              try {
+                                // For mock feedback, we can store in local state or a separate API
+                                // For now, just show success message
+                                alert('Response saved successfully');
+                              } catch (error) {
+                                console.error('Error saving response:', error);
+                                alert('Failed to save response');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors"
+                          >
                             Save Response
                           </button>
                         </div>
@@ -628,6 +1342,7 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
             })}
           </div>
         );
+
 
       case 'discussion':
         return (
@@ -918,7 +1633,7 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
 
   const sections = [
     { id: 'overview' as Section, label: 'Overview', icon: Info },
-    { id: 'city-feedback' as Section, label: 'City Feedback', icon: AlertCircle, badge: cityFeedback.filter(f => f.status !== 'addressed').length },
+    { id: 'city-feedback' as Section, label: 'City Feedback', icon: AlertCircle, badge: cityFeedback.filter(f => f.status !== 'addressed').length + cityEmails.filter(e => e.status === 'unread').length },
     { id: 'discussion' as Section, label: 'Discussion', icon: MessageCircle, badge: comments.filter(c => !c.resolved).length },
     { id: 'history' as Section, label: 'History', icon: Clock },
   ];
@@ -960,6 +1675,96 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-200">
           <button 
             disabled={!allFeedbackAddressed}
+            onClick={async () => {
+              try {
+                // Find the most recent city email to reply to
+                const mostRecentCityEmail = cityEmails
+                  .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime())[0];
+
+                if (!mostRecentCityEmail && cityEmails.length === 0) {
+                  alert('No city email found to reply to. Please ensure you have received feedback from the city.');
+                  return;
+                }
+
+                // Collect all responses
+                const responses: string[] = [];
+                
+                // Add responses from city emails
+                cityEmails.forEach((email) => {
+                  const response = cityEmailResponses[email._id];
+                  if (response && response.trim()) {
+                    responses.push(`Response to: ${email.subject}\n${response}`);
+                  }
+                });
+
+                // Add responses from mock feedback items
+                cityFeedback.forEach((feedback) => {
+                  const response = cityEmailResponses[feedback.id] || feedback.consultantResponse;
+                  if (response && response.trim()) {
+                    responses.push(`Response to: ${feedback.comment.substring(0, 50)}...\n${response}`);
+                  }
+                });
+
+                if (responses.length === 0) {
+                  alert('Please add responses to city feedback before resubmitting.');
+                  return;
+                }
+
+                // Compile the email body
+                const emailBody = `Dear City Official,
+
+We have addressed all the feedback items and are resubmitting our permit application.
+
+${responses.join('\n\n---\n\n')}
+
+Please review our updated submission. We believe all concerns have been addressed.
+
+Thank you,
+${permit.assignee.name || 'Permit Consultant'}`;
+
+                // Send email reply to the most recent city email
+                const targetEmail = mostRecentCityEmail || cityEmails[0];
+                const recipientEmail = targetEmail?.from?.email;
+
+                if (!recipientEmail) {
+                  alert('Cannot resubmit: No city email address found.');
+                  return;
+                }
+
+                const response = await fetch('/api/emails/send', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    permitId: permitId,
+                    permitName: permit.name,
+                    subject: `Re: ${targetEmail?.subject || 'Permit Resubmission'} - ${permit.name}`,
+                    to: recipientEmail,
+                    body: emailBody,
+                    direction: 'outbound',
+                    inReplyTo: targetEmail?.metadata?.messageId || targetEmail?._id,
+                    threadId: targetEmail?.threadId || targetEmail?._id
+                  })
+                });
+
+                if (response.ok) {
+                  const result = await response.json();
+                  alert('Resubmission email sent successfully to the city!');
+                  
+                  // Mark all city emails as read
+                  for (const email of cityEmails) {
+                    if (email.status === 'unread') {
+                      await handleMarkCityEmailAsRead(email._id);
+                    }
+                  }
+                } else {
+                  const error = await response.json();
+                  alert(`Failed to send resubmission: ${error.error || 'Unknown error'}`);
+                }
+              } catch (error) {
+                console.error('Error sending resubmission:', error);
+                alert('Failed to send resubmission email. Please try again.');
+              }
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               allFeedbackAddressed
                 ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm'
