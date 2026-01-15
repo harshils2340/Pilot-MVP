@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PermitDiscovery } from './PermitDiscovery';
-import { FormFilling } from './FormFilling';
-import { RegulatoryMemory } from './RegulatoryMemory';
-import { CollaborationView } from './CollaborationView';
-import { StatusTracking } from './StatusTracking';
-import { FileText, Search, History, Users, Trello, ArrowLeft, LogOut } from 'lucide-react';
+import { PermitPlan } from '../../components/PermitPlan';
+import { PermitDiscovery } from '../../components/PermitDiscovery';
+import { PermitDetailView } from '../../components/PermitDetailView';
+import { ListOrdered, Search, ArrowLeft, LogOut } from 'lucide-react';
 
-type Tab = 'tracking' | 'discovery' | 'form' | 'memory' | 'collaboration';
+type Tab = 'plan' | 'discovery' | 'permit-detail';
 
 interface Client {
   _id: string;
@@ -28,14 +26,12 @@ interface ClientPageClientProps {
 
 export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('tracking');
+  const [activeTab, setActiveTab] = useState<Tab>('plan');
+  const [selectedPermit, setSelectedPermit] = useState<string | null>(null);
 
   const clientNavigation = [
-    { id: 'tracking' as Tab, label: 'Status & Tracking', icon: Trello },
+    { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
     { id: 'discovery' as Tab, label: 'Permit Discovery', icon: Search },
-    { id: 'form' as Tab, label: 'Form Filling', icon: FileText },
-    { id: 'memory' as Tab, label: 'Regulatory Memory', icon: History },
-    { id: 'collaboration' as Tab, label: 'Collaboration', icon: Users },
   ];
 
   const handleLogout = () => {
@@ -46,15 +42,46 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const renderTab = () => {
     switch (activeTab) {
       case 'discovery':
-        return <PermitDiscovery clientId={clientId} client={client} />;
-      case 'form':
-        return <FormFilling clientId={clientId} />;
-      case 'memory':
-        return <RegulatoryMemory clientId={clientId} />;
-      case 'collaboration':
-        return <CollaborationView clientId={clientId} />;
-      case 'tracking':
-        return <StatusTracking clientId={clientId} client={client} />;
+        return (
+          <PermitDiscovery
+            clientId={clientId}
+            clientName={client?.businessName || clientId}
+            onAddPermits={(permits) => {
+              // Handle adding permits - switch back to plan view
+              console.log('Adding permits:', permits);
+              setActiveTab('plan');
+            }}
+          />
+        );
+      case 'plan':
+        return (
+          <PermitPlan
+            clientId={clientId}
+            clientName={client?.businessName || clientId}
+            onSelectPermit={(permitId) => {
+              setSelectedPermit(permitId);
+              setActiveTab('permit-detail');
+            }}
+          />
+        );
+      case 'permit-detail':
+        return (
+          <PermitDetailView
+            permitId={selectedPermit || ''}
+            onBack={() => setActiveTab('plan')}
+          />
+        );
+      default:
+        return (
+          <PermitPlan
+            clientId={clientId}
+            clientName={client?.businessName || clientId}
+            onSelectPermit={(permitId) => {
+              setSelectedPermit(permitId);
+              setActiveTab('permit-detail');
+            }}
+          />
+        );
     }
   };
 
@@ -65,7 +92,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         <div className="px-6 py-5 border-b border-neutral-200">
           <div className="flex items-center gap-3">
             <img 
-              src="/pilotLogo.png" 
+              src="/file.svg" 
               alt="Pilot" 
               className="h-8 w-8"
             />
@@ -79,7 +106,13 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         {/* Back to Dashboard */}
         <div className="p-4 border-b border-neutral-200">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => {
+              router.push('/');
+              // Force a reload to ensure we get the new UI
+              if (typeof window !== 'undefined') {
+                window.location.href = '/';
+              }
+            }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -100,7 +133,12 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (item.id === 'plan') {
+                    setSelectedPermit(null);
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
                   activeTab === item.id
                     ? 'bg-neutral-900 text-white'

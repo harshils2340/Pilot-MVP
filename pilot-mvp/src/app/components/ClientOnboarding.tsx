@@ -355,90 +355,94 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="border-b border-neutral-200 px-8 py-6">
-        <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
-          <Building2 className="w-4 h-4" />
-          <span>New Client Setup</span>
+      <div className="border-b border-neutral-200 py-6">
+        <div className="max-w-2xl w-full mx-auto px-8">
+          <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
+            <Building2 className="w-4 h-4" />
+            <span>New Client Setup</span>
+          </div>
+          <h1 className="text-2xl font-semibold text-neutral-900 mb-1">Add New Client</h1>
+          <p className="text-sm text-neutral-600">Tell us about the business to discover required permits</p>
         </div>
-        <h1 className="text-neutral-900 mb-1">Add New Client</h1>
-        <p className="text-neutral-600">Tell us about the business to discover required permits</p>
       </div>
 
       {/* Form Content */}
-      <div className="flex-1 overflow-auto p-8">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">
-              Business Name *
-            </label>
-            <input
-              type="text"
-              value={formData.businessName}
-              onChange={(e) => handleInputChange('businessName', e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              placeholder="e.g., Riverside Coffee Co."
-            />
-          </div>
+      <div className="flex-1 overflow-auto flex items-center justify-center">
+        <div className="max-w-2xl w-full px-8 py-8">
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-neutral-900 mb-2">
+                Business Name *
+              </label>
+              <input
+                type="text"
+                value={formData.businessName}
+                onChange={(e) => handleInputChange('businessName', e.target.value)}
+                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-neutral-900 placeholder:text-neutral-400"
+                placeholder="e.g., Riverside Coffee Co."
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">
-              Where is your business located? *
-            </label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => handleInputChange('location', e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              placeholder="Ex: Ottawa, Ontario"
-            />
-            <p className="text-xs text-neutral-500 mt-1.5">Enter city and province/state</p>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-900 mb-2">
+                Where is your business located? *
+              </label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-neutral-900 placeholder:text-neutral-400"
+                placeholder="Ex: Ottawa, Ontario"
+              />
+              <p className="text-xs text-neutral-500 mt-1.5">Enter city and province/state</p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">
-              What type of business is it? *
-            </label>
-            <input
-              type="text"
-              value={formData.businessType}
-              onChange={(e) => handleInputChange('businessType', e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              placeholder="Ex: restaurant business"
-            />
-            <p className="text-xs text-neutral-500 mt-1.5">Describe the type of business</p>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-900 mb-2">
+                What type of business is it? *
+              </label>
+              <input
+                type="text"
+                value={formData.businessType}
+                onChange={(e) => handleInputChange('businessType', e.target.value)}
+                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-neutral-900 placeholder:text-neutral-400"
+                placeholder="Ex: restaurant business"
+              />
+              <p className="text-xs text-neutral-500 mt-1.5">Describe the type of business</p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">
-              What type of permits and licences are you looking for? (Optional)
-            </label>
-            <textarea
-              value={formData.permitKeywords}
-              onChange={(e) => handleInputChange('permitKeywords', e.target.value)}
-              rows={3}
-              maxLength={200}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
-              placeholder="Ex: zoning and land use, food service permits"
-            />
-            <p className="text-xs text-neutral-500 mt-1.5">
-              {formData.permitKeywords.length}/200 characters
-            </p>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-900 mb-2">
+                What type of permits and licences are you looking for? (Optional)
+              </label>
+              <textarea
+                value={formData.permitKeywords}
+                onChange={(e) => handleInputChange('permitKeywords', e.target.value)}
+                rows={3}
+                maxLength={200}
+                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none text-neutral-900 placeholder:text-neutral-400"
+                placeholder="Ex: zoning and land use, food service permits"
+              />
+              <p className="text-xs text-neutral-500 mt-1.5">
+                {formData.permitKeywords.length}/200 characters
+              </p>
+            </div>
 
-          <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
-            <p className="text-sm text-neutral-600">
-              <span className="font-medium text-neutral-900">Ready to find permits?</span> We'll analyze your business details using BizPaL and identify all required permits and licenses for your jurisdiction.
-            </p>
+            <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
+              <p className="text-sm text-neutral-600 leading-relaxed">
+                <span className="font-medium text-neutral-900">Ready to find permits?</span> We'll analyze your business details using BizPaL and identify all required permits and licenses for your jurisdiction.
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Footer Navigation */}
-      <div className="border-t border-neutral-200 px-8 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+      <div className="border-t border-neutral-200 px-8 py-6">
+        <div className="max-w-2xl w-full mx-auto flex items-center justify-between">
           <button
             onClick={onCancel}
-            className="flex items-center gap-2 px-4 py-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 text-neutral-600 hover:bg-neutral-50 rounded-lg transition-colors text-sm font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
             Cancel
@@ -447,7 +451,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
           <button
             onClick={handleFindPermits}
             disabled={!isStep1Valid || loading}
-            className="flex items-center gap-2 px-6 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:bg-neutral-300 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2.5 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:bg-neutral-300 disabled:cursor-not-allowed disabled:text-neutral-500 text-sm font-medium"
           >
             {loading ? (
               <>

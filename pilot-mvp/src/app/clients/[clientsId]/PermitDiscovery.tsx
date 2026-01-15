@@ -554,7 +554,7 @@
 
 'use client';
 
-import { Search, MapPin, Building2, Briefcase, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Building2, Briefcase, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { BUSINESS_TYPES } from '@/constants/businessTypes';
 import { ACTIVITIES } from '@/constants/activities';
@@ -770,7 +770,7 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
               {permits.map((permit, idx) => (
                 <div
                   key={idx}
-                  className="bg-white rounded-lg border border-neutral-200 p-5 hover:shadow-md hover:border-neutral-300 cursor-pointer transition-all"
+                  className="bg-white rounded-lg border border-neutral-200 p-5 hover:shadow-md hover:border-neutral-300 transition-all"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
@@ -790,10 +790,9 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
                         </p>
                       )}
                     </div>
-                    <ChevronRight className="w-5 h-5 text-neutral-400 flex-shrink-0 ml-4" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-neutral-100">
+                  <div className="grid grid-cols-2 gap-4 pt-3 pb-4 border-b border-neutral-100">
                     <div>
                       <p className="text-xs text-neutral-500 mb-1">Issuing Authority</p>
                       <p className="text-sm text-neutral-900">{permit.authority}</p>
@@ -802,6 +801,19 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
                       <p className="text-xs text-neutral-500 mb-1">Last Updated</p>
                       <p className="text-sm text-neutral-900">{new Date(permit.lastUpdated).toLocaleDateString()}</p>
                     </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <button
+                      onClick={() => {
+                        // TODO: Add permit to client
+                        console.log('Add permit:', permit);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Permit
+                    </button>
                   </div>
                 </div>
               ))}

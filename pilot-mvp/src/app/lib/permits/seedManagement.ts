@@ -1,0 +1,223 @@
+import { PermitManagement } from './managementSchema';
+import connectToDB from '../mongodb';
+
+const initialPermits = [
+  {
+    name: 'Food Service Establishment Permit',
+    authority: 'San Francisco Dept. of Public Health',
+    complexity: 'high' as const,
+    estimatedTime: '4-6 weeks',
+    description: 'Required for all food service operations',
+    category: 'Health & Safety',
+    requirements: ['Floor plan', 'Equipment list', 'Food safety certification'],
+    fees: '$500-$1,200',
+    purpose: 'Ensure food safety and compliance with health regulations.',
+    howToApply: 'Submit an application with the required documents to the San Francisco Dept. of Public Health.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'foodservice@sf.gov',
+      website: 'https://www.sf.gov/health',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Business Operating Permit',
+    authority: 'City of San Francisco',
+    complexity: 'medium' as const,
+    estimatedTime: '2-3 weeks',
+    description: 'General business operation authorization',
+    category: 'Business',
+    requirements: ['Business license', 'Zoning approval'],
+    fees: '$200-$500',
+    purpose: 'Authorize the operation of a business within the city limits.',
+    howToApply: 'Submit an application with the required documents to the City of San Francisco.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'business@sf.gov',
+      website: 'https://www.sf.gov/business',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: "Seller's Permit",
+    authority: 'California Department of Tax and Fee Admin',
+    complexity: 'low' as const,
+    estimatedTime: '1-2 weeks',
+    description: 'Required for selling tangible goods',
+    category: 'Tax',
+    requirements: ['Business information', 'Tax ID'],
+    fees: '$0 (no fee)',
+    purpose: 'Authorize the sale of tangible goods and collect sales tax.',
+    howToApply: 'Submit an application with the required documents to the California Department of Tax and Fee Admin.',
+    contactInfo: {
+      phone: '800-400-7115',
+      email: 'taxes@tax.ca.gov',
+      website: 'https://www.tax.ca.gov',
+      address: '1500 I Street, Sacramento, CA 95814',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Building Modification Permit',
+    authority: 'San Francisco Dept. of Building Inspection',
+    complexity: 'high' as const,
+    estimatedTime: '6-8 weeks',
+    description: 'Required for structural changes to commercial space',
+    category: 'Construction',
+    requirements: ['Architectural plans', 'Engineer certification', 'Contractor license'],
+    fees: '$1,000-$5,000',
+    purpose: 'Ensure structural integrity and compliance with building codes.',
+    howToApply: 'Submit an application with the required documents to the San Francisco Dept. of Building Inspection.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'buildinginspection@sf.gov',
+      website: 'https://www.sf.gov/buildinginspection',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Health Department Plan Review',
+    authority: 'San Francisco Dept. of Public Health',
+    complexity: 'medium' as const,
+    estimatedTime: '3-4 weeks',
+    description: 'Review of food service layout and equipment',
+    category: 'Health & Safety',
+    requirements: ['Floor plan', 'Equipment specifications'],
+    fees: '$300-$800',
+    purpose: 'Ensure food service layout and equipment meet health standards.',
+    howToApply: 'Submit an application with the required documents to the San Francisco Dept. of Public Health.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'foodservice@sf.gov',
+      website: 'https://www.sf.gov/health',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Fire Department Inspection',
+    authority: 'San Francisco Fire Department',
+    complexity: 'medium' as const,
+    estimatedTime: '2-3 weeks',
+    description: 'Fire safety compliance inspection',
+    category: 'Safety',
+    requirements: ['Fire safety plan', 'Emergency exit plan'],
+    fees: '$150-$400',
+    purpose: 'Ensure compliance with fire safety regulations.',
+    howToApply: 'Submit an application with the required documents to the San Francisco Fire Department.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'firedepartment@sf.gov',
+      website: 'https://www.sf.gov/firedepartment',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Alcohol Beverage Control License',
+    authority: 'California Department of ABC',
+    complexity: 'high' as const,
+    estimatedTime: '8-12 weeks',
+    description: 'License to sell alcoholic beverages',
+    category: 'Licensing',
+    requirements: ['Background check', 'Premises approval', 'Public notice'],
+    fees: '$1,000-$15,000',
+    purpose: 'Authorize the sale of alcoholic beverages.',
+    howToApply: 'Submit an application with the required documents to the California Department of ABC.',
+    contactInfo: {
+      phone: '800-400-7115',
+      email: 'abc@tax.ca.gov',
+      website: 'https://www.tax.ca.gov',
+      address: '1500 I Street, Sacramento, CA 95814',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Sign Permit',
+    authority: 'City Planning Department',
+    complexity: 'low' as const,
+    estimatedTime: '1-2 weeks',
+    description: 'Permit for exterior business signage',
+    category: 'Business',
+    requirements: ['Sign design', 'Location specifications'],
+    fees: '$100-$300',
+    purpose: 'Authorize the installation of exterior business signage.',
+    howToApply: 'Submit an application with the required documents to the City Planning Department.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'planning@sf.gov',
+      website: 'https://www.sf.gov/planning',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Environmental Health Permit',
+    authority: 'County Environmental Health',
+    complexity: 'medium' as const,
+    estimatedTime: '3-5 weeks',
+    description: 'Environmental compliance for business operations',
+    category: 'Environmental',
+    requirements: ['Environmental assessment', 'Waste disposal plan'],
+    fees: '$250-$600',
+    purpose: 'Ensure environmental compliance for business operations.',
+    howToApply: 'Submit an application with the required documents to the County Environmental Health.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'environmentalhealth@sf.gov',
+      website: 'https://www.sf.gov/environmentalhealth',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+  {
+    name: 'Entertainment Permit',
+    authority: 'City Entertainment Commission',
+    complexity: 'medium' as const,
+    estimatedTime: '4-6 weeks',
+    description: 'Permit for live entertainment and events',
+    category: 'Entertainment',
+    requirements: ['Sound control plan', 'Security plan'],
+    fees: '$500-$1,500',
+    purpose: 'Authorize live entertainment and events.',
+    howToApply: 'Submit an application with the required documents to the City Entertainment Commission.',
+    contactInfo: {
+      phone: '415-554-6300',
+      email: 'entertainment@sf.gov',
+      website: 'https://www.sf.gov/entertainment',
+      address: '1010 Market St, San Francisco, CA 94102',
+      officeHours: 'Monday - Friday, 8:00 AM - 5:00 PM',
+    },
+    additionalNotes: 'Renewal required annually.',
+  },
+];
+
+export async function seedPermitManagement() {
+  try {
+    await connectToDB();
+    const count = await PermitManagement.countDocuments();
+    
+    if (count === 0) {
+      await PermitManagement.insertMany(initialPermits);
+      console.log('✅ Permit management data seeded successfully');
+    } else {
+      console.log('ℹ️ Permit management data already exists in database');
+    }
+  } catch (error) {
+    console.error('Failed to seed permit management data:', error);
+    throw error;
+  }
+}
+

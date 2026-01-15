@@ -113,14 +113,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { PermitDiscovery } from './PermitDiscovery';
-import { FormFilling } from './FormFilling';
-import { RegulatoryMemory } from './RegulatoryMemory';
-import { CollaborationView } from './CollaborationView';
-import { StatusTracking } from './StatusTracking';
-
-type Tab = 'discovery' | 'form' | 'memory' | 'collaboration' | 'tracking';
+import { ClientPageClient } from './ClientPageClient';
 
 interface Client {
   _id: string;
@@ -133,26 +126,32 @@ interface Client {
 }
 
 interface ClientPageProps {
-  clientId: string; // Pass this from the server component
+  params: Promise<{
+    clientsId: string;
+  }>;
 }
 
-export default function ClientOverviewPage({ clientId }: ClientPageProps) {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('discovery');
+export default function ClientPage({ params }: ClientPageProps) {
+  const [clientId, setClientId] = useState<string>('');
   const [client, setClient] = useState<Client | null>(null);
 
-  // Fetch client data dynamically
+  useEffect(() => {
+    params.then(({ clientsId }) => {
+      setClientId(clientsId);
+    });
+  }, [params]);
+
   useEffect(() => {
     if (!clientId) return;
 
     const fetchClient = async () => {
       try {
         const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
-          cache: 'no-store', // prevent caching
+          cache: 'no-store',
         });
 
         if (!res.ok) {
-          setClient(null); // fallback if client not found
+          setClient(null);
           return;
         }
 
@@ -160,64 +159,16 @@ export default function ClientOverviewPage({ clientId }: ClientPageProps) {
         setClient(data);
       } catch (err) {
         console.error('Failed to fetch client:', err);
-        setClient(null); // fallback
+        setClient(null);
       }
     };
 
     fetchClient();
   }, [clientId]);
 
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'discovery':
-        return <PermitDiscovery clientId={clientId} />;
-      case 'form':
-        return <FormFilling clientId={clientId} />;
-      case 'memory':
-        return <RegulatoryMemory clientId={clientId} />;
-      case 'collaboration':
-        return <CollaborationView clientId={clientId} />;
-      case 'tracking':
-        return <StatusTracking clientId={clientId} />;
-    }
-  };
+  if (!clientId) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
 
-  return (
-    <div className="p-8 space-y-6">
-      {/* Back to Dashboard */}
-      <div className="sticky top-4 z-50">
-        <button
-          onClick={() => router.push('/')}
-          className="px-4 py-2 bg-neutral-900 text-white rounded hover:bg-neutral-800 shadow"
-        >
-          &larr; Back to Dashboard
-        </button>
-      </div>
-
-      {/* Client Workspace Heading */}
-      <h1 className="text-2xl font-bold mb-4">
-        {client?.businessName ? `${client.businessName} Workspace` : 'Client Workspace'}
-      </h1>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 sticky top-16 bg-neutral-50 z-40 p-2 border-b border-neutral-200">
-        {['discovery', 'form', 'memory', 'collaboration', 'tracking'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as Tab)}
-            className={`px-4 py-2 rounded ${
-              activeTab === tab
-                ? 'bg-neutral-900 text-white'
-                : 'bg-neutral-100 text-neutral-700'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Render active tab */}
-      <div>{renderTab()}</div>
-    </div>
-  );
+  return <ClientPageClient clientId={clientId} client={client} />;
 }
