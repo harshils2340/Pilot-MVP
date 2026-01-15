@@ -57,7 +57,8 @@ export default function App() {
       case 'plan':
         return (
           <PermitPlan
-            clientId={selectedClient}
+            clientId={selectedClient || ''}
+            clientName={selectedClient || 'Client'}
             onSelectPermit={(permitId) => {
               setSelectedPermit(permitId);
               setCurrentScreen('permit-detail');
@@ -72,7 +73,13 @@ export default function App() {
           />
         );
       default:
-        return <PermitPlan clientId={selectedClient} onSelectPermit={() => {}} />;
+        return (
+          <PermitPlan
+            clientId={selectedClient || ''}
+            clientName={selectedClient || 'Client'}
+            onSelectPermit={() => {}}
+          />
+        );
     }
   };
 
