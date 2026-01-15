@@ -342,11 +342,6 @@ export default function App() {
         {/* Main Content - Dashboard */}
         <main className="flex-1 overflow-auto">
           <WorkspaceDashboard
-            onSelectClient={(clientId) => {
-              setSelectedClient(clientId);
-              setCurrentView('client');
-              setCurrentScreen('plan');
-            }}
             onStartPermit={() => {
               setShowClientOnboarding(true);
             }}

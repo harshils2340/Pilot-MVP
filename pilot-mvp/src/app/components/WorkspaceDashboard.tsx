@@ -1,7 +1,9 @@
 import { Plus, Search, Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 interface Client {
-  id: string;
+  _id: string;
   businessName: string;
   jurisdiction: string;
   activePermits: number;
@@ -10,60 +12,41 @@ interface Client {
   completionRate: number;
 }
 
-const mockClients: Client[] = [
-  {
-    id: '1',
-    businessName: 'Riverside Coffee Co.',
-    jurisdiction: 'Portland, OR',
-    activePermits: 4,
-    status: 'action-required',
-    lastActivity: '2 hours ago',
-    completionRate: 75,
-  },
-  {
-    id: '2',
-    businessName: 'Pacific Manufacturing LLC',
-    jurisdiction: 'Seattle, WA',
-    activePermits: 7,
-    status: 'submitted',
-    lastActivity: '1 day ago',
-    completionRate: 100,
-  },
-  {
-    id: '3',
-    businessName: 'Urban Eats Restaurant Group',
-    jurisdiction: 'San Francisco, CA',
-    activePermits: 12,
-    status: 'draft',
-    lastActivity: '3 hours ago',
-    completionRate: 45,
-  },
-  {
-    id: '4',
-    businessName: 'GreenTech Solutions Inc.',
-    jurisdiction: 'Austin, TX',
-    activePermits: 3,
-    status: 'approved',
-    lastActivity: '5 days ago',
-    completionRate: 100,
-  },
-  {
-    id: '5',
-    businessName: 'Mountain View Brewery',
-    jurisdiction: 'Denver, CO',
-    activePermits: 8,
-    status: 'submitted',
-    lastActivity: '12 hours ago',
-    completionRate: 90,
-  },
-];
-
 interface WorkspaceDashboardProps {
-  onSelectClient: (clientId: string) => void;
+  onSelectClient?: (clientId: string) => void;
   onStartPermit: () => void;
 }
 
 export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceDashboardProps) {
+  const router = useRouter();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await fetch('/api/clients');
+        if (res.ok) {
+          const data = await res.json();
+          setClients(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch clients:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  const handleClientClick = (client: Client) => {
+    if (onSelectClient) {
+      onSelectClient(client._id);
+    } else {
+      // Navigate to client page using proper routing
+      router.push(`/clients/${client._id}`);
+    }
+  };
   const getStatusIcon = (status: Client['status']) => {
     switch (status) {
       case 'approved':
@@ -152,12 +135,17 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
           </div>
 
           {/* Table Rows */}
-          {mockClients.map((client) => (
-            <div
-              key={client.id}
-              onClick={() => onSelectClient(client.id)}
-              className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
-            >
+          {loading ? (
+            <div className="p-8 text-center text-neutral-600">Loading clients...</div>
+          ) : clients.length === 0 ? (
+            <div className="p-8 text-center text-neutral-600">No clients found</div>
+          ) : (
+            clients.map((client) => (
+              <div
+                key={client._id}
+                onClick={() => handleClientClick(client)}
+                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
+              >
               <div className="col-span-3">
                 <p className="font-medium text-neutral-900">{client.businessName}</p>
                 <div className="mt-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
@@ -194,14 +182,15 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                 </button>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-4 mt-6">
           <div className="bg-white rounded-lg border border-neutral-200 p-5">
             <p className="text-neutral-600 text-sm mb-1">Total Clients</p>
-            <p className="text-neutral-900 font-semibold">5</p>
+            <p className="text-neutral-900 font-semibold">{clients.length}</p>
           </div>
           <div className="bg-white rounded-lg border border-neutral-200 p-5">
             <p className="text-neutral-600 text-sm mb-1">Active Permits</p>

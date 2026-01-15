@@ -112,7 +112,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { ClientPageClient } from './ClientPageClient';
 
 interface Client {
@@ -129,6 +129,10 @@ interface ClientPageProps {
   params: Promise<{
     clientsId: string;
   }>;
+}
+
+function ClientPageContent({ clientId, client }: { clientId: string; client: Client | null }) {
+  return <ClientPageClient clientId={clientId} client={client} />;
 }
 
 export default function ClientPage({ params }: ClientPageProps) {
@@ -170,5 +174,9 @@ export default function ClientPage({ params }: ClientPageProps) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
-  return <ClientPageClient clientId={clientId} client={client} />;
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+      <ClientPageContent clientId={clientId} client={client} />
+    </Suspense>
+  );
 }

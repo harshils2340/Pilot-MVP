@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PermitPlan } from '../../components/PermitPlan';
 import { PermitDiscovery } from '../../components/PermitDiscovery';
 import { PermitDetailView } from '../../components/PermitDetailView';
@@ -26,8 +26,27 @@ interface ClientPageClientProps {
 
 export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('plan');
   const [selectedPermit, setSelectedPermit] = useState<string | null>(null);
+
+  // Sync tab with URL query params on mount and when URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab') as Tab | null;
+    if (tab && ['plan', 'discovery', 'permit-detail'].includes(tab)) {
+      setActiveTab(tab);
+    }
+    const permitId = searchParams.get('permit');
+    if (permitId) {
+      setSelectedPermit(permitId);
+      if (!tab) {
+        setActiveTab('permit-detail');
+      }
+    } else if (!tab) {
+      // Default to 'plan' if no tab in URL
+      setActiveTab('plan');
+    }
+  }, [searchParams]);
 
   const clientNavigation = [
     { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
@@ -37,6 +56,29 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
     router.push('/');
+  };
+
+  const handleTabChange = (tab: Tab) => {
+    if (tab === 'plan') {
+      setSelectedPermit(null);
+      setActiveTab('plan');
+      router.push(`/clients/${clientId}?tab=plan`);
+    } else {
+      setActiveTab(tab);
+      router.push(`/clients/${clientId}?tab=${tab}`);
+    }
+  };
+
+  const handlePermitSelect = (permitId: string) => {
+    setSelectedPermit(permitId);
+    setActiveTab('permit-detail');
+    router.push(`/clients/${clientId}?tab=permit-detail&permit=${permitId}`);
+  };
+
+  const handleBackToPlan = () => {
+    setSelectedPermit(null);
+    setActiveTab('plan');
+    router.push(`/clients/${clientId}?tab=plan`);
   };
 
   const renderTab = () => {
@@ -58,17 +100,14 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           <PermitPlan
             clientId={clientId}
             clientName={client?.businessName || clientId}
-            onSelectPermit={(permitId) => {
-              setSelectedPermit(permitId);
-              setActiveTab('permit-detail');
-            }}
+            onSelectPermit={handlePermitSelect}
           />
         );
       case 'permit-detail':
         return (
           <PermitDetailView
             permitId={selectedPermit || ''}
-            onBack={() => setActiveTab('plan')}
+            onBack={handleBackToPlan}
           />
         );
       default:
@@ -76,10 +115,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           <PermitPlan
             clientId={clientId}
             clientName={client?.businessName || clientId}
-            onSelectPermit={(permitId) => {
-              setSelectedPermit(permitId);
-              setActiveTab('permit-detail');
-            }}
+            onSelectPermit={handlePermitSelect}
           />
         );
     }
@@ -106,13 +142,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         {/* Back to Dashboard */}
         <div className="p-4 border-b border-neutral-200">
           <button
-            onClick={() => {
-              router.push('/');
-              // Force a reload to ensure we get the new UI
-              if (typeof window !== 'undefined') {
-                window.location.href = '/';
-              }
-            }}
+            onClick={() => router.push('/')}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -133,12 +163,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  if (item.id === 'plan') {
-                    setSelectedPermit(null);
-                  }
-                }}
+                onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
                   activeTab === item.id
                     ? 'bg-neutral-900 text-white'
