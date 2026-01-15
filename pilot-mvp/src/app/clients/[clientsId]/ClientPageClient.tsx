@@ -87,7 +87,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         return (
           <PermitDiscovery
             clientId={clientId}
-            clientName={client?.businessName || clientId}
+            clientName={client?.businessName || 'Client'}
             onAddPermits={(permits) => {
               // Handle adding permits - switch back to plan view
               console.log('Adding permits:', permits);
@@ -99,7 +99,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         return (
           <PermitPlan
             clientId={clientId}
-            clientName={client?.businessName || clientId}
+            clientName={client?.businessName || 'Client'}
             onSelectPermit={handlePermitSelect}
           />
         );
@@ -114,7 +114,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         return (
           <PermitPlan
             clientId={clientId}
-            clientName={client?.businessName || clientId}
+            clientName={client?.businessName || 'Client'}
             onSelectPermit={handlePermitSelect}
           />
         );
@@ -153,7 +153,9 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         {/* Client Name Display */}
         <div className="px-4 pt-4 pb-2">
           <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Current Client</p>
-          <p className="text-sm font-medium text-neutral-900">{client?.businessName || clientId}</p>
+          <p className="text-sm font-medium text-neutral-900 bg-blue-50 px-2 py-1 rounded">
+            {client?.businessName || 'Loading...'}
+          </p>
         </div>
 
         {/* Navigation Tabs */}

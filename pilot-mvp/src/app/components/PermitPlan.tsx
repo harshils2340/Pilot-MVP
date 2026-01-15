@@ -234,7 +234,7 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-lg font-semibold text-neutral-900">Permit Plan</h1>
-            <p className="text-xs text-neutral-500">{clientName}</p>
+            <p className="text-xs text-neutral-500">{clientName && clientName !== clientId ? clientName : 'Client'}</p>
           </div>
           <button 
             onClick={() => setShowAddPermit(!showAddPermit)}
