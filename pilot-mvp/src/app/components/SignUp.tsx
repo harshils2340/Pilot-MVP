@@ -24,7 +24,7 @@ export function SignUp({ onSignUp, onSwitchToSignIn }: SignUpProps) {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <img src="/pilotLogo.png" alt="Pilot" className="h-10 w-10" />
+            <img src="/file.svg" alt="Pilot" className="h-10 w-10" />
             <h1 className="text-2xl font-semibold text-neutral-900">Pilot</h1>
           </div>
           <p className="text-neutral-600">Compliance Platform for Consultants</p>

@@ -1,15 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { PermitDiscovery } from './PermitDiscovery';
-import { FormFilling } from './FormFilling';
-import { RegulatoryMemory } from './RegulatoryMemory';
-import { CollaborationView } from './CollaborationView';
-import { StatusTracking } from './StatusTracking';
-import { FileText, Search, History, Users, Trello, ArrowLeft, LogOut } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { PermitPlan } from '../../components/PermitPlan';
+import { PermitDiscovery } from '../../components/PermitDiscovery';
+import { PermitDetailView } from '../../components/PermitDetailView';
+import { ListOrdered, Search, ArrowLeft, LogOut } from 'lucide-react';
 
-type Tab = 'tracking' | 'discovery' | 'form' | 'memory' | 'collaboration';
+type Tab = 'plan' | 'discovery' | 'permit-detail';
 
 interface Client {
   _id: string;
@@ -28,14 +26,31 @@ interface ClientPageClientProps {
 
 export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('tracking');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>('plan');
+  const [selectedPermit, setSelectedPermit] = useState<string | null>(null);
+
+  // Sync tab with URL query params on mount and when URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab') as Tab | null;
+    if (tab && ['plan', 'discovery', 'permit-detail'].includes(tab)) {
+      setActiveTab(tab);
+    }
+    const permitId = searchParams.get('permit');
+    if (permitId) {
+      setSelectedPermit(permitId);
+      if (!tab) {
+        setActiveTab('permit-detail');
+      }
+    } else if (!tab) {
+      // Default to 'plan' if no tab in URL
+      setActiveTab('plan');
+    }
+  }, [searchParams]);
 
   const clientNavigation = [
-    { id: 'tracking' as Tab, label: 'Status & Tracking', icon: Trello },
+    { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
     { id: 'discovery' as Tab, label: 'Permit Discovery', icon: Search },
-    { id: 'form' as Tab, label: 'Form Filling', icon: FileText },
-    { id: 'memory' as Tab, label: 'Regulatory Memory', icon: History },
-    { id: 'collaboration' as Tab, label: 'Collaboration', icon: Users },
   ];
 
   const handleLogout = () => {
@@ -43,18 +58,66 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
     router.push('/');
   };
 
+  const handleTabChange = (tab: Tab) => {
+    if (tab === 'plan') {
+      setSelectedPermit(null);
+      setActiveTab('plan');
+      router.push(`/clients/${clientId}?tab=plan`);
+    } else {
+      setActiveTab(tab);
+      router.push(`/clients/${clientId}?tab=${tab}`);
+    }
+  };
+
+  const handlePermitSelect = (permitId: string) => {
+    setSelectedPermit(permitId);
+    setActiveTab('permit-detail');
+    router.push(`/clients/${clientId}?tab=permit-detail&permit=${permitId}`);
+  };
+
+  const handleBackToPlan = () => {
+    setSelectedPermit(null);
+    setActiveTab('plan');
+    router.push(`/clients/${clientId}?tab=plan`);
+  };
+
   const renderTab = () => {
     switch (activeTab) {
       case 'discovery':
-        return <PermitDiscovery clientId={clientId} client={client} />;
-      case 'form':
-        return <FormFilling clientId={clientId} />;
-      case 'memory':
-        return <RegulatoryMemory clientId={clientId} />;
-      case 'collaboration':
-        return <CollaborationView clientId={clientId} />;
-      case 'tracking':
-        return <StatusTracking clientId={clientId} client={client} />;
+        return (
+          <PermitDiscovery
+            clientId={clientId}
+            clientName={client?.businessName || clientId}
+            onAddPermits={(permits) => {
+              // Handle adding permits - switch back to plan view
+              console.log('Adding permits:', permits);
+              setActiveTab('plan');
+            }}
+          />
+        );
+      case 'plan':
+        return (
+          <PermitPlan
+            clientId={clientId}
+            clientName={client?.businessName || clientId}
+            onSelectPermit={handlePermitSelect}
+          />
+        );
+      case 'permit-detail':
+        return (
+          <PermitDetailView
+            permitId={selectedPermit || ''}
+            onBack={handleBackToPlan}
+          />
+        );
+      default:
+        return (
+          <PermitPlan
+            clientId={clientId}
+            clientName={client?.businessName || clientId}
+            onSelectPermit={handlePermitSelect}
+          />
+        );
     }
   };
 
@@ -65,7 +128,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         <div className="px-6 py-5 border-b border-neutral-200">
           <div className="flex items-center gap-3">
             <img 
-              src="/pilotLogo.png" 
+              src="/file.svg" 
               alt="Pilot" 
               className="h-8 w-8"
             />
@@ -100,7 +163,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
                   activeTab === item.id
                     ? 'bg-neutral-900 text-white'

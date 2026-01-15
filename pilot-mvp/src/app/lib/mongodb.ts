@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MongoClient } from "mongodb";
 
 const MONGODB_URI = process.env.MONGODB_URI || "";
 
@@ -8,6 +9,20 @@ if (!MONGODB_URI) {
   );
 }
 
+// SSL/TLS options to fix connection errors
+const sslOptions = {
+  tlsAllowInvalidCertificates: true, // For development - allows self-signed certificates
+  tlsAllowInvalidHostnames: true, // For development
+};
+
+// Mongoose connection options (for connectToDB)
+const mongooseOptions = {
+  // Mongoose accepts these options directly
+  tlsAllowInvalidCertificates: true,
+  tlsAllowInvalidHostnames: true,
+};
+
+// Mongoose connection (for connectToDB)
 let cached = (global as any).mongoose;
 
 if (!cached) {
@@ -20,12 +35,39 @@ async function connectToDB() {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => mongoose);
+    cached.promise = mongoose.connect(MONGODB_URI, mongooseOptions).then((mongoose) => mongoose);
   }
 
   cached.conn = await cached.promise;
   return cached.conn;
 }
 
+// Native MongoDB client (for clientPromise)
+let client: MongoClient;
+let clientPromise: Promise<MongoClient>;
+
+declare global {
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
+
+if (process.env.NODE_ENV === "development") {
+  // In development mode, use a global variable so that the value
+  // is preserved across module reloads caused by HMR (Hot Module Replacement).
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(MONGODB_URI, sslOptions);
+    global._mongoClientPromise = client.connect();
+  }
+  clientPromise = global._mongoClientPromise;
+} else {
+  // In production mode, it's best to not use a global variable.
+  client = new MongoClient(MONGODB_URI, sslOptions);
+  clientPromise = client.connect();
+}
+
+// Export a module-scoped MongoClient promise. By doing this in a
+// separate module, the client can be shared across functions.
+export { clientPromise };
+
+// Also export connectToDB as default for mongoose usage
 export default connectToDB;
 

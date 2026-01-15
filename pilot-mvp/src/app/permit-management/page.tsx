@@ -214,39 +214,39 @@ export default function PermitManagementPage() {
                 return (
                   <div key={uniqueKey}>
                     <div className="grid grid-cols-12 px-6 py-4 border-t hover:bg-neutral-50">
-                      <div className="col-span-3">
-                        <p className="font-medium text-neutral-900">{p.name}</p>
+                  <div className="col-span-3">
+                    <p className="font-medium text-neutral-900">{p.name}</p>
                         <p className="text-xs text-neutral-500">{p.description || 'No description available'}</p>
-                      </div>
+                  </div>
 
-                      <div className="col-span-2">
-                        <span className="px-2 py-1 text-xs bg-neutral-100 rounded-full">
+                  <div className="col-span-2">
+                    <span className="px-2 py-1 text-xs bg-neutral-100 rounded-full">
                           {p.category || 'N/A'}
-                        </span>
-                      </div>
+                    </span>
+                  </div>
 
-                      <div className="col-span-3 text-sm text-neutral-600">
+                  <div className="col-span-3 text-sm text-neutral-600">
                         {p.authority || 'N/A'}
-                      </div>
+                  </div>
 
-                      <div className="col-span-1">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            p.complexity === 'High'
-                              ? 'bg-red-100 text-red-700'
+                  <div className="col-span-1">
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full ${
+                        p.complexity === 'High'
+                          ? 'bg-red-100 text-red-700'
                               : p.complexity === 'Low'
                               ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}
-                        >
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
                           {p.complexity || 'Medium'}
-                        </span>
-                      </div>
+                    </span>
+                  </div>
 
                       <div className="col-span-1 text-sm">{p.estimatedTime || 'N/A'}</div>
                       <div className="col-span-1 text-sm">{p.fees || 'N/A'}</div>
 
-                      <div className="col-span-1 flex justify-end gap-2">
+                  <div className="col-span-1 flex justify-end gap-2">
                         <Eye className="w-4 h-4 text-neutral-500 cursor-pointer hover:text-neutral-700" />
                         <Pencil 
                           className={`w-4 h-4 cursor-pointer transition-colors ${

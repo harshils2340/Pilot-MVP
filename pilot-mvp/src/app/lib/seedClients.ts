@@ -1,4 +1,4 @@
-import clientPromise from './mongodb';
+import { clientPromise } from './mongodb';
 
 export const mockClients = [
   {

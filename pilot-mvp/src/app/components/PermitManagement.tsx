@@ -1,6 +1,5 @@
-'use client';
-import { useState } from 'react';
-import { Search, Filter, Plus, Edit2, Trash2, X, Eye, Phone, Mail, Globe, MapPin, Info, FileText, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, Plus, Edit2, Trash2, X, Eye, Phone, Mail, Globe, MapPin, Info, FileText, AlertCircle, Loader2 } from 'lucide-react';
 
 export interface PermitData {
   id: string;
@@ -243,7 +242,8 @@ interface PermitManagementProps {
 }
 
 export function PermitManagement({ onClose }: PermitManagementProps) {
-  const [permits, setPermits] = useState<PermitData[]>(initialPermits);
+  const [permits, setPermits] = useState<PermitData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -253,6 +253,31 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [deletingPermitId, setDeletingPermitId] = useState<string | null>(null);
   const [viewingPermit, setViewingPermit] = useState<PermitData | null>(null);
+
+  // Fetch permits from API on mount
+  useEffect(() => {
+    const fetchPermits = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/permits/management');
+        if (res.ok) {
+          const data = await res.json();
+          setPermits(data);
+        } else {
+          console.error('Failed to fetch permits');
+          // Fallback to mock data if API fails
+          setPermits(initialPermits);
+        }
+      } catch (error) {
+        console.error('Error fetching permits:', error);
+        // Fallback to mock data if API fails
+        setPermits(initialPermits);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPermits();
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState<Partial<PermitData>>({
@@ -329,9 +354,21 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
     }
   };
 
-  const handleDeletePermit = (permitId: string) => {
-    setPermits(permits.filter((p) => p.id !== permitId));
-    setDeletingPermitId(null);
+  const handleDeletePermit = async (permitId: string) => {
+    try {
+      const res = await fetch(`/api/permits/management/${permitId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setPermits(permits.filter((p) => p.id !== permitId));
+        setDeletingPermitId(null);
+      } else {
+        alert('Failed to delete permit');
+      }
+    } catch (error) {
+      console.error('Error deleting permit:', error);
+      alert('Failed to delete permit');
+    }
   };
 
   const handleOpenAddNew = () => {
@@ -410,7 +447,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name || !formData.authority || !formData.category) {
@@ -418,27 +455,55 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
       return;
     }
 
-    if (editingPermit) {
-      // Update existing permit
-      setPermits(
-        permits.map((p) =>
-          p.id === editingPermit.id ? { ...formData, id: editingPermit.id } as PermitData : p
-        )
-      );
-    } else {
-      // Add new permit
-      const newPermit: PermitData = {
-        ...formData,
-        id: `p${Date.now()}`,
-      } as PermitData;
-      setPermits([...permits, newPermit]);
+    try {
+      if (editingPermit) {
+        // Update existing permit via API
+        const res = await fetch(`/api/permits/management/${editingPermit.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setPermits(permits.map((p) => (p.id === editingPermit.id ? updated : p)));
+        } else {
+          alert('Failed to update permit');
+          return;
+        }
+      } else {
+        // Add new permit via API
+        const res = await fetch('/api/permits/management', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (res.ok) {
+          const newPermit = await res.json();
+          setPermits([...permits, newPermit]);
+        } else {
+          alert('Failed to create permit');
+          return;
+        }
+      }
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error saving permit:', error);
+      alert('Failed to save permit');
     }
-
-    handleCloseModal();
   };
 
   const activeFilterCount =
     selectedCategories.length + selectedComplexities.length + selectedAuthorities.length;
+
+  // Show full-page loading state until data is loaded
+  if (loading) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-neutral-50">
+        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+        <p className="mt-4 text-neutral-600">Loading permits...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-neutral-50">
@@ -580,41 +645,49 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
       <div className="flex-1 overflow-auto px-8 py-6">
         <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Permit Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Authority
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Complexity
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Est. Time
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Fees
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {filteredPermits.length === 0 ? (
+              <thead className="bg-neutral-50 border-b border-neutral-200">
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <p className="text-neutral-500">No permits found matching your criteria</p>
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Permit Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Authority
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Complexity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Est. Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Fees
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                filteredPermits.map((permit) => (
-                  <tr key={permit.id} className="hover:bg-neutral-50 transition-colors">
+              </thead>
+              <tbody className="divide-y divide-neutral-200">
+                {filteredPermits.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <p className="text-neutral-500">
+                        {permits.length === 0 
+                          ? 'No permits found. Click "Add New Permit" to create one.'
+                          : 'No permits found matching your criteria'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPermits.map((permit) => (
+                  <tr 
+                    key={permit.id} 
+                    className="hover:bg-neutral-50 transition-colors cursor-pointer"
+                    onClick={() => setViewingPermit(permit)}
+                  >
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-medium text-neutral-900">{permit.name}</p>
@@ -639,7 +712,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                     <td className="px-6 py-4 text-sm text-neutral-700">{permit.estimatedTime}</td>
                     <td className="px-6 py-4 text-sm text-neutral-700">{permit.fees}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setViewingPermit(permit)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -664,10 +737,10 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                  ))
+                )}
+              </tbody>
+            </table>
         </div>
       </div>
 
