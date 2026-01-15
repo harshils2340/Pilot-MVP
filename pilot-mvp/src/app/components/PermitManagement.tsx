@@ -683,7 +683,11 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                   </tr>
                 ) : (
                   filteredPermits.map((permit) => (
-                  <tr key={permit.id} className="hover:bg-neutral-50 transition-colors">
+                  <tr 
+                    key={permit.id} 
+                    className="hover:bg-neutral-50 transition-colors cursor-pointer"
+                    onClick={() => setViewingPermit(permit)}
+                  >
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-medium text-neutral-900">{permit.name}</p>
@@ -708,7 +712,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                     <td className="px-6 py-4 text-sm text-neutral-700">{permit.estimatedTime}</td>
                     <td className="px-6 py-4 text-sm text-neutral-700">{permit.fees}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setViewingPermit(permit)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
