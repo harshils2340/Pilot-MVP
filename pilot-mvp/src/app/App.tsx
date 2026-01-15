@@ -8,7 +8,6 @@ import { SignUp } from './components/SignUp';
 import { PermitManagement } from './components/PermitManagement';
 import { PermitDetailView } from './components/PermitDetailView';
 import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search } from 'lucide-react';
-import pilotLogo from 'figma:asset/dc0f7d461ee354c6621e48294006c9f2e157c855.png';
 
 type ClientScreen = 'discovery' | 'plan' | 'permit-detail';
 type AuthScreen = 'signin' | 'signup';
@@ -46,9 +45,12 @@ export default function App() {
       case 'discovery':
         return (
           <PermitDiscovery
-            onSelectPermit={(permitId) => {
-              setSelectedPermit(permitId);
-              setCurrentScreen('permit-detail');
+            clientId={selectedClient || ''}
+            clientName={selectedClient || 'Client'}
+            onAddPermits={(permits) => {
+              // Handle adding permits - switch back to plan view
+              console.log('Adding permits:', permits);
+              setCurrentScreen('plan');
             }}
           />
         );
@@ -92,7 +94,7 @@ export default function App() {
           <div className="px-6 py-5 border-b border-neutral-200">
             <div className="flex items-center gap-3">
               <img 
-                src={pilotLogo} 
+                src="/file.svg" 
                 alt="Pilot" 
                 className="h-8 w-8"
               />
@@ -146,7 +148,7 @@ export default function App() {
           <div className="px-6 py-5 border-b border-neutral-200">
             <div className="flex items-center gap-3">
               <img 
-                src={pilotLogo} 
+                src="/file.svg" 
                 alt="Pilot" 
                 className="h-8 w-8"
               />
@@ -224,7 +226,7 @@ export default function App() {
           <div className="px-6 py-5 border-b border-neutral-200">
             <div className="flex items-center gap-3">
               <img 
-                src={pilotLogo} 
+                src="/file.svg" 
                 alt="Pilot" 
                 className="h-8 w-8"
               />
@@ -301,7 +303,7 @@ export default function App() {
         <div className="px-6 py-5 border-b border-neutral-200">
           <div className="flex items-center gap-3">
             <img 
-              src={pilotLogo} 
+              src="/file.svg" 
               alt="Pilot" 
               className="h-8 w-8"
             />
