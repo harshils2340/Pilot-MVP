@@ -23,7 +23,7 @@ export async function GET(
     return NextResponse.json({
       _id: permit._id.toString(),
       name: permit.name,
-      description: permit.activities?.[0] || permit.description || '',
+      description: permit.activities?.[0] || '',
       category: permit.level === 'federal' ? 'Federal' : permit.level === 'municipal' ? 'Municipal' : 'Provincial',
       authority: permit.authority || 'BizPaL',
       complexity: 'Medium', // Default since we don't store relevance
