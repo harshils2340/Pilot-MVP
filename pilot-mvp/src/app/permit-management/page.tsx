@@ -54,6 +54,10 @@ export default function PermitManagementPage() {
   const [search, setSearch] = useState('');
   const [expandedPermits, setExpandedPermits] = useState<Set<string>>(new Set());
   const [permitDetails, setPermitDetails] = useState<Record<string, Permit>>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedComplexities, setSelectedComplexities] = useState<string[]>([]);
+  const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchPermits = async () => {
@@ -71,11 +75,47 @@ export default function PermitManagementPage() {
     fetchPermits();
   }, []);
 
-  const filteredPermits = permits.filter((p) =>
-    `${p.name} ${p.description} ${p.authority} ${p.category}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  // Extract unique values for filters
+  const categories = Array.from(new Set(permits.map((p) => p.category).filter(Boolean)));
+  const complexities = ['High', 'Medium', 'Low'] as const;
+  const authorities = Array.from(new Set(permits.map((p) => p.authority).filter(Boolean)));
+
+  // Filter permits based on search and filters
+  const filteredPermits = permits.filter((p) => {
+    const matchesSearch =
+      search === '' ||
+      `${p.name} ${p.description || ''} ${p.authority || ''} ${p.category || ''}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+    const matchesCategory =
+      selectedCategories.length === 0 || (p.category && selectedCategories.includes(p.category));
+
+    const matchesComplexity =
+      selectedComplexities.length === 0 || (p.complexity && selectedComplexities.includes(p.complexity));
+
+    const matchesAuthority =
+      selectedAuthorities.length === 0 || (p.authority && selectedAuthorities.includes(p.authority));
+
+    return matchesSearch && matchesCategory && matchesComplexity && matchesAuthority;
+  });
+
+  const toggleFilter = (filterArray: string[], setFilter: (arr: string[]) => void, value: string) => {
+    if (filterArray.includes(value)) {
+      setFilter(filterArray.filter((item) => item !== value));
+    } else {
+      setFilter([...filterArray, value]);
+    }
+  };
+
+  const clearAllFilters = () => {
+    setSelectedCategories([]);
+    setSelectedComplexities([]);
+    setSelectedAuthorities([]);
+    setSearch('');
+  };
+
+  const activeFilterCount = selectedCategories.length + selectedComplexities.length + selectedAuthorities.length;
 
   const togglePermitDetails = async (permitId: string) => {
     if (expandedPermits.has(permitId)) {
@@ -173,15 +213,96 @@ export default function PermitManagementPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search permits by name, description, authority, or category…"
-                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
+                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
               />
             </div>
 
-            <button className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm transition-colors ${
+                showFilters || activeFilterCount > 0
+                  ? 'bg-neutral-900 text-white border-neutral-900'
+                  : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
+              }`}
+            >
               <Filter className="w-4 h-4" />
               Filters
+              {activeFilterCount > 0 && (
+                <span className="bg-white text-neutral-900 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+              >
+                Clear all
+              </button>
+            )}
           </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="mt-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+              <div className="grid grid-cols-3 gap-6">
+                {/* Category Filter */}
+                <div>
+                  <p className="text-sm font-medium text-neutral-700 mb-2">Category</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {categories.map((category) => (
+                      <label key={category} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(category)}
+                          onChange={() => toggleFilter(selectedCategories, setSelectedCategories, category)}
+                          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        />
+                        <span className="text-sm text-neutral-700">{category}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Complexity Filter */}
+                <div>
+                  <p className="text-sm font-medium text-neutral-700 mb-2">Complexity</p>
+                  <div className="space-y-2">
+                    {complexities.map((complexity) => (
+                      <label key={complexity} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedComplexities.includes(complexity)}
+                          onChange={() => toggleFilter(selectedComplexities, setSelectedComplexities, complexity)}
+                          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        />
+                        <span className="text-sm text-neutral-700">{complexity}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Authority Filter */}
+                <div>
+                  <p className="text-sm font-medium text-neutral-700 mb-2">Issuing Authority</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {authorities.map((authority) => (
+                      <label key={authority} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedAuthorities.includes(authority)}
+                          onChange={() => toggleFilter(selectedAuthorities, setSelectedAuthorities, authority)}
+                          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        />
+                        <span className="text-sm text-neutral-700">{authority}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <p className="text-sm text-neutral-500 mt-3">
             Showing {filteredPermits.length} of {permits.length} permits

@@ -108,6 +108,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDB from '@/app/lib/mongodb';
 import { Permit } from '@/app/lib/permits/schema';
+import { isCancelled, clearCancellation } from '@/app/lib/cancellation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -121,6 +122,10 @@ export async function POST(req: NextRequest) {
     const location = String(body.location ?? '').trim();
     const businessType = String(body.businessType ?? '').trim();
     const permitKeywords = String(body.permitKeywords ?? '').trim();
+    
+    // Use provided requestId or generate one
+    const requestId = body.requestId || `scrape-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    console.log(`🆔 Request ID: ${requestId}`);
 
     // --- Validate required inputs ---
     if (!location || !businessType) {
@@ -193,7 +198,12 @@ export async function POST(req: NextRequest) {
     
     let permits;
     try {
-      permits = await (runBizPalSearch as any)({ location, businessType, permitKeywords });
+      permits = await (runBizPalSearch as any)({ 
+        location, 
+        businessType, 
+        permitKeywords,
+        requestId // Pass request ID for cancellation checking
+      });
       console.log(`✅ Selenium finished. Found ${permits.length} permits`);
       
       // Log sample permit data to verify extraction
@@ -221,6 +231,13 @@ export async function POST(req: NextRequest) {
     // --- Connect to MongoDB ---
     await connectToDB();
     console.log('✅ Connected to MongoDB');
+
+    // Check if operation was cancelled
+    if (isCancelled(requestId)) {
+      console.log('🛑 Operation was cancelled, saving extracted permits that were extracted so far...');
+      // Clear the cancellation flag
+      clearCancellation(requestId);
+    }
 
     // --- Save permits dynamically with duplicate checking ---
     const savedPermits = [];
@@ -415,6 +432,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Clear cancellation token after completion
+    clearCancellation(requestId);
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     return NextResponse.json({
       success: true,
@@ -422,12 +442,22 @@ export async function POST(req: NextRequest) {
       totalSaved: savedPermits.length,
       duration,
       permits: savedPermits,
+      requestId, // Return request ID so frontend can track it
     });
 
   } catch (err: unknown) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     const errorMessage = err instanceof Error ? err.message : String(err);
     const errorStack = err instanceof Error ? err.stack : 'No stack trace available';
+    
+    // Clear cancellation token on error
+    try {
+      // Try to get requestId from error or use a fallback
+      const errorRequestId = (err as any).requestId || requestId;
+      if (errorRequestId) {
+        clearCancellation(errorRequestId);
+      }
+    } catch {}
     
     console.error('❌ BizPaL scraping API error:');
     console.error('   Message:', errorMessage);

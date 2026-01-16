@@ -1,4 +1,4 @@
-import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, ExternalLink, Send, RefreshCw, Trash2, X } from 'lucide-react';
+import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, ExternalLink, Send, RefreshCw, Trash2, X, CheckSquare, Square } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface PermitEmail {
@@ -120,6 +120,9 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     permitId: '',
     permitName: ''
   });
+  const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
 
   // Fetch test mode configuration and emails
   useEffect(() => {
@@ -245,10 +248,112 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     window.open(emailUrl, '_blank');
   };
 
+  const handleToggleSelectEmail = (emailId: string) => {
+    setSelectedEmailIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(emailId)) {
+        newSet.delete(emailId);
+      } else {
+        newSet.add(emailId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedEmailIds.size === sortedEmails.length) {
+      setSelectedEmailIds(new Set());
+    } else {
+      setSelectedEmailIds(new Set(sortedEmails.map(e => e._id)));
+    }
+  };
+
+  const handleDeleteEmail = async (emailId: string) => {
+    if (!confirm('Are you sure you want to delete this email?')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`/api/emails/${emailId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setEmails(emails.filter(e => e._id !== emailId));
+        setSelectedEmailIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(emailId);
+          return newSet;
+        });
+        if (selectedEmail?._id === emailId) {
+          setSelectedEmail(null);
+        }
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete email: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting email:', error);
+      alert('Failed to delete email');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedEmailIds.size === 0) {
+      return;
+    }
+
+    const count = selectedEmailIds.size;
+    if (!confirm(`Are you sure you want to delete ${count} email(s)?`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const response = await fetch('/api/emails/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailIds: Array.from(selectedEmailIds) })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setEmails(emails.filter(e => !selectedEmailIds.has(e._id)));
+        if (selectedEmail && selectedEmailIds.has(selectedEmail._id)) {
+          setSelectedEmail(null);
+        }
+        setSelectedEmailIds(new Set());
+        alert(`Successfully deleted ${result.deletedCount} email(s)`);
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete emails: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error bulk deleting emails:', error);
+      alert('Failed to delete emails');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const toggleMultiSelectMode = () => {
+    setMultiSelectMode(prev => {
+      const newMode = !prev;
+      if (!newMode) {
+        // Clear selection when exiting multi-select mode
+        setSelectedEmailIds(new Set());
+      }
+      return newMode;
+    });
+  };
+
   // Filter emails
   const filteredEmails = emails.filter((email) => {
     const matchesSearch =
-      email.permitName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (email.permitName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.clientName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -310,6 +415,36 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
           </div>
           {testMode && (
             <div className="flex items-center gap-2">
+              <button
+                onClick={toggleMultiSelectMode}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  multiSelectMode
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
+                }`}
+              >
+                {multiSelectMode ? (
+                  <>
+                    <CheckSquare className="w-4 h-4" />
+                    <span>Multi-Select</span>
+                  </>
+                ) : (
+                  <>
+                    <Square className="w-4 h-4" />
+                    <span>Multi-Select</span>
+                  </>
+                )}
+              </button>
+              {multiSelectMode && selectedEmailIds.size > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Selected ({selectedEmailIds.size})</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowEmailComposer(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
@@ -452,14 +587,55 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Select All Checkbox - Only show in multi-select mode */}
+                  {multiSelectMode && sortedEmails.length > 0 && (
+                    <div className="bg-white rounded-lg border border-neutral-200 p-4 flex items-center gap-3">
+                      <button
+                        onClick={handleSelectAll}
+                        className="flex items-center gap-2 text-sm text-neutral-700 hover:text-neutral-900"
+                      >
+                        {selectedEmailIds.size === sortedEmails.length ? (
+                          <CheckSquare className="w-5 h-5 text-neutral-900" />
+                        ) : (
+                          <Square className="w-5 h-5 text-neutral-400" />
+                        )}
+                        <span className="font-medium">
+                          {selectedEmailIds.size === sortedEmails.length ? 'Deselect All' : 'Select All'}
+                        </span>
+                      </button>
+                      {selectedEmailIds.size > 0 && (
+                        <span className="text-sm text-neutral-600">
+                          {selectedEmailIds.size} email(s) selected
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
                   {sortedEmails.map((email) => (
                     <div
                       key={email._id}
                       className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
                         email.status === 'unread' ? 'border-l-4 border-l-blue-500' : 'border-neutral-200'
-                      }`}
+                      } ${multiSelectMode && selectedEmailIds.has(email._id) ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
                     >
                       <div className="flex items-start gap-4">
+                        {multiSelectMode && (
+                          <div className="flex-shrink-0 pt-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleSelectEmail(email._id);
+                              }}
+                              className="text-neutral-400 hover:text-neutral-900 transition-colors"
+                            >
+                              {selectedEmailIds.has(email._id) ? (
+                                <CheckSquare className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
+                          </div>
+                        )}
                         <div className="flex-shrink-0">
                           {email.direction === 'inbound' ? (
                             <Mail className={`w-6 h-6 ${email.status === 'unread' ? 'text-blue-600' : 'text-neutral-400'}`} />
@@ -497,7 +673,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                                     : `To: ${email.to.name || email.to.email}`}
                                 </span>
                                 <span className="text-neutral-400">•</span>
-                                <span>{email.permitName}</span>
+                                <span>{email.permitName || 'No Permit'}</span>
                                 {email.clientName && (
                                   <>
                                     <span className="text-neutral-400">•</span>
@@ -510,30 +686,14 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                               </p>
                             </div>
                             <div className="flex items-center gap-2 ml-4">
-                              {testMode && email.direction === 'outbound' && (
+                              {testMode && (
                                 <button
-                                  onClick={async (e) => {
+                                  onClick={(e) => {
                                     e.stopPropagation();
-                                    if (confirm('Are you sure you want to delete this email?')) {
-                                      try {
-                                        const response = await fetch(`/api/emails/${email._id}`, {
-                                          method: 'DELETE'
-                                        });
-                                        if (response.ok) {
-                                          setEmails(emails.filter(e => e._id !== email._id));
-                                          if (selectedEmail?._id === email._id) {
-                                            setSelectedEmail(null);
-                                          }
-                                        } else {
-                                          alert('Failed to delete email');
-                                        }
-                                      } catch (error) {
-                                        console.error('Error deleting email:', error);
-                                        alert('Failed to delete email');
-                                      }
-                                    }
+                                    handleDeleteEmail(email._id);
                                   }}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  disabled={isDeleting}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Delete email"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -582,6 +742,40 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
             </div>
           ) : (
             <div className="space-y-3">
+                  {/* Select All Checkbox for City Feedback Mode - Only show in multi-select mode */}
+                  {multiSelectMode && sortedEmails.length > 0 && testMode && (
+                    <div className="bg-white rounded-lg border border-neutral-200 p-4 flex items-center gap-3">
+                      <button
+                        onClick={handleSelectAll}
+                        className="flex items-center gap-2 text-sm text-neutral-700 hover:text-neutral-900"
+                      >
+                        {selectedEmailIds.size === sortedEmails.length ? (
+                          <CheckSquare className="w-5 h-5 text-neutral-900" />
+                        ) : (
+                          <Square className="w-5 h-5 text-neutral-400" />
+                        )}
+                        <span className="font-medium">
+                          {selectedEmailIds.size === sortedEmails.length ? 'Deselect All' : 'Select All'}
+                        </span>
+                      </button>
+                      {selectedEmailIds.size > 0 && (
+                        <>
+                          <span className="text-sm text-neutral-600">
+                            {selectedEmailIds.size} email(s) selected
+                          </span>
+                          <button
+                            onClick={handleBulkDelete}
+                            disabled={isDeleting}
+                            className="ml-auto flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Selected</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  
                   {sortedEmails.map((email) => {
                     const daysWaiting = calculateDaysWaiting(email.receivedAt);
                     const feedbackDate = new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -593,17 +787,38 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                       <div
                         key={email._id}
                         onClick={() => {
-                          setSelectedEmail(email);
-                          if (email.status === 'unread') {
-                            handleMarkAsRead(email._id);
-                          }
-                          if (email.permitId) {
-                            onSelectPermit(email.permitId, email.clientName || 'Unknown Client');
+                          if (!multiSelectMode) {
+                            setSelectedEmail(email);
+                            if (email.status === 'unread') {
+                              handleMarkAsRead(email._id);
+                            }
+                            if (email.permitId) {
+                              onSelectPermit(email.permitId, email.clientName || 'Unknown Client');
+                            }
                           }
                         }}
-                  className="bg-white rounded-lg border border-neutral-200 p-6 hover:border-neutral-300 hover:shadow-md cursor-pointer transition-all"
+                  className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
+                    multiSelectMode && selectedEmailIds.has(email._id) ? 'ring-2 ring-blue-500 border-blue-500' : 'border-neutral-200'
+                  } ${!multiSelectMode ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex items-start gap-6">
+                    {multiSelectMode && testMode && (
+                      <div className="flex-shrink-0 pt-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelectEmail(email._id);
+                          }}
+                          className="text-neutral-400 hover:text-neutral-900 transition-colors"
+                        >
+                          {selectedEmailIds.has(email._id) ? (
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
                     <div className="flex-shrink-0">
                       <AlertCircle className="w-8 h-8 text-amber-600" />
                     </div>
@@ -627,8 +842,23 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                                   <span>{municipality}</span>
                           </div>
                                 <p className="text-sm text-neutral-700">{summary}</p>
+                          </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          {testMode && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEmail(email._id);
+                              }}
+                              disabled={isDeleting}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete email"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <ChevronRight className="w-5 h-5 text-neutral-400 flex-shrink-0" />
                         </div>
-                        <ChevronRight className="w-5 h-5 text-neutral-400 ml-4 flex-shrink-0" />
                       </div>
 
                       <div className="flex items-center gap-4 pt-3 border-t border-neutral-100 text-sm text-neutral-600">
@@ -706,8 +936,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                       to: selectedEmail.from.email,
                       subject: `Re: ${selectedEmail.subject}`,
                       body: `\n\n--- Original Message ---\n${selectedEmail.body}`,
-                      permitId: selectedEmail.permitId,
-                      permitName: selectedEmail.permitName
+                      permitId: selectedEmail.permitId || '',
+                      permitName: selectedEmail.permitName || ''
                     });
                     setSelectedEmail(null);
                     setShowEmailComposer(true);

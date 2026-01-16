@@ -385,8 +385,45 @@
 const { Builder, By, until, Key } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const fs = require('fs');
+
+// Fetch implementation for cancellation checks (Node.js compatible)
+// Use native fetch if available (Node.js 18+), otherwise use http/https
+let fetch;
+if (typeof globalThis.fetch === 'function') {
+  // Node.js 18+ has native fetch
+  fetch = globalThis.fetch;
+} else {
+  // Fallback: create a simple fetch using http/https
+  fetch = async (url) => {
+    const http = require('http');
+    const https = require('https');
+    const { URL } = require('url');
+    const urlObj = new URL(url);
+    const client = urlObj.protocol === 'https:' ? https : http;
+    
+    return new Promise((resolve, reject) => {
+      const req = client.get(url, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            json: async () => JSON.parse(data),
+            text: async () => data
+          });
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(5000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
+  };
+}
 const path = require('path');
 
+// Sleep function - will be enhanced with cancellation checking in the worker function
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function log(msg) {
@@ -433,7 +470,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
   }
 }
 
-  async function runBizPalSearch({ location, businessType, permitKeywords, permitTypes }) {
+  async function runBizPalSearch({ location, businessType, permitKeywords, permitTypes, requestId }) {
   log('Worker started');
     
     // Validate and clean inputs
@@ -441,12 +478,93 @@ async function typeLikeHuman(element, text = '', delay = 100) {
     location = String(location || '').trim();
     businessType = String(businessType || '').trim();
     permitKeywords = String(permitKeywords || permitTypes || '').trim(); // Accept either parameter name
+    requestId = String(requestId || '').trim();
     
     if (!location || !businessType) {
       throw new Error(`Missing required inputs: location='${location}', businessType='${businessType}'`);
     }
     
-    log(`[DEBUG] Inputs: location='${location}', businessType='${businessType}', permitKeywords='${permitKeywords || '(none)'}'`);
+    log(`[DEBUG] Inputs: location='${location}', businessType='${businessType}', permitKeywords='${permitKeywords || '(none)'}', requestId='${requestId || '(none)'}'`);
+    
+    // Function to check if operation is cancelled (with caching to reduce API calls)
+    let lastCancelCheck = 0;
+    let cachedCancelled = false;
+    const CACHE_DURATION = 500; // Check every 500ms max
+    
+    const checkCancellation = async () => {
+      if (!requestId) return false;
+      
+      // Use cached result if checked recently
+      const now = Date.now();
+      if (now - lastCancelCheck < CACHE_DURATION && cachedCancelled) {
+        return true;
+      }
+      
+      try {
+        // Use the base URL from environment or default to localhost
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+        const cancelUrl = `${baseUrl}/api/bizpal/cancel?requestId=${encodeURIComponent(requestId)}`;
+        const response = await fetch(cancelUrl);
+        if (response.ok) {
+          const data = await response.json();
+          cachedCancelled = data.cancelled === true;
+          lastCancelCheck = now;
+          return cachedCancelled;
+        }
+      } catch (err) {
+        // If check fails, assume not cancelled to avoid false positives
+        // Only log occasionally to avoid spam
+        if (Math.random() < 0.01) { // Log 1% of errors
+          log(`   ⚠️  Error checking cancellation: ${err.message}`);
+        }
+      }
+      return false;
+    };
+    
+    // Helper function to throw cancellation error
+    const throwCancellation = async () => {
+      log(`\n🛑 CANCELLATION DETECTED - Stopping immediately`);
+      log(`   ✅ ${permits.length} permits extracted so far will be saved`);
+      // Close browser immediately
+      try {
+        if (driver) {
+          await driver.quit();
+          log('   ✅ Browser closed');
+        }
+      } catch (quitErr) {
+        log(`   ⚠️  Error closing browser: ${quitErr.message}`);
+      }
+      // Return permits extracted so far
+      return permits;
+    };
+    
+    // Enhanced sleep wrapper that checks cancellation periodically during long waits
+    const sleepWithCancellation = async (ms) => {
+      if (!requestId || ms < 500) {
+        // Short sleeps or no cancellation - just sleep normally
+        return await sleep(ms);
+      }
+      
+      // For longer sleeps, check cancellation periodically (every 500ms)
+      const checkInterval = 500;
+      const totalChecks = Math.ceil(ms / checkInterval);
+      
+      for (let i = 0; i < totalChecks; i++) {
+        // Check cancellation
+        if (await checkCancellation()) {
+          throw new Error('CANCELLED');
+        }
+        
+        // Sleep for the interval (or remainder)
+        const sleepTime = i === totalChecks - 1 ? (ms % checkInterval || checkInterval) : checkInterval;
+        await sleep(sleepTime);
+      }
+      
+      // Final check
+      if (await checkCancellation()) {
+        throw new Error('CANCELLED');
+      }
+    };
 
   // --- Chrome Configuration ---
   const options = new chrome.Options();
@@ -611,7 +729,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           log(`⚠️  Parent focus failed: ${e.message}`);
         }
         
-        await sleep(3000); // Give more time for window to appear and come to front
+        await sleepWithCancellation(3000); // Give more time for window to appear and come to front
         log('👀 ============================================================');
         log('👀 BROWSER WINDOW SHOULD NOW BE VISIBLE!');
         log('👀 If you don\'t see it:');
@@ -627,7 +745,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       await driver.get('https://beta.bizpal-perle.ca/en');
       log('⏳ Waiting for page to load...');
     await driver.wait(until.elementLocated(By.css('input')), 20000);
-      await sleep(5000); // Increased wait to see what's happening
+      await sleepWithCancellation(5000); // Increased wait to see what's happening
       const pageTitle = await driver.getTitle();
       log(`📄 Page title: ${pageTitle}`);
     await screenshot(driver, '01-home');
@@ -838,7 +956,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       // Type the business type
       log('   ⌨️  Typing business type...');
       await typeLikeHuman(busInput, businessType, 150);
-      await sleep(3000); // Wait longer for autocomplete dropdown to appear
+      await sleepWithCancellation(3000); // Wait longer for autocomplete dropdown to appear
       
       // Re-verify we're still on business type field before selecting dropdown
       log(`   📌 Verifying business input ID: "${busInputId}", placeholder: "${busInputPlaceholder}"`);
@@ -984,7 +1102,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             log(`   ⚠️  Location field value corrupted: "${locValueCheck}" - restoring...`);
             await nextActiveElement.clear();
             await typeLikeHuman(nextActiveElement, location, 150);
-            await sleep(2000);
+            await sleepWithCancellation(2000);
             await nextActiveElement.sendKeys(Key.ENTER);
             await sleep(1500);
           }
@@ -1156,7 +1274,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         log('   ℹ️  No permit keywords provided, submitting form...');
         const activeElement = await driver.switchTo().activeElement();
         await activeElement.sendKeys(Key.TAB);
-        await sleep(800);
+        await sleepWithCancellation(800);
         
         // Try to find and click submit button
         let submitted = false;
@@ -1173,7 +1291,17 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         }
       }
       
-      await sleep(3000); // Wait for form submission and page navigation
+      // Check before long wait
+      if (requestId && await checkCancellation()) {
+        return await throwCancellation();
+      }
+      
+      await sleepWithCancellation(3000); // Wait for form submission and page navigation
+      
+      // Check after wait
+      if (requestId && await checkCancellation()) {
+        return await throwCancellation();
+      }
 
       // STEP 4: WAIT FOR RESULTS AND ENSURE THEY ARE VISIBLE
       log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1183,6 +1311,12 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       
       // Wait for results container to appear
       log('   ⏳ Waiting for results container...');
+      
+      // Check before long wait
+      if (requestId && await checkCancellation()) {
+        return await throwCancellation();
+      }
+      
       let resultsContainer;
       try {
         // Wait longer and try multiple selectors for AG Grid
@@ -1190,16 +1324,26 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           until.elementLocated(By.css('.ag-center-cols-container, .ag-row, .ag-row[role="row"], [role="rowgroup"], .results-list, [class*="result"], [id*="result"]')),
           45000 // Increased timeout to 45 seconds
         );
+        
+        // Check after wait
+        if (requestId && await checkCancellation()) {
+          return await throwCancellation();
+        }
         log('   ✅ Results container found');
         
         // Additional wait for rows to appear
-        await sleep(2000);
+        await sleepWithCancellation(2000);
         const initialRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .ag-row[role="row"]'));
         log(`   📊 Found ${initialRows.length} initial result rows`);
         
         if (initialRows.length === 0) {
           log('   ⏳ No rows yet, waiting longer...');
-    await sleep(3000); 
+          
+          // Check before long wait
+          if (requestId && await checkCancellation()) {
+            return await throwCancellation();
+          }
+    await sleepWithCancellation(3000); 
           const retryRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .ag-row[role="row"]'));
           log(`   📊 After retry: ${retryRows.length} rows found`);
         }
@@ -1242,7 +1386,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       }
 
       // Wait a bit more for content to load
-    await sleep(3000); 
+    await sleepWithCancellation(3000); 
       
       // Check if there are any result rows
       const initialRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .results-list .result-item, [class*="result"] [class*="row"]'));
@@ -1250,7 +1394,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       
       if (initialRows.length === 0) {
         log('   ⚠️  WARNING: No result rows found initially, waiting longer...');
-        await sleep(5000);
+          await sleepWithCancellation(5000);
         const retryRows = await driver.findElements(By.css('.ag-center-cols-container .ag-row, .results-list .result-item'));
         log(`   📊 Retry result rows found: ${retryRows.length}`);
       }
@@ -1270,6 +1414,11 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       let allResultsFetched = false;
 
       while (stableCount < maxStable) {
+        // Check for cancellation in scrolling loop
+        if (requestId && await checkCancellation()) {
+          return await throwCancellation();
+        }
+        
     const rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
         
         if (rows.length === lastCount) {
@@ -1295,7 +1444,17 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           }
         }
 
-        await sleep(800);
+        // Check before sleep
+        if (requestId && await checkCancellation()) {
+          return await throwCancellation();
+        }
+        
+        await sleepWithCancellation(800);
+      }
+
+      // Check before final row collection
+      if (requestId && await checkCancellation()) {
+        return await throwCancellation();
       }
 
       // Final check - get all rows
@@ -1354,6 +1513,32 @@ async function typeLikeHuman(element, text = '', delay = 100) {
     const extractedPermitNames = new Set();
     
       for (let i = 0; i < rows.length; i++) {
+        // Check for cancellation before each permit extraction
+        if (requestId) {
+          try {
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+            const cancelUrl = `${baseUrl}/api/bizpal/cancel?requestId=${encodeURIComponent(requestId)}`;
+            const response = await fetch(cancelUrl);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.cancelled === true) {
+                log(`\n🛑 CANCELLATION DETECTED - Stopping extraction`);
+                log(`   ✅ ${permits.length} permits extracted so far will be saved`);
+                // Close browser and return permits extracted so far
+                try {
+                  await driver.quit();
+                  log('   ✅ Browser closed');
+                } catch (quitErr) {
+                  log(`   ⚠️  Error closing browser: ${quitErr.message}`);
+                }
+                return permits; // Return permits extracted so far
+              }
+            }
+          } catch (cancelCheckErr) {
+            // If check fails, continue (don't stop on network errors)
+            log(`   ⚠️  Could not check cancellation status: ${cancelCheckErr.message}`);
+          }
+        }
         const row = rows[i];
         log(`\n📋 Extracting permit ${i + 1}/${rows.length}...`);
         
@@ -1976,7 +2161,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
         try {
           // Navigate back to home page
           await driver.get('https://beta.bizpal-perle.ca/en');
-          await sleep(3000);
+          await sleepWithCancellation(3000);
           await driver.wait(until.elementLocated(By.css('input')), 20000);
           log('   ✅ Navigated back to home page');
         } catch (e) {
@@ -2240,7 +2425,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       await busInput2.clear();
       await sleep(500);
       await typeLikeHuman(busInput2, businessType, 150);
-      await sleep(3000); // Wait for dropdown to appear
+      await sleepWithCancellation(3000); // Wait for dropdown to appear
       
       // Ensure dropdown is expanded
       try {
@@ -2265,6 +2450,33 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       let currentBusInput = busInput2; // Keep reference to current business input
       
       for (let optionIndex = 1; optionIndex < dropdownOptions.length; optionIndex++) {
+        // Check for cancellation before processing each dropdown option
+        if (requestId) {
+          try {
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+            const cancelUrl = `${baseUrl}/api/bizpal/cancel?requestId=${encodeURIComponent(requestId)}`;
+            const response = await fetch(cancelUrl);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.cancelled === true) {
+                log(`\n🛑 CANCELLATION DETECTED - Stopping dropdown option iteration`);
+                log(`   ✅ ${permits.length} permits extracted so far will be saved`);
+                // Close browser and return permits extracted so far
+                try {
+                  await driver.quit();
+                  log('   ✅ Browser closed');
+                } catch (quitErr) {
+                  log(`   ⚠️  Error closing browser: ${quitErr.message}`);
+                }
+                return permits; // Return permits extracted so far
+              }
+            }
+          } catch (cancelCheckErr) {
+            // If check fails, continue (don't stop on network errors)
+            log(`   ⚠️  Could not check cancellation status: ${cancelCheckErr.message}`);
+          }
+        }
+        
         const option = dropdownOptions[optionIndex];
         log(`\n   🔄 Processing dropdown option ${optionIndex + 1}/${dropdownOptions.length}: "${option.text.substring(0, 60)}..."`);
         
@@ -2311,7 +2523,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             await locInputRetry.clear();
             await sleep(500);
             await typeLikeHuman(locInputRetry, location, 150);
-            await sleep(2000);
+            await sleepWithCancellation(2000);
             await locInputRetry.sendKeys(Key.ENTER);
             await sleep(1500);
             await locInputRetry.sendKeys(Key.TAB);
@@ -2438,7 +2650,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             
             // Type the business type
             await typeLikeHuman(currentBusInput, businessType, 150);
-            await sleep(2000);
+            await sleepWithCancellation(2000);
             
             // Verify the value was set
             const typedValue = await currentBusInput.getAttribute('value');
@@ -2447,7 +2659,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
               await currentBusInput.clear();
               await sleep(300);
               await typeLikeHuman(currentBusInput, businessType, 150);
-              await sleep(2000);
+              await sleepWithCancellation(2000);
             }
             
             log(`   ✅ Business type entered: "${typedValue || businessType}"`);
@@ -2545,7 +2757,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             }
             
             await typeLikeHuman(currentBusInput, businessType, 150);
-            await sleep(2000);
+            await sleepWithCancellation(2000);
             
             // Verify value was set
             const typedValue = await currentBusInput.getAttribute('value');
@@ -2554,7 +2766,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
               await currentBusInput.clear();
               await sleep(300);
               await typeLikeHuman(currentBusInput, businessType, 150);
-              await sleep(2000);
+              await sleepWithCancellation(2000);
             }
             
             // Refresh dropdown options
@@ -2623,7 +2835,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
                 if (!currentValue || currentValue.trim().length === 0) {
                   await currentBusInput.clear();
                   await typeLikeHuman(currentBusInput, businessType, 100);
-                  await sleep(2000);
+                  await sleepWithCancellation(2000);
                 }
                 
                 // Navigate to the option using arrow keys
@@ -2642,7 +2854,18 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             }
           }
           
+          // Check before sleep
+          if (requestId && await checkCancellation()) {
+            return await throwCancellation();
+          }
+          
           await sleep(2000);
+          
+          // Check after sleep
+          if (requestId && await checkCancellation()) {
+            return await throwCancellation();
+          }
+          
           if (optionSelected) {
             log(`   ✅ Selected dropdown option ${optionIndex + 1}: "${option.text.substring(0, 50)}..."`);
           } else {
@@ -2651,13 +2874,24 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           
           // Press Tab to move to next field
           await currentBusInput.sendKeys(Key.TAB);
-          await sleep(1200);
+          
+          // Check before sleep
+          if (requestId && await checkCancellation()) {
+            return await throwCancellation();
+          }
+          
+          await sleepWithCancellation(1200);
           
           // Handle permit keywords field if provided
           if (permitKeywords) {
+            // Check before handling permit keywords
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
             const permitInput2 = await driver.switchTo().activeElement();
             await permitInput2.click();
-            await sleep(1000);
+            await sleepWithCancellation(1000);
             await permitInput2.clear();
             await sleep(500);
             
@@ -2666,7 +2900,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             if (copied) {
               const modifier = process.platform === 'darwin' ? Key.COMMAND : Key.CONTROL;
               await permitInput2.sendKeys(modifier, 'v');
-              await sleep(1500);
+              await sleepWithCancellation(1500);
             } else {
               await driver.executeScript(`
                 arguments[0].value = arguments[1];
@@ -2676,8 +2910,13 @@ async function typeLikeHuman(element, text = '', delay = 100) {
               await sleep(300);
             }
             
+            // Check before tab
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
             await permitInput2.sendKeys(Key.TAB);
-            await sleep(1200);
+            await sleepWithCancellation(1200);
           }
           
           // Submit the form
@@ -2700,20 +2939,42 @@ async function typeLikeHuman(element, text = '', delay = 100) {
               log(`   ⚠️  Could not submit form: ${e.message}`);
             }
           }
-          await sleep(3000);
+          await sleepWithCancellation(3000);
           
           // Wait for results
           try {
+            // Check before long wait
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
             await driver.wait(
               until.elementLocated(By.css('.ag-center-cols-container .ag-row, .ag-row[role="row"], [role="rowgroup"]')),
               45000 // Increased timeout
             );
-            await sleep(3000);
+            
+            // Check after wait
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
+            await sleepWithCancellation(3000);
+            
+            // Check after sleep
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
             log('   ✅ Results page loaded');
           } catch (e) {
+            // If it's a cancellation error, re-throw it
+            if (e.message === 'CANCELLED') {
+              return await throwCancellation();
+            }
+            
             log(`   ⚠️  Results wait timeout: ${e.message}`);
             // Try to continue anyway - maybe results are there but selector is different
-            await sleep(2000);
+            await sleepWithCancellation(2000);
           }
           
           // Scroll to load all results
@@ -2721,6 +2982,11 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           let stableCount = 0;
           let rows = [];
           for (let attempt = 0; attempt < 20; attempt++) {
+            // Check for cancellation in scrolling loop
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
             rows = await driver.findElements(By.css('.ag-center-cols-container .ag-row'));
             if (rows.length === lastRowCount) {
               stableCount++;
@@ -2732,7 +2998,13 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             if (rows.length > 0) {
               await driver.executeScript('arguments[0].scrollIntoView({ block: "end", behavior: "smooth" });', rows[rows.length - 1]);
             }
-            await sleep(800);
+            
+            // Check before sleep
+            if (requestId && await checkCancellation()) {
+              return await throwCancellation();
+            }
+            
+            await sleep(800, requestId, checkCancellation);
           }
           
           // Extract permits from this search (use the same comprehensive extraction as first search)
@@ -2746,6 +3018,33 @@ async function typeLikeHuman(element, text = '', delay = 100) {
           
           // Use the same extraction logic as the first search (lines 980-1614)
           for (let i = 0; i < rows.length; i++) {
+            // Check for cancellation before each permit extraction
+            if (requestId) {
+              try {
+                const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+                const cancelUrl = `${baseUrl}/api/bizpal/cancel?requestId=${encodeURIComponent(requestId)}`;
+                const response = await fetch(cancelUrl);
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data.cancelled === true) {
+                    log(`\n🛑 CANCELLATION DETECTED - Stopping extraction`);
+                    log(`   ✅ ${permits.length} permits extracted so far will be saved`);
+                    // Close browser and return permits extracted so far
+                    try {
+                      await driver.quit();
+                      log('   ✅ Browser closed');
+                    } catch (quitErr) {
+                      log(`   ⚠️  Error closing browser: ${quitErr.message}`);
+                    }
+                    return permits; // Return permits extracted so far
+                  }
+                }
+              } catch (cancelCheckErr) {
+                // If check fails, continue (don't stop on network errors)
+                log(`   ⚠️  Could not check cancellation status: ${cancelCheckErr.message}`);
+              }
+            }
+            
             const row = rows[i];
             log(`   📋 Extracting permit ${i + 1}/${rows.length} from option ${optionIndex + 1}...`);
             
@@ -3129,7 +3428,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             await locInput3.clear();
             await sleep(500);
             await typeLikeHuman(locInput3, location, 150);
-            await sleep(2000);
+            await sleepWithCancellation(2000);
             await locInput3.sendKeys(Key.ENTER);
             await sleep(1500);
             await locInput3.sendKeys(Key.TAB);
@@ -3192,7 +3491,7 @@ async function typeLikeHuman(element, text = '', delay = 100) {
             await currentBusInput.clear();
             await sleep(500);
             await typeLikeHuman(currentBusInput, businessType, 150);
-            await sleep(3000);
+            await sleepWithCancellation(3000);
             
             // Verify business type value was set correctly
             const busValueCheck = await currentBusInput.getAttribute('value');
@@ -3316,9 +3615,29 @@ async function typeLikeHuman(element, text = '', delay = 100) {
       throw new Error(`BizPaL Worker Error: ${errorMessage}. Check logs and screenshots in /public/debug/ folder.`);
   } finally {
     if (driver) {
-      // Keep browser open for 10 seconds so you can see the final results
-      log('⏸️  Keeping browser open for 10 seconds so you can see the results...');
-      await sleep(10000);
+      // Check if cancelled - if so, close immediately without waiting
+      let wasCancelled = false;
+      if (requestId) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+          const cancelUrl = `${baseUrl}/api/bizpal/cancel?requestId=${encodeURIComponent(requestId)}`;
+          const response = await fetch(cancelUrl);
+          if (response.ok) {
+            const data = await response.json();
+            wasCancelled = data.cancelled === true;
+          }
+        } catch (err) {
+          // Ignore errors checking cancellation
+        }
+      }
+      
+      if (!wasCancelled) {
+        // Keep browser open for 10 seconds so you can see the final results (only if not cancelled)
+        log('⏸️  Keeping browser open for 10 seconds so you can see the results...');
+        await sleep(10000);
+      } else {
+        log('🛑 Operation was cancelled, closing browser immediately...');
+      }
       
       await driver.quit();
       log('🧹 Driver closed');
