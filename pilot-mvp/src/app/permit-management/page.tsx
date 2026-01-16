@@ -76,9 +76,9 @@ export default function PermitManagementPage() {
   }, []);
 
   // Extract unique values for filters
-  const categories = Array.from(new Set(permits.map((p) => p.category).filter(Boolean)));
+  const categories = Array.from(new Set(permits.map((p) => p.category).filter((c): c is string => Boolean(c))));
   const complexities = ['High', 'Medium', 'Low'] as const;
-  const authorities = Array.from(new Set(permits.map((p) => p.authority).filter(Boolean)));
+  const authorities = Array.from(new Set(permits.map((p) => p.authority).filter((a): a is string => Boolean(a))));
 
   // Filter permits based on search and filters
   const filteredPermits = permits.filter((p) => {
