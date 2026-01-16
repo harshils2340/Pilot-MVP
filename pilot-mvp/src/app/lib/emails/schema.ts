@@ -2,6 +2,7 @@ import mongoose, { Document, Schema, Model } from "mongoose";
 
 // TypeScript interface for a Permit Email
 export interface IPermitEmail extends Document {
+  gmailId?: string; // Gmail message ID for deduplication
   permitId?: string; // Reference to permit (optional)
   permitName?: string; // Optional
   clientId?: string;
@@ -33,12 +34,15 @@ export interface IPermitEmail extends Document {
   metadata?: {
     messageId?: string;
     headers?: Record<string, string>;
+    labels?: string[];
+    snippet?: string;
   };
 }
 
 // Mongoose schema
 const PermitEmailSchema: Schema<IPermitEmail> = new Schema(
   {
+    gmailId: { type: String, required: false, unique: true, sparse: true, index: true },
     permitId: { type: String, required: false, index: true },
     permitName: { type: String, required: false },
     clientId: { type: String, required: false, index: true },
@@ -69,7 +73,9 @@ const PermitEmailSchema: Schema<IPermitEmail> = new Schema(
     inReplyTo: { type: String, required: false },
     metadata: {
       messageId: String,
-      headers: Schema.Types.Mixed
+      headers: Schema.Types.Mixed,
+      labels: [String],
+      snippet: String
     }
   },
   { timestamps: true }
