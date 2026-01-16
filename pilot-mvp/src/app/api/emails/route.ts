@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     // When test=true, show all emails
     if (!EMAIL_TEST_MODE) {
       query.direction = 'inbound';
-      query.clientName = { $exists: true, $ne: null, $ne: '' };
+      query.clientName = { $exists: true, $ne: null, $nin: ['', null] };
     }
 
     // Fetch emails sorted by most recent first

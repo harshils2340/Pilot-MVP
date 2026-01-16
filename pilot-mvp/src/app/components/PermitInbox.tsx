@@ -248,7 +248,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
   // Filter emails
   const filteredEmails = emails.filter((email) => {
     const matchesSearch =
-      email.permitName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      email.permitName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.clientName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -706,8 +706,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                       to: selectedEmail.from.email,
                       subject: `Re: ${selectedEmail.subject}`,
                       body: `\n\n--- Original Message ---\n${selectedEmail.body}`,
-                      permitId: selectedEmail.permitId,
-                      permitName: selectedEmail.permitName
+                      permitId: selectedEmail.permitId || '',
+                      permitName: selectedEmail.permitName || ''
                     });
                     setSelectedEmail(null);
                     setShowEmailComposer(true);
