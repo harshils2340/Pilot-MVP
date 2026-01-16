@@ -92,22 +92,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const userId = body.userId || 'default-user';
-    const allowedSenders: string[] = body.allowedSenders || []; // Array of sender emails to monitor
+    const allowedSenders: string[] = body.allowedSenders || []; // Array of sender emails to monitor (empty = all senders)
     const maxResults = body.maxResults || 50;
-
-    if (allowedSenders.length === 0) {
-      return NextResponse.json(
-        { error: 'allowedSenders array is required' },
-        { status: 400 }
-      );
-    }
 
     await connectToDB();
     const gmail = await getGmailClient(userId);
 
-    // Build query for allowed senders
-    const senderQuery = allowedSenders.map((s: string) => `from:${s}`).join(' OR ');
-    const gmailQuery = `is:unread (${senderQuery})`;
+    // Build query - if allowedSenders is empty, sync all unread emails
+    // Otherwise, only sync emails from allowed senders
+    let gmailQuery = 'is:unread';
+    if (allowedSenders.length > 0) {
+      const senderQuery = allowedSenders.map((s: string) => `from:${s}`).join(' OR ');
+      gmailQuery = `is:unread (${senderQuery})`;
+    }
 
     // List messages
     const response = await gmail.users.messages.list({
@@ -147,8 +144,8 @@ export async function POST(request: NextRequest) {
         const fromEmail = headers.from?.match(/<(.+)>/)?.[1] || headers.from || '';
         const fromName = headers.from?.replace(/<.+>/, '').trim() || '';
 
-        // Verify sender is in allowed list
-        if (!allowedSenders.some((sender: string) => fromEmail.includes(sender))) {
+        // Verify sender is in allowed list (if allowedSenders is specified)
+        if (allowedSenders.length > 0 && !allowedSenders.some((sender: string) => fromEmail.includes(sender))) {
           continue;
         }
 
