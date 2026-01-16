@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://pilot-mvp.vercel.app/api/auth/google/callback';
+    // Use the request origin to support both localhost and production
+    const origin = request.nextUrl.origin;
+    const redirectUri = `${origin}/api/auth/google/callback`;
 
     if (!clientId || !clientSecret) {
       return NextResponse.redirect(
