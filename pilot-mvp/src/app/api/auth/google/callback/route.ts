@@ -62,24 +62,19 @@ export async function GET(request: NextRequest) {
     // Store tokens in database
     await connectToDB();
     
-    // Get userId from session/cookie or use email from OAuth
-    // For now, we'll use the email from the token info, or create a session-based ID
-    // In production, you'd get this from your auth system
-    let userId = 'default-user';
+    // Get user info from Google
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
     
-    // Try to get user email from token info
-    try {
-      const tokenInfo = await oauth2Client.getTokenInfo(tokens.access_token!);
-      if (tokenInfo.email) {
-        userId = tokenInfo.email;
-      }
-    } catch (e) {
-      console.log('Could not get user email from token, using default');
+    const userEmail = userInfo.data.email || '';
+    const userName = userInfo.data.name || userEmail;
+    const userId = userEmail || 'default-user';
+    
+    if (!userEmail) {
+      return NextResponse.redirect(
+        new URL('/?error=no_email', request.url)
+      );
     }
-    
-    // Alternative: Get from cookie/session if you have user auth
-    // const session = await getSession(request);
-    // userId = session?.user?.email || session?.user?.id || 'default-user';
     
     await GmailToken.findOneAndUpdate(
       { userId },
@@ -97,10 +92,23 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Gmail OAuth tokens stored successfully');
 
-    // Redirect to dashboard with success message
-    return NextResponse.redirect(
-      new URL('/?gmail=connected', request.url)
-    );
+    // Trigger initial email sync in background (don't wait for it)
+    fetch(`${request.nextUrl.origin}/api/gmail/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        allowedSenders: [], // Will sync all unread emails initially
+        maxResults: 50,
+      }),
+    }).catch(err => console.error('Background sync error:', err));
+
+    // Redirect to dashboard with user info in URL (will be stored in localStorage on frontend)
+    const redirectUrl = new URL('/', request.url);
+    redirectUrl.searchParams.set('auth', 'success');
+    redirectUrl.searchParams.set('email', userEmail);
+    redirectUrl.searchParams.set('name', encodeURIComponent(userName));
+    return NextResponse.redirect(redirectUrl);
   } catch (error: any) {
     console.error('Error in OAuth callback:', error);
     return NextResponse.redirect(

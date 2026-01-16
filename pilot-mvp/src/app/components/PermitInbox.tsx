@@ -135,6 +135,27 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         const config = await configRes.json();
         setTestMode(config.test || false);
         
+        // Get user email from localStorage
+        const userEmail = localStorage.getItem('userEmail');
+        
+        // If user is logged in, trigger email sync
+        if (userEmail) {
+          try {
+            // Sync emails from Gmail in background
+            await fetch('/api/gmail/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: userEmail,
+                allowedSenders: [], // Sync all unread emails initially
+                maxResults: 50,
+              }),
+            });
+          } catch (syncError) {
+            console.log('Gmail sync not available or not connected:', syncError);
+          }
+        }
+        
         // Always fetch emails (for both test=true and test=false)
         // When test=false, we'll show them in card format
         // When test=true, we'll show them in email format
@@ -150,13 +171,33 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     
     fetchData();
     
-    // Refresh emails every 30 seconds
-    const interval = setInterval(() => {
+    // Refresh emails every 30 seconds and sync new emails
+    const interval = setInterval(async () => {
+      const userEmail = localStorage.getItem('userEmail');
+      
+      // Sync new emails if user is logged in
+      if (userEmail) {
+        try {
+          await fetch('/api/gmail/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userEmail,
+              allowedSenders: [],
+              maxResults: 20, // Only sync recent emails on refresh
+            }),
+          });
+        } catch (syncError) {
+          // Silently fail if Gmail not connected
+        }
+      }
+      
+      // Refresh email list
       fetch('/api/emails?status=all&limit=100')
         .then(res => res.json())
         .then(data => setEmails(data.emails || []))
         .catch(err => console.error('Error refreshing emails:', err));
-    }, 30000);
+    }, 30000); // Every 30 seconds
     
     return () => clearInterval(interval);
   }, []);

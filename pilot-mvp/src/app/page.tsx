@@ -30,13 +30,38 @@ export default function App() {
   const [isClient, setIsClient] = useState(false);
   const [showClientOnboarding, setShowClientOnboarding] = useState(false);
 
-  // Load auth state from localStorage on mount (client-side only)
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  // Load auth state from localStorage and URL params on mount
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== 'undefined') {
-      const authStatus = localStorage.getItem('isAuthenticated');
-      if (authStatus === 'true') {
-        setIsAuthenticated(true);
+      // Check URL params for OAuth callback
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('auth') === 'success') {
+        const email = params.get('email');
+        const name = params.get('name');
+        if (email) {
+          setUserEmail(email);
+          setUserName(name ? decodeURIComponent(name) : email);
+          setIsAuthenticated(true);
+          localStorage.setItem('isAuthenticated', 'true');
+          localStorage.setItem('userEmail', email);
+          localStorage.setItem('userName', name ? decodeURIComponent(name) : email);
+          // Clean up URL
+          window.history.replaceState({}, '', '/');
+        }
+      } else {
+        // Check localStorage for existing session
+        const authStatus = localStorage.getItem('isAuthenticated');
+        const storedEmail = localStorage.getItem('userEmail');
+        const storedName = localStorage.getItem('userName');
+        if (authStatus === 'true' && storedEmail) {
+          setIsAuthenticated(true);
+          setUserEmail(storedEmail);
+          setUserName(storedName);
+        }
       }
     }
   }, []);
@@ -46,17 +71,30 @@ export default function App() {
     { id: 'discovery' as ClientScreen, label: 'Permit Discovery', icon: Search },
   ];
 
-  const handleSignIn = () => {
+  const handleSignIn = (email: string, name: string) => {
     setIsAuthenticated(true);
+    setUserEmail(email);
+    setUserName(name);
     if (typeof window !== 'undefined') {
       localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userEmail', email);
+      localStorage.setItem('userName', name);
     }
   };
 
   const handleSignUp = () => {
-    setIsAuthenticated(true);
+    // Sign up also uses Google OAuth
+    handleSignIn('', '');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUserEmail(null);
+    setUserName(null);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userName');
     }
   };
 
@@ -158,11 +196,11 @@ export default function App() {
           <div className="p-4 border-t border-neutral-200">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-                JD
+                {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900">John Doe</p>
-                <p className="text-xs text-neutral-500">Consultant</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
+                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
               </div>
             </div>
           </div>
@@ -229,11 +267,11 @@ export default function App() {
           <div className="p-4 border-t border-neutral-200">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-                JD
+                {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900">John Doe</p>
-                <p className="text-xs text-neutral-500">Consultant</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
+                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
               </div>
             </div>
           </div>
@@ -329,15 +367,21 @@ export default function App() {
           </nav>
 
           <div className="p-4 border-t border-neutral-200">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-3">
               <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-                JD
+                {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900">John Doe</p>
-                <p className="text-xs text-neutral-500">Consultant</p>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
+                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="w-full px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+            >
+              Sign out
+            </button>
           </div>
         </aside>
 
@@ -411,15 +455,21 @@ export default function App() {
         </nav>
 
         <div className="p-4 border-t border-neutral-200">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-              JD
+              {userName ? userName.charAt(0).toUpperCase() : 'U'}
             </div>
-            <div>
-              <p className="text-sm font-medium text-neutral-900">John Doe</p>
-              <p className="text-xs text-neutral-500">Consultant</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
+              <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
