@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     // List messages
     const response = await gmail.users.messages.list({
       userId: 'me',
-      q: query,
+      q: gmailQuery,
       maxResults,
     });
 
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
     // List messages
     const response = await gmail.users.messages.list({
       userId: 'me',
-      q: query,
+      q: gmailQuery,
       maxResults,
     });
 
