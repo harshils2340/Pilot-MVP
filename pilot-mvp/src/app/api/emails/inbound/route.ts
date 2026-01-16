@@ -7,7 +7,7 @@ import { Permit } from '@/app/lib/permits/schema';
 const EMAIL_TEST_MODE = process.env.EMAIL_TEST_MODE === 'true' || false;
 
 // POST: Webhook endpoint for receiving emails from Mailgun
-// Mailgun sends form-data, not JSON
+// Mailgun sends form-data (application/x-www-form-urlencoded)
 // This endpoint works regardless of test mode - emails should always be received
 
 // Vercel runtime configuration

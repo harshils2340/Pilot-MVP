@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDB from '@/app/lib/mongodb';
 import { PermitEmail } from '@/app/lib/emails/schema';
+import { Permit } from '@/app/lib/permits/schema';
 
 // Backend configuration for test mode
 const EMAIL_TEST_MODE = process.env.EMAIL_TEST_MODE === 'true' || false;
@@ -22,6 +23,13 @@ export async function GET(request: NextRequest) {
     if (permitId) query.permitId = permitId;
     if (clientId) query.clientId = clientId;
     if (status && status !== 'all') query.status = status;
+    
+    // When test=false, only show client emails (inbound with clientName)
+    // When test=true, show all emails
+    if (!EMAIL_TEST_MODE) {
+      query.direction = 'inbound';
+      query.clientName = { $exists: true, $ne: null, $ne: '' };
+    }
 
     // Fetch emails sorted by most recent first
     const emails = await PermitEmail.find(query)
@@ -30,11 +38,29 @@ export async function GET(request: NextRequest) {
       .skip(skip)
       .lean();
 
+    // Fetch permit details for emails that have permitId
+    const permitIds = [...new Set(emails.map((e: any) => e.permitId).filter(Boolean))];
+    const permits = await Permit.find({ _id: { $in: permitIds } }).lean();
+    const permitMap = new Map(permits.map((p: any) => [p._id.toString(), p]));
+
+    // Enrich emails with permit details
+    const enrichedEmails = emails.map((email: any) => {
+      const permit = email.permitId ? permitMap.get(email.permitId) : null;
+      return {
+        ...email,
+        permitDetails: permit ? {
+          authority: permit.authority,
+          municipality: permit.jurisdiction?.city || permit.contactInfo?.municipality || 'Unknown',
+          jurisdiction: permit.jurisdiction
+        } : null
+      };
+    });
+
     // Get unread count
     const unreadCount = await PermitEmail.countDocuments({ ...query, status: 'unread' });
 
     return NextResponse.json({
-      emails,
+      emails: enrichedEmails,
       unreadCount,
       total: emails.length,
       test: EMAIL_TEST_MODE

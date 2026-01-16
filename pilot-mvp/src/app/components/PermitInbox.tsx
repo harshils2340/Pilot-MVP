@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 
 interface PermitEmail {
   _id: string;
-  permitId: string;
-  permitName: string;
+  permitId?: string;
+  permitName?: string;
   clientId?: string;
   clientName?: string;
   subject: string;
@@ -31,6 +31,15 @@ interface PermitEmail {
   sentAt?: string;
   threadId?: string;
   inReplyTo?: string;
+  permitDetails?: {
+    authority?: string;
+    municipality?: string;
+    jurisdiction?: {
+      city?: string;
+      province?: string;
+      country?: string;
+    };
+  };
 }
 
 interface PermitInboxItem {
@@ -123,12 +132,12 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         const config = await configRes.json();
         setTestMode(config.test || false);
         
-        // If test mode is enabled, fetch emails
-        if (config.test) {
-          const emailsRes = await fetch('/api/emails?status=all&limit=100');
-          const emailsData = await emailsRes.json();
-          setEmails(emailsData.emails || []);
-        }
+        // Always fetch emails (for both test=true and test=false)
+        // When test=false, we'll show them in card format
+        // When test=true, we'll show them in email format
+        const emailsRes = await fetch('/api/emails?status=all&limit=100');
+        const emailsData = await emailsRes.json();
+        setEmails(emailsData.emails || []);
       } catch (error) {
         console.error('Error fetching inbox data:', error);
       } finally {
@@ -138,18 +147,16 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     
     fetchData();
     
-    // Refresh emails every 30 seconds if in test mode
+    // Refresh emails every 30 seconds
     const interval = setInterval(() => {
-      if (testMode) {
-        fetch('/api/emails?status=all&limit=100')
-          .then(res => res.json())
-          .then(data => setEmails(data.emails || []))
-          .catch(err => console.error('Error refreshing emails:', err));
-      }
+      fetch('/api/emails?status=all&limit=100')
+        .then(res => res.json())
+        .then(data => setEmails(data.emails || []))
+        .catch(err => console.error('Error refreshing emails:', err));
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [testMode]);
+  }, []);
 
   const getPriorityColor = (priority: 'high' | 'medium' | 'low') => {
     switch (priority) {
@@ -177,6 +184,13 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
+  };
+
+  const calculateDaysWaiting = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   };
 
   const handleMarkAsRead = async (emailId: string) => {
@@ -287,7 +301,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
       <div className="bg-white border-b border-neutral-200 px-8 py-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-neutral-900 mb-1">Permit Inbox</h1>
+          <h1 className="text-neutral-900 mb-1">Permit Inbox</h1>
             <p className="text-neutral-600">
               {testMode 
                 ? 'Email messages for permits' 
@@ -389,30 +403,32 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-6">
-            <div>
-              <p className="text-xs text-neutral-500 mb-1">Total Action Required</p>
-              <p className="text-2xl font-semibold text-neutral-900">{mockInboxItems.length}</p>
-            </div>
-            <div>
-              <p className="text-xs text-neutral-500 mb-1">High Priority</p>
-              <p className="text-2xl font-semibold text-red-600">
-                {mockInboxItems.filter(i => i.priority === 'high').length}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-neutral-500 mb-1">Average Wait Time</p>
-              <p className="text-2xl font-semibold text-neutral-900">
-                {Math.round(mockInboxItems.reduce((sum, item) => sum + item.daysWaiting, 0) / mockInboxItems.length)} days
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-neutral-500 mb-1">Clients Affected</p>
-              <p className="text-2xl font-semibold text-neutral-900">
-                {new Set(mockInboxItems.map(i => i.clientName)).size}
-              </p>
-            </div>
+        <div className="grid grid-cols-4 gap-6">
+          <div>
+            <p className="text-xs text-neutral-500 mb-1">Total Action Required</p>
+              <p className="text-2xl font-semibold text-neutral-900">{sortedEmails.length}</p>
           </div>
+          <div>
+            <p className="text-xs text-neutral-500 mb-1">High Priority</p>
+            <p className="text-2xl font-semibold text-red-600">
+                {sortedEmails.filter(e => e.priority === 'high').length}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-500 mb-1">Average Wait Time</p>
+            <p className="text-2xl font-semibold text-neutral-900">
+                {sortedEmails.length > 0 
+                  ? Math.round(sortedEmails.reduce((sum, email) => sum + calculateDaysWaiting(email.receivedAt), 0) / sortedEmails.length)
+                  : 0} days
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-500 mb-1">Clients Affected</p>
+            <p className="text-2xl font-semibold text-neutral-900">
+                {new Set(sortedEmails.map(e => e.clientName).filter(Boolean)).size}
+            </p>
+          </div>
+        </div>
         )}
       </div>
 
@@ -556,64 +572,80 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               )}
             </>
           ) : (
-            // City Feedback Mode
+            // City Feedback Mode - Show client emails in card format
             <>
-              {sortedItems.length === 0 ? (
-                <div className="bg-white rounded-lg border border-neutral-200 p-12 text-center">
-                  <AlertCircle className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
-                  <h3 className="font-medium text-neutral-900 mb-2">No permits requiring action</h3>
-                  <p className="text-neutral-600">All permits are either approved or awaiting city response.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sortedItems.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => onSelectPermit(item.id, item.clientName)}
-                      className="bg-white rounded-lg border border-neutral-200 p-6 hover:border-neutral-300 hover:shadow-md cursor-pointer transition-all"
-                    >
-                      <div className="flex items-start gap-6">
-                        <div className="flex-shrink-0">
-                          <AlertCircle className="w-8 h-8 text-amber-600" />
-                        </div>
+              {sortedEmails.length === 0 ? (
+            <div className="bg-white rounded-lg border border-neutral-200 p-12 text-center">
+              <AlertCircle className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
+              <h3 className="font-medium text-neutral-900 mb-2">No permits requiring action</h3>
+              <p className="text-neutral-600">All permits are either approved or awaiting city response.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+                  {sortedEmails.map((email) => {
+                    const daysWaiting = calculateDaysWaiting(email.receivedAt);
+                    const feedbackDate = new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const authority = email.permitDetails?.authority || 'Unknown Authority';
+                    const municipality = email.permitDetails?.municipality || email.permitDetails?.jurisdiction?.city || 'Unknown';
+                    const summary = email.body.length > 100 ? email.body.substring(0, 100) + '...' : email.body;
+                    
+                    return (
+                      <div
+                        key={email._id}
+                        onClick={() => {
+                          setSelectedEmail(email);
+                          if (email.status === 'unread') {
+                            handleMarkAsRead(email._id);
+                          }
+                          if (email.permitId) {
+                            onSelectPermit(email.permitId, email.clientName || 'Unknown Client');
+                          }
+                        }}
+                  className="bg-white rounded-lg border border-neutral-200 p-6 hover:border-neutral-300 hover:shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-start gap-6">
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="w-8 h-8 text-amber-600" />
+                    </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-medium text-neutral-900 text-lg">
-                                  {item.permitName}
-                                </h3>
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getPriorityColor(item.priority)}`}>
-                                  {item.priority}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
-                                <span className="font-medium">{item.clientName}</span>
-                                <span className="text-neutral-400">•</span>
-                                <span>{item.authority}</span>
-                                <span className="text-neutral-400">•</span>
-                                <span>{item.municipality}</span>
-                              </div>
-                              <p className="text-sm text-neutral-700">{item.summary}</p>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-neutral-400 ml-4 flex-shrink-0" />
-                          </div>
-
-                          <div className="flex items-center gap-4 pt-3 border-t border-neutral-100 text-sm text-neutral-600">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-4 h-4" />
-                              <span>Feedback received {item.feedbackDate}</span>
-                            </div>
-                            <span className="text-neutral-400">•</span>
-                            <span className={item.daysWaiting > 10 ? 'text-red-600 font-medium' : ''}>
-                              Waiting {item.daysWaiting} days
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-neutral-900 text-lg">
+                                    {email.permitName || email.subject}
+                            </h3>
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getPriorityColor(email.priority)}`}>
+                                    {email.priority}
                             </span>
                           </div>
+                          <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
+                                  <span className="font-medium">{email.clientName || email.from.name || email.from.email}</span>
+                            <span className="text-neutral-400">•</span>
+                                  <span>{authority}</span>
+                            <span className="text-neutral-400">•</span>
+                                  <span>{municipality}</span>
+                          </div>
+                                <p className="text-sm text-neutral-700">{summary}</p>
                         </div>
+                        <ChevronRight className="w-5 h-5 text-neutral-400 ml-4 flex-shrink-0" />
+                      </div>
+
+                      <div className="flex items-center gap-4 pt-3 border-t border-neutral-100 text-sm text-neutral-600">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4" />
+                                <span>Feedback received {feedbackDate}</span>
+                        </div>
+                        <span className="text-neutral-400">•</span>
+                              <span className={daysWaiting > 10 ? 'text-red-600 font-medium' : ''}>
+                                Waiting {daysWaiting} days
+                        </span>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                </div>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -662,8 +694,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                       <div key={idx} className="flex items-center justify-between p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
                         <span className="text-sm text-neutral-700">{att.filename}</span>
                         <span className="text-xs text-neutral-500">{(att.size / 1024).toFixed(1)} KB</span>
-                      </div>
-                    ))}
+                </div>
+              ))}
                   </div>
                 </div>
               )}
@@ -693,8 +725,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               </div>
             </div>
           </div>
-        </div>
-      )}
+            </div>
+          )}
 
       {/* Email Composer Modal */}
       {showEmailComposer && (
@@ -761,8 +793,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               >
                 Send
               </button>
-            </div>
-          </div>
+        </div>
+      </div>
         </div>
       )}
     </div>
