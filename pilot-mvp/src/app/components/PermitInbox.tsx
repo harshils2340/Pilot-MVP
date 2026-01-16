@@ -353,11 +353,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
   // Filter emails
   const filteredEmails = emails.filter((email) => {
     const matchesSearch =
-<<<<<<< HEAD
-      (email.permitName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-=======
       email.permitName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
->>>>>>> b3bcead7c14116cfbfe215192a51c2dd1d491108
       email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.clientName?.toLowerCase().includes(searchQuery.toLowerCase());
