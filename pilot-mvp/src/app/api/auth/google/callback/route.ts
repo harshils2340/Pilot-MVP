@@ -62,8 +62,24 @@ export async function GET(request: NextRequest) {
     // Store tokens in database
     await connectToDB();
     
-    // Use a default userId for now (you can customize this based on your auth system)
-    const userId = 'default-user'; // TODO: Get from session/auth
+    // Get userId from session/cookie or use email from OAuth
+    // For now, we'll use the email from the token info, or create a session-based ID
+    // In production, you'd get this from your auth system
+    let userId = 'default-user';
+    
+    // Try to get user email from token info
+    try {
+      const tokenInfo = await oauth2Client.getTokenInfo(tokens.access_token!);
+      if (tokenInfo.email) {
+        userId = tokenInfo.email;
+      }
+    } catch (e) {
+      console.log('Could not get user email from token, using default');
+    }
+    
+    // Alternative: Get from cookie/session if you have user auth
+    // const session = await getSession(request);
+    // userId = session?.user?.email || session?.user?.id || 'default-user';
     
     await GmailToken.findOneAndUpdate(
       { userId },

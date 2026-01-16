@@ -1,8 +1,8 @@
-import { google } from 'googleapis';
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDB from '@/app/lib/mongodb';
-import mongoose from 'mongoose';
 import { PermitEmail } from '@/app/lib/emails/schema';
+import mongoose from 'mongoose';
+import { google } from 'googleapis';
 
 // Schema for storing OAuth tokens
 const GmailTokenSchema = new mongoose.Schema({
@@ -19,15 +19,13 @@ const GmailTokenSchema = new mongoose.Schema({
 const GmailToken = mongoose.models.GmailToken || mongoose.model('GmailToken', GmailTokenSchema);
 
 // Helper to get authenticated Gmail client
-async function getGmailClient(userId?: string) {
+async function getGmailClient(userId: string) {
   await connectToDB();
   
-  // Use provided userId or default
-  const targetUserId = userId || 'default-user';
-  const tokenDoc = await GmailToken.findOne({ userId: targetUserId });
+  const tokenDoc = await GmailToken.findOne({ userId });
   
   if (!tokenDoc) {
-    throw new Error('Gmail not connected. Please authenticate first.');
+    throw new Error(`Gmail not connected for user: ${userId}`);
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -51,7 +49,6 @@ async function getGmailClient(userId?: string) {
     const { credentials } = await oauth2Client.refreshAccessToken();
     oauth2Client.setCredentials(credentials);
     
-    // Update stored tokens
     await GmailToken.findOneAndUpdate(
       { userId },
       {
@@ -80,122 +77,42 @@ function decodeEmailBody(body: any): string {
   if (!body) return '';
   
   if (body.data) {
-    // Base64 decode
     return Buffer.from(body.data, 'base64').toString('utf-8');
   }
   
   if (body.attachmentId) {
-    // This is an attachment reference, would need separate API call
     return '[Attachment - needs separate fetch]';
   }
   
   return '';
 }
 
-// GET: Read emails from Gmail
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const maxResults = parseInt(searchParams.get('maxResults') || '10');
-    const query = searchParams.get('query') || 'is:unread'; // Default to unread emails
-    const userId = searchParams.get('userId') || undefined; // Optional: filter by user
-    const fromSender = searchParams.get('from'); // Optional: filter by sender email
-
-    // Build Gmail query
-    let gmailQuery = query;
-    if (fromSender) {
-      gmailQuery = `${query} from:${fromSender}`;
-    }
-
-    const gmail = await getGmailClient(userId);
-
-    // List messages
-    const response = await gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-      maxResults,
-    });
-
-    const messages = response.data.messages || [];
-    const emailDetails = [];
-
-    // Fetch full details for each message
-    for (const message of messages) {
-      if (!message.id) continue;
-
-      const messageData = await gmail.users.messages.get({
-        userId: 'me',
-        id: message.id,
-        format: 'full',
-      });
-
-      const msg = messageData.data;
-      const headers = parseEmailHeaders(msg.payload?.headers || []);
-      const body = msg.payload?.body?.data 
-        ? decodeEmailBody(msg.payload.body)
-        : msg.payload?.parts?.map((part: any) => decodeEmailBody(part.body)).join('\n\n') || '';
-
-      const email = {
-        gmailId: msg.id,
-        threadId: msg.threadId,
-        snippet: msg.snippet,
-        subject: headers.subject || '(No Subject)',
-        from: headers.from || 'Unknown',
-        to: headers.to || '',
-        date: headers.date ? new Date(headers.date) : new Date(),
-        body: body.substring(0, 10000), // Limit body size
-        labels: msg.labelIds || [],
-        isUnread: msg.labelIds?.includes('UNREAD') || false,
-      };
-
-      emailDetails.push(email);
-    }
-
-    return NextResponse.json({
-      success: true,
-      emails: emailDetails,
-      count: emailDetails.length,
-    });
-  } catch (error: any) {
-    console.error('Error reading Gmail:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to read emails',
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// POST: Sync emails and ingest into Pilot database
+// POST: Auto-sync emails from specific senders (for cron/webhook)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const userId = body.userId || 'default-user';
+    const allowedSenders: string[] = body.allowedSenders || []; // Array of sender emails to monitor
     const maxResults = body.maxResults || 50;
-    const query = body.query || 'is:unread';
-    const userId = body.userId || undefined; // Optional: filter by user
-    const fromSender = body.from; // Optional: filter by sender email
-    const allowedSenders: string[] = body.allowedSenders || []; // Array of allowed sender emails
+
+    if (allowedSenders.length === 0) {
+      return NextResponse.json(
+        { error: 'allowedSenders array is required' },
+        { status: 400 }
+      );
+    }
 
     await connectToDB();
     const gmail = await getGmailClient(userId);
-    
-    // Build Gmail query
-    let gmailQuery = query;
-    if (fromSender) {
-      gmailQuery = `${query} from:${fromSender}`;
-    } else if (allowedSenders.length > 0) {
-      // Build query for multiple senders: from:(sender1 OR sender2 OR sender3)
-      const senderQuery = allowedSenders.map((s: string) => `from:${s}`).join(' OR ');
-      gmailQuery = `${query} (${senderQuery})`;
-    }
+
+    // Build query for allowed senders
+    const senderQuery = allowedSenders.map((s: string) => `from:${s}`).join(' OR ');
+    const gmailQuery = `is:unread (${senderQuery})`;
 
     // List messages
     const response = await gmail.users.messages.list({
       userId: 'me',
-      q: query,
+      q: gmailQuery,
       maxResults,
     });
 
@@ -210,7 +127,6 @@ export async function POST(request: NextRequest) {
         // Check if email already exists
         const existing = await PermitEmail.findOne({ gmailId: message.id });
         if (existing) {
-          console.log(`⏭️ Email ${message.id} already ingested, skipping`);
           continue;
         }
 
@@ -227,18 +143,16 @@ export async function POST(request: NextRequest) {
           ? decodeEmailBody(msg.payload.body)
           : msg.payload?.parts?.map((part: any) => decodeEmailBody(part.body)).join('\n\n') || '';
 
-        // Extract permit/client info from email (basic parsing)
         const subject = headers.subject || '(No Subject)';
         const fromEmail = headers.from?.match(/<(.+)>/)?.[1] || headers.from || '';
         const fromName = headers.from?.replace(/<.+>/, '').trim() || '';
 
-        // Filter by allowed senders if specified
-        if (allowedSenders.length > 0 && !allowedSenders.some((sender: string) => fromEmail.includes(sender))) {
-          console.log(`⏭️ Email from ${fromEmail} not in allowed senders list, skipping`);
+        // Verify sender is in allowed list
+        if (!allowedSenders.some((sender: string) => fromEmail.includes(sender))) {
           continue;
         }
 
-        // Try to extract permit name from subject or body
+        // Extract permit name from subject
         const permitNameMatch = subject.match(/(permit|license|application|renewal)/i);
         const permitName = permitNameMatch ? subject : 'Email from Authority';
 
@@ -246,9 +160,9 @@ export async function POST(request: NextRequest) {
         const emailRecord = new PermitEmail({
           gmailId: message.id,
           threadId: msg.threadId,
-          permitId: null, // Will be matched later
+          permitId: null,
           permitName,
-          clientId: null, // Will be matched later
+          clientId: null,
           clientName: fromName || fromEmail,
           subject,
           from: {
@@ -259,11 +173,11 @@ export async function POST(request: NextRequest) {
             email: headers.to || '',
             name: '',
           },
-          body: emailBody.substring(0, 50000), // Limit size
+          body: emailBody.substring(0, 50000),
           htmlBody: emailBody,
           direction: 'inbound',
           status: 'unread',
-          priority: 'medium',
+          priority: 'high', // Emails from monitored senders are high priority
           receivedAt: headers.date ? new Date(headers.date) : new Date(),
           metadata: {
             messageId: headers['message-id'] || message.id,
@@ -276,19 +190,16 @@ export async function POST(request: NextRequest) {
         await emailRecord.save();
         ingestedEmails.push(emailRecord.toObject());
 
-        // Mark as read in Gmail (optional)
-        if (body.markAsRead !== false) {
-          await gmail.users.messages.modify({
-            userId: 'me',
-            id: message.id,
-            requestBody: {
-              removeLabelIds: ['UNREAD'],
-            },
-          });
-        }
+        // Mark as read in Gmail
+        await gmail.users.messages.modify({
+          userId: 'me',
+          id: message.id,
+          requestBody: {
+            removeLabelIds: ['UNREAD'],
+          },
+        });
       } catch (emailError: any) {
         console.error(`Error processing email ${message.id}:`, emailError);
-        // Continue with next email
       }
     }
 
@@ -296,6 +207,7 @@ export async function POST(request: NextRequest) {
       success: true,
       ingested: ingestedEmails.length,
       emails: ingestedEmails,
+      query: gmailQuery,
     });
   } catch (error: any) {
     console.error('Error syncing Gmail:', error);
