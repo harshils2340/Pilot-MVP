@@ -237,7 +237,9 @@ export async function POST(req: NextRequest) {
     if (requestId && isCancelled(requestId)) {
       console.log('🛑 Operation was cancelled, saving extracted permits that were extracted so far...');
       // Clear the cancellation flag
-      clearCancellation(requestId);
+      if (requestId) {
+        clearCancellation(requestId);
+      }
     }
 
     // --- Save permits dynamically with duplicate checking ---
