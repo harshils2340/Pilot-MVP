@@ -1,13 +1,13 @@
 import { google } from 'googleapis';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     // Use the request origin to support both localhost and production
-    const origin = request.headers.get('origin') || request.headers.get('host') || 'https://pilot-mvp.vercel.app';
-    const redirectUri = origin.startsWith('http') ? `${origin}/api/auth/google/callback` : `https://${origin}/api/auth/google/callback`;
+    const origin = request.nextUrl.origin;
+    const redirectUri = `${origin}/api/auth/google/callback`;
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
