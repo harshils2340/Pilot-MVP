@@ -142,13 +142,13 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         if (userEmail) {
           try {
             // Sync emails from Gmail in background
-            // Empty allowedSenders = sync ALL unread emails
+            // Only sync emails from shahmeet8210@gmail.com for testing
             await fetch('/api/gmail/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 userId: userEmail,
-                allowedSenders: [], // Empty = sync all unread emails
+                allowedSenders: ['shahmeet8210@gmail.com'], // Only sync emails from this sender
                 maxResults: 50,
               }),
             });
@@ -177,7 +177,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
       const userEmail = localStorage.getItem('userEmail');
       
       // Sync new emails if user is logged in
-      // Empty allowedSenders = sync ALL unread emails
+      // Only sync emails from shahmeet8210@gmail.com for testing
       if (userEmail) {
         try {
           await fetch('/api/gmail/sync', {
@@ -185,7 +185,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: userEmail,
-              allowedSenders: [], // Empty = sync all unread emails
+              allowedSenders: ['shahmeet8210@gmail.com'], // Only sync emails from this sender
               maxResults: 20, // Only sync recent emails on refresh
             }),
           });

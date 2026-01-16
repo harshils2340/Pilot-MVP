@@ -95,13 +95,13 @@ export async function GET(request: NextRequest) {
     console.log('✅ Gmail OAuth tokens stored successfully');
 
     // Trigger initial email sync in background (don't wait for it)
-    // Empty allowedSenders means sync ALL unread emails
+    // Only sync emails from shahmeet8210@gmail.com for testing
     fetch(`${request.nextUrl.origin}/api/gmail/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId,
-        allowedSenders: [], // Empty = sync all unread emails
+        allowedSenders: ['shahmeet8210@gmail.com'], // Only sync emails from this sender
         maxResults: 50,
       }),
     }).catch(err => console.error('Background sync error:', err));
