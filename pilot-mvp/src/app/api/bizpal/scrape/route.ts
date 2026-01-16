@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     console.log('✅ Connected to MongoDB');
 
     // Check if operation was cancelled
-    if (isCancelled(requestId)) {
+    if (requestId && isCancelled(requestId)) {
       console.log('🛑 Operation was cancelled, saving extracted permits that were extracted so far...');
       // Clear the cancellation flag
       clearCancellation(requestId);
@@ -434,7 +434,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Clear cancellation token after completion
-    clearCancellation(requestId);
+    if (requestId) {
+      clearCancellation(requestId);
+    }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     return NextResponse.json({
