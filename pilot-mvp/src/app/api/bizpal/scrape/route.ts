@@ -115,6 +115,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  let requestId: string | undefined;
 
   try {
     // --- Parse input ---
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
     const permitKeywords = String(body.permitKeywords ?? '').trim();
     
     // Use provided requestId or generate one
-    const requestId = body.requestId || `scrape-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    requestId = body.requestId || `scrape-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     console.log(`🆔 Request ID: ${requestId}`);
 
     // --- Validate required inputs ---
