@@ -1,4 +1,4 @@
-import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, ExternalLink, Send, RefreshCw, Trash2, X, CheckSquare, Square } from 'lucide-react';
+import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, ExternalLink, Send, RefreshCw, Trash2, X, CheckSquare, Square, Reply, Forward, Archive, Printer, Copy, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface PermitEmail {
@@ -135,71 +135,152 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         const config = await configRes.json();
         setTestMode(config.test || false);
         
-        // Get user email from localStorage
-        const userEmail = localStorage.getItem('userEmail');
+        // Set timeout to stop email searching after 5 seconds (4-6 second range)
+        const searchTimeout = setTimeout(() => {
+          console.log('⏱️ Email search timeout (5 seconds) - stopping search and showing current results');
+          setLoading(false);
+        }, 5000); // 5 seconds timeout
         
-        // If user is logged in, trigger email sync
-        if (userEmail) {
-          try {
-            // Sync emails from Gmail in background
-            // Only sync emails from shahmeet8210@gmail.com for testing
-            await fetch('/api/gmail/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: userEmail,
-                allowedSenders: ['shahmeet8210@gmail.com'], // Only sync emails from this sender
-                maxResults: 50,
-              }),
-            });
-          } catch (syncError) {
-            console.log('Gmail sync not available or not connected:', syncError);
+        // Sync emails from ALL Gmail tokens in database (not just logged-in user)
+        // This will sync emails from all registered Gmail accounts
+        let emailsFetched = false;
+        
+        try {
+          // Sync emails from all Gmail accounts in background
+          // Sync all emails with keywords (permits, licensing, licencing), regardless of sender
+          const syncResponse = await fetch('/api/gmail/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              // No userId specified = sync from ALL Gmail tokens in database
+              allowedSenders: [], // Empty array = sync all emails with keywords (not just from specific senders)
+              maxResults: 50, // Search only latest 50 emails per Gmail account
+            }),
+          });
+            
+          if (syncResponse.ok) {
+            const syncData = await syncResponse.json();
+            const ingestedCount = syncData.ingested || 0;
+            const syncedAccounts = syncData.syncedAccounts || [];
+            console.log(`✅ Gmail sync completed: ${ingestedCount} emails ingested from ${syncedAccounts.length} account(s) (${syncedAccounts.join(', ')})`);
+            console.log(`📧 Filtering: registered clients OR permit keywords`);
+            
+            // Always refresh email list after sync (even if no new emails were ingested)
+            // This ensures the page shows the current state (empty or with emails)
+            const refreshRes = await fetch('/api/emails?status=all&limit=100');
+            const refreshData = await refreshRes.json();
+            setEmails(refreshData.emails || []);
+            emailsFetched = true;
+            console.log(`🔄 Email list refreshed: ${refreshData.emails?.length || 0} emails now displayed`);
+            
+            // Clear timeout since we got a response
+            clearTimeout(searchTimeout);
+            
+            // Stop loading immediately after checking emails - show empty state if no emails found
+            setLoading(false);
+            
+            if (ingestedCount === 0 && refreshData.emails?.length === 0) {
+              console.log(`ℹ️ No emails found after searching through all Gmail accounts. Displaying empty state immediately.`);
+            }
+          } else {
+            const errorData = await syncResponse.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Gmail sync failed:', errorData);
+            // Clear timeout on error
+            clearTimeout(searchTimeout);
+            // Stop loading even if sync failed
+            setLoading(false);
           }
+        } catch (syncError) {
+          console.error('Gmail sync error:', syncError);
+          // Clear timeout on error
+          clearTimeout(searchTimeout);
+          // Stop loading even if sync errored
+          setLoading(false);
         }
         
-        // Always fetch emails (for both test=true and test=false)
+        // Always fetch emails if not already fetched from sync above
         // When test=false, we'll show them in card format
         // When test=true, we'll show them in email format
-        const emailsRes = await fetch('/api/emails?status=all&limit=100');
-        const emailsData = await emailsRes.json();
-        setEmails(emailsData.emails || []);
+        // This ensures we show the current state even if sync failed
+        if (!emailsFetched) {
+          try {
+            const emailsRes = await fetch('/api/emails?status=all&limit=100');
+            const emailsData = await emailsRes.json();
+            console.log(`✅ Fetched ${emailsData.emails?.length || 0} emails from API (filtered: registered clients OR permit keywords)`);
+            setEmails(emailsData.emails || []);
+            // Clear timeout after fetching emails
+            clearTimeout(searchTimeout);
+            // Stop loading immediately after fetching emails
+            setLoading(false);
+          } catch (fetchError) {
+            console.error('Error fetching emails:', fetchError);
+            clearTimeout(searchTimeout);
+            setLoading(false);
+          }
+        }
       } catch (error) {
         console.error('Error fetching inbox data:', error);
+        // Clear timeout on error
+        clearTimeout(searchTimeout);
+        // Set loading to false on error so empty state can show
+        setLoading(false);
       } finally {
+        // Ensure timeout is cleared and loading is always false after all operations complete
+        clearTimeout(searchTimeout);
         setLoading(false);
       }
     };
     
     fetchData();
     
-    // Refresh emails every 30 seconds and sync new emails
+    // Refresh emails every 10 seconds and sync new emails (reduced from 30s for faster updates)
     const interval = setInterval(async () => {
       const userEmail = localStorage.getItem('userEmail');
       
-      // Sync new emails if user is logged in
-      // Only sync emails from shahmeet8210@gmail.com for testing
-      if (userEmail) {
-        try {
-          await fetch('/api/gmail/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: userEmail,
-              allowedSenders: ['shahmeet8210@gmail.com'], // Only sync emails from this sender
-              maxResults: 20, // Only sync recent emails on refresh
-            }),
-          });
-        } catch (syncError) {
-          // Silently fail if Gmail not connected
+      // Sync new emails from ALL Gmail accounts in database
+      try {
+        const syncResponse = await fetch('/api/gmail/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            // No userId specified = sync from ALL Gmail tokens in database
+            allowedSenders: [], // Empty array = sync all emails with keywords
+            maxResults: 50, // Search only latest 50 emails per Gmail account
+          }),
+        });
+        
+        if (syncResponse.ok) {
+          const syncData = await syncResponse.json();
+          if (syncData.ingested > 0) {
+            const syncedAccounts = syncData.syncedAccounts || [];
+            console.log(`✅ Synced ${syncData.ingested} new emails from ${syncedAccounts.length} account(s) (${syncedAccounts.join(', ')})`);
+            
+            // Immediately refresh email list after sync to show new emails right away
+            fetch('/api/emails?status=all&limit=100')
+              .then(res => res.json())
+              .then(data => {
+                console.log(`🔄 Email list refreshed: ${data.emails?.length || 0} emails now displayed`);
+                setEmails(data.emails || []);
+              })
+              .catch(err => console.error('Error refreshing emails:', err));
+          }
         }
+      } catch (syncError: any) {
+        console.error('Gmail sync error during refresh:', syncError);
       }
       
-      // Refresh email list
-      fetch('/api/emails?status=all&limit=100')
-        .then(res => res.json())
-        .then(data => setEmails(data.emails || []))
-        .catch(err => console.error('Error refreshing emails:', err));
-    }, 30000); // Every 30 seconds
+      // Also refresh email list even if sync had no new emails (for manually added emails)
+      if (true) {
+        // Refresh email list even if user is not logged in (for manually added emails)
+        fetch('/api/emails?status=all&limit=100')
+          .then(res => res.json())
+          .then(data => {
+            console.log(`✅ Refreshed: ${data.emails?.length || 0} emails (filtered: registered clients OR permit keywords)`);
+            setEmails(data.emails || []);
+          })
+          .catch(err => console.error('Error refreshing emails:', err));
+      }
+    }, 10000); // Every 10 seconds for faster email updates
     
     return () => clearInterval(interval);
   }, []);
@@ -621,12 +702,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   <Mail className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
                   <h3 className="font-medium text-neutral-900 mb-2">No emails found</h3>
                   <p className="text-neutral-600 mb-4">No permit-related emails in your inbox.</p>
-                  <button
-                    onClick={() => setShowEmailComposer(true)}
-                    className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
-                  >
-                    Send First Email
-                  </button>
+                  <p className="text-neutral-500 text-sm mt-4">No Email Received</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -926,53 +1002,71 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         </div>
       </div>
 
-      {/* Email Detail Modal */}
+      {/* Email Detail Modal - Enhanced UI */}
       {selectedEmail && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
-            <div className="p-6 border-b border-neutral-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-neutral-900">{selectedEmail.subject}</h2>
-                <button
-                  onClick={() => setSelectedEmail(null)}
-                  className="text-neutral-400 hover:text-neutral-600"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="space-y-2 text-sm text-neutral-600">
-                <div>
-                  <span className="font-medium">From:</span> {selectedEmail.from.name || selectedEmail.from.email}
-                </div>
-                <div>
-                  <span className="font-medium">To:</span> {selectedEmail.to.name || selectedEmail.to.email}
-                </div>
-                <div>
-                  <span className="font-medium">Permit:</span> {selectedEmail.permitName}
-                </div>
-                <div>
-                  <span className="font-medium">Date:</span> {formatDate(selectedEmail.receivedAt)}
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="prose max-w-none">
-                <p className="text-neutral-700 whitespace-pre-wrap">{selectedEmail.body}</p>
-              </div>
-              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-neutral-200">
-                  <h3 className="font-medium text-neutral-900 mb-3">Attachments</h3>
-                  <div className="space-y-2">
-                    {selectedEmail.attachments.map((att, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
-                        <span className="text-sm text-neutral-700">{att.filename}</span>
-                        <span className="text-xs text-neutral-500">{(att.size / 1024).toFixed(1)} KB</span>
-                </div>
-              ))}
+          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] flex flex-col shadow-xl">
+            {/* Header */}
+            <div className="p-6 border-b border-neutral-200 flex-shrink-0">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-2xl font-semibold text-neutral-900">{selectedEmail.subject}</h2>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(selectedEmail.priority)}`}>
+                      {selectedEmail.priority}
+                    </span>
+                    {selectedEmail.status === 'unread' && (
+                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm text-neutral-600">
+                    <div>
+                      <span className="font-medium text-neutral-700">From:</span>
+                      <span className="ml-2">{selectedEmail.from.name || selectedEmail.from.email}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-neutral-700">To:</span>
+                      <span className="ml-2">{selectedEmail.to.name || selectedEmail.to.email}</span>
+                    </div>
+                    {selectedEmail.permitName && (
+                      <div>
+                        <span className="font-medium text-neutral-700">Permit:</span>
+                        <span className="ml-2">{selectedEmail.permitName}</span>
+                      </div>
+                    )}
+                    {selectedEmail.clientName && (
+                      <div>
+                        <span className="font-medium text-neutral-700">Client:</span>
+                        <span className="ml-2">{selectedEmail.clientName}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-medium text-neutral-700">Date:</span>
+                      <span className="ml-2">{new Date(selectedEmail.receivedAt).toLocaleString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-neutral-700">Direction:</span>
+                      <span className="ml-2 capitalize">{selectedEmail.direction}</span>
+                    </div>
                   </div>
                 </div>
-              )}
-              <div className="mt-6 pt-6 border-t border-neutral-200 flex gap-3">
+                <button
+                  onClick={() => setSelectedEmail(null)}
+                  className="ml-4 p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-4 border-t border-neutral-100">
                 <button
                   onClick={() => {
                     setEmailComposerData({
@@ -985,21 +1079,180 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                     setSelectedEmail(null);
                     setShowEmailComposer(true);
                   }}
-                  className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
                 >
+                  <Reply className="w-4 h-4" />
                   Reply
                 </button>
                 <button
-                  onClick={() => setSelectedEmail(null)}
-                  className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                  onClick={() => {
+                    setEmailComposerData({
+                      to: '',
+                      subject: `Fwd: ${selectedEmail.subject}`,
+                      body: `\n\n--- Forwarded Message ---\n${selectedEmail.body}`,
+                      permitId: selectedEmail.permitId || '',
+                      permitName: selectedEmail.permitName || ''
+                    });
+                    setSelectedEmail(null);
+                    setShowEmailComposer(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
                 >
-                  Close
+                  <Forward className="w-4 h-4" />
+                  Forward
                 </button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedEmail.body);
+                    alert('Email content copied to clipboard');
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                  title="Copy email content"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                  title="Print email"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
+                {testMode && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this email?')) {
+                        handleDeleteEmail(selectedEmail._id);
+                        setSelectedEmail(null);
+                      }
+                    }}
+                    disabled={isDeleting}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
-          </div>
+
+            {/* Email Body */}
+            <div className="flex-1 overflow-auto p-6">
+              {selectedEmail.htmlBody ? (
+                <div 
+                  className="prose max-w-none email-body"
+                  dangerouslySetInnerHTML={{ __html: selectedEmail.htmlBody }}
+                  style={{
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: '#1f2937'
+                  }}
+                />
+              ) : (
+                <div className="prose max-w-none">
+                  <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed">{selectedEmail.body}</p>
+                </div>
+              )}
+
+              {/* Attachments */}
+              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-neutral-200">
+                  <h3 className="font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    Attachments ({selectedEmail.attachments.length})
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    {selectedEmail.attachments.map((att, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center justify-between p-4 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-neutral-200 rounded-lg flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-neutral-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-neutral-900">{att.filename}</p>
+                            <p className="text-xs text-neutral-500">
+                              {att.contentType} • {(att.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        </div>
+                        {att.url && (
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                          >
+                            Download
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Permit Details */}
+              {selectedEmail.permitDetails && (
+                <div className="mt-8 pt-6 border-t border-neutral-200">
+                  <h3 className="font-semibold text-neutral-900 mb-4">Permit Details</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {selectedEmail.permitDetails.authority && (
+                      <div>
+                        <span className="font-medium text-neutral-700">Authority:</span>
+                        <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.authority}</span>
+                      </div>
+                    )}
+                    {selectedEmail.permitDetails.municipality && (
+                      <div>
+                        <span className="font-medium text-neutral-700">Municipality:</span>
+                        <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.municipality}</span>
+                      </div>
+                    )}
+                    {selectedEmail.permitDetails.jurisdiction && (
+                      <>
+                        {selectedEmail.permitDetails.jurisdiction.city && (
+                          <div>
+                            <span className="font-medium text-neutral-700">City:</span>
+                            <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.jurisdiction.city}</span>
+                          </div>
+                        )}
+                        {selectedEmail.permitDetails.jurisdiction.province && (
+                          <div>
+                            <span className="font-medium text-neutral-700">Province:</span>
+                            <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.jurisdiction.province}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Footer */}
+            <div className="p-4 border-t border-neutral-200 bg-neutral-50 flex items-center justify-between text-sm text-neutral-600 flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <span>Email ID: {selectedEmail._id}</span>
+                {selectedEmail.threadId && (
+                  <span>Thread: {selectedEmail.threadId}</span>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedEmail(null)}
+                className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Email Composer Modal */}
       {showEmailComposer && (

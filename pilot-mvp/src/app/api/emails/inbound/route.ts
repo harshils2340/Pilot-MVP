@@ -143,6 +143,26 @@ export async function POST(request: NextRequest) {
                         fromEmailLower.includes('department') ||
                         fromEmailLower.includes('@mailgun.org'); // Mailgun system emails
 
+    // Filter to only save emails containing specific keywords: "permits", "licensing", "licencing"
+    const requiredKeywords = ['permits', 'licensing', 'licencing'];
+
+    const subjectLower = (subject || '').toLowerCase();
+    const bodyLower = (bodyPlain || '').toLowerCase();
+    
+    // Check if email contains required keywords
+    const hasRequiredKeyword = requiredKeywords.some(keyword => 
+      subjectLower.includes(keyword.toLowerCase()) || bodyLower.includes(keyword.toLowerCase())
+    );
+
+    // Only save emails that have the required keywords
+    if (!hasRequiredKeyword) {
+      console.log(`⏭️ Skipping email (no required keywords: permits, licensing, licencing): ${parsedFromEmail} - Subject: "${subject}"`);
+      return NextResponse.json({
+        success: false,
+        message: 'Email does not contain required keywords (permits, licensing, licencing), not saved'
+      }, { status: 200 }); // Return 200 so Mailgun doesn't retry
+    }
+
     // Create email document
     const email = new PermitEmail({
       permitId: extractedPermitId,
