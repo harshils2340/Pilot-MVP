@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Plus,
@@ -49,6 +50,7 @@ interface Permit {
 }
 
 export default function PermitManagementPage() {
+  const router = useRouter();
   const [permits, setPermits] = useState<Permit[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -58,15 +60,30 @@ export default function PermitManagementPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedComplexities, setSelectedComplexities] = useState<string[]>([]);
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
+  const [userName, setUserName] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
+
+  // Get user info from localStorage (set after Google OAuth)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedName = localStorage.getItem('userName');
+      const storedEmail = localStorage.getItem('userEmail');
+      if (storedName) setUserName(storedName);
+      if (storedEmail) setUserEmail(storedEmail);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchPermits = async () => {
       try {
+        // Fetch ALL permits from the permits collection (global permit library)
+        // NO clientId or client filtering - this shows all available permits in the system
         const res = await fetch('/api/permits');
         const data = await res.json();
+        console.log(`✅ Permit Management: Fetched ${data.length} permits from /api/permits (permits collection - NO client filtering)`);
         setPermits(data);
       } catch (err) {
-        console.error(err);
+        console.error('❌ Error fetching permits:', err);
       } finally {
         setLoading(false);
       }
@@ -166,7 +183,10 @@ export default function PermitManagementPage() {
         </div>
 
         <div className="p-4 border-b border-neutral-200">
-          <button className="flex items-center gap-2 text-sm text-neutral-600 hover:bg-neutral-100 px-3 py-2 rounded-lg w-full">
+          <button 
+            onClick={() => router.push('/')}
+            className="flex items-center gap-2 text-sm text-neutral-600 hover:bg-neutral-100 px-3 py-2 rounded-lg w-full"
+          >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </button>
@@ -176,10 +196,10 @@ export default function PermitManagementPage() {
 
         <div className="p-4 border-t border-neutral-200 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-            JD
+            {userName ? userName.charAt(0).toUpperCase() : userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
           </div>
           <div>
-            <p className="text-sm font-medium">John Doe</p>
+            <p className="text-sm font-medium">{userName || userEmail || 'User'}</p>
             <p className="text-xs text-neutral-500">Consultant</p>
           </div>
         </div>
@@ -199,7 +219,10 @@ export default function PermitManagementPage() {
               </p>
             </div>
 
-            <button className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800">
+            <button 
+              onClick={() => router.push('/new-permit')}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
+            >
               <Plus className="w-4 h-4" />
               Add New Permit
             </button>

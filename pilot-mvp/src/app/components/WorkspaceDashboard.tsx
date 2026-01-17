@@ -1,6 +1,6 @@
-import { Plus, Search, Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, FileText } from 'lucide-react';
+import { Plus, Search, Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, FileText, Trash2, Square, CheckSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface Client {
   _id: string;
@@ -25,6 +25,11 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedJurisdictions, setSelectedJurisdictions] = useState<string[]>([]);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -127,6 +132,140 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
 
   const activeFilterCount = selectedStatuses.length + selectedJurisdictions.length;
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId && menuRefs.current[openMenuId]) {
+        const menuElement = menuRefs.current[openMenuId];
+        if (menuElement && !menuElement.contains(event.target as Node)) {
+          setOpenMenuId(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
+
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete "${clientName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _id: clientId }),
+      });
+
+      if (res.ok) {
+        // Remove client from state
+        setClients(clients.filter(client => client._id !== clientId));
+        setOpenMenuId(null);
+        // Remove from selected if it was selected
+        setSelectedClients(prev => {
+          const next = new Set(prev);
+          next.delete(clientId);
+          return next;
+        });
+        console.log(`✅ Client "${clientName}" deleted successfully`);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Failed to delete client: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      alert('Error deleting client. Please try again.');
+    }
+  };
+
+  const handleToggleSelectClient = (clientId: string) => {
+    setSelectedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(clientId)) {
+        next.delete(clientId);
+      } else {
+        next.add(clientId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (!multiSelectMode) {
+      // Enable multi-select mode and immediately select all
+      setMultiSelectMode(true);
+      setSelectedClients(new Set(filteredClients.map(client => client._id)));
+    } else {
+      if (selectedClients.size === filteredClients.length) {
+        // Deselect all (but stay in multi-select mode)
+        setSelectedClients(new Set());
+      } else {
+        // Select all filtered clients
+        setSelectedClients(new Set(filteredClients.map(client => client._id)));
+      }
+    }
+  };
+
+  const toggleMultiSelectMode = () => {
+    setMultiSelectMode(prev => {
+      const newMode = !prev;
+      if (!newMode) {
+        // Clear selection when exiting multi-select mode
+        setSelectedClients(new Set());
+      }
+      return newMode;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedClients.size === 0) return;
+
+    const count = selectedClients.size;
+    const clientNames = clients
+      .filter(client => selectedClients.has(client._id))
+      .map(client => client.businessName)
+      .join(', ');
+
+    if (!confirm(`Are you sure you want to delete ${count} client(s)?\n\n${clientNames}\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/clients/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedClients) }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        // Remove deleted clients from state
+        setClients(clients.filter(client => !selectedClients.has(client._id)));
+        setSelectedClients(new Set());
+        console.log(`✅ ${result.deletedCount || count} client(s) deleted successfully`);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Failed to delete clients: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error bulk deleting clients:', error);
+      alert('Error deleting clients. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleMenuClick = (e: React.MouseEvent, clientId: string) => {
+    e.stopPropagation(); // Prevent row click
+    setOpenMenuId(openMenuId === clientId ? null : clientId);
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -136,13 +275,45 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
             <h1 className="text-neutral-900 mb-1">Workspace</h1>
             <p className="text-neutral-600">Manage clients and their regulatory compliance</p>
           </div>
-          <button
-            onClick={onStartPermit}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Client
-          </button>
+          <div className="flex items-center gap-2">
+            {!multiSelectMode && filteredClients.length > 0 && (
+              <button
+                onClick={handleSelectAll}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+              >
+                <span>Select All</span>
+              </button>
+            )}
+            {multiSelectMode && selectedClients.size > 0 && (
+              <>
+                <button
+                  onClick={() => {
+                    setSelectedClients(new Set());
+                    setMultiSelectMode(false);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  Deselect All
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Selected ({selectedClients.size})
+                </button>
+              </>
+            )}
+            <button
+              onClick={onStartPermit}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Client
+            </button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -241,11 +412,26 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
         <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-neutral-50 border-b border-neutral-200 text-sm font-medium text-neutral-600">
-            <div className="col-span-3">Client</div>
+            {multiSelectMode && (
+              <div className="col-span-1">
+                <button
+                  onClick={handleSelectAll}
+                  className="flex items-center justify-center p-1 hover:bg-neutral-200 rounded transition-colors"
+                  title={selectedClients.size === filteredClients.length ? 'Deselect All' : 'Select All'}
+                >
+                  {selectedClients.size === filteredClients.length && filteredClients.length > 0 ? (
+                    <CheckSquare className="w-4 h-4 text-neutral-900" />
+                  ) : (
+                    <Square className="w-4 h-4 text-neutral-400" />
+                  )}
+                </button>
+              </div>
+            )}
+            <div className={multiSelectMode ? "col-span-3" : "col-span-4"}>Client</div>
             <div className="col-span-2">Jurisdiction</div>
             <div className="col-span-2">Active Permits</div>
             <div className="col-span-2">Status</div>
-            <div className="col-span-2">Last Activity</div>
+            <div className={multiSelectMode ? "col-span-1" : "col-span-2"}>Last Activity</div>
             <div className="col-span-1"></div>
           </div>
 
@@ -260,27 +446,67 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
             filteredClients.map((client) => (
               <div
                 key={client._id}
-                onClick={() => handleClientClick(client)}
-                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
+                className={`grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${
+                  multiSelectMode && selectedClients.has(client._id) ? 'bg-blue-50 border-blue-200' : ''
+                } ${!multiSelectMode ? 'cursor-pointer' : ''}`}
               >
-              <div className="col-span-3">
-                <p className="font-medium text-neutral-900">{client.businessName}</p>
-                <div className="mt-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-neutral-900 rounded-full"
-                    style={{ width: `${client.completionRate}%` }}
-                  />
+              {multiSelectMode && (
+                <div className="col-span-1 flex items-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleSelectClient(client._id);
+                    }}
+                    className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                  >
+                    {selectedClients.has(client._id) ? (
+                      <CheckSquare className="w-4 h-4 text-blue-600" />
+                    ) : (
+                      <Square className="w-4 h-4 text-neutral-400" />
+                    )}
+                  </button>
                 </div>
+              )}
+              <div 
+                className={multiSelectMode ? "col-span-3" : "col-span-4"}
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
+                <p className="font-medium text-neutral-900 leading-none">{client.businessName}</p>
               </div>
-              <div className="col-span-2 flex items-center text-neutral-600">
+              <div 
+                className="col-span-2 flex items-center text-neutral-600"
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
                 {client.jurisdiction}
               </div>
-              <div className="col-span-2 flex items-center">
+              <div 
+                className="col-span-2 flex items-center"
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
                 <span className="px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-sm font-medium">
                   {client.activePermits} permits
                 </span>
               </div>
-              <div className="col-span-2 flex items-center">
+              <div 
+                className="col-span-2 flex items-center"
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
                 <span
                   className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
                     client.status
@@ -290,13 +516,42 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                   {getStatusLabel(client.status)}
                 </span>
               </div>
-              <div className="col-span-2 flex items-center text-neutral-500 text-sm">
+              <div 
+                className={`${multiSelectMode ? "col-span-1" : "col-span-1"} flex items-center text-neutral-500 text-sm`}
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
                 {client.lastActivity}
               </div>
-              <div className="col-span-1 flex items-center justify-end">
-                <button className="p-1 hover:bg-neutral-100 rounded transition-colors">
+              <div className="col-span-1 flex items-center justify-end relative">
+                <button
+                  onClick={(e) => handleMenuClick(e, client._id)}
+                  className="p-1 hover:bg-neutral-100 rounded transition-colors"
+                >
                   <MoreVertical className="w-4 h-4 text-neutral-400" />
                 </button>
+                
+                {/* Dropdown Menu */}
+                {openMenuId === client._id && (
+                  <div
+                    ref={(el) => (menuRefs.current[client._id] = el)}
+                    className="absolute right-0 top-8 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[150px]"
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClient(client._id, client.businessName);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Client
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             ))

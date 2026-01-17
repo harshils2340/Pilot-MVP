@@ -1,5 +1,5 @@
 import { Lock, Clock, CheckCircle2, AlertCircle, Send, ChevronRight, Plus, Search, Building2, User, Sparkles, X, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Permit {
   id: string;
@@ -148,6 +148,55 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [discoveredPermits, setDiscoveredPermits] = useState<DiscoveredPermit[]>([]);
   const [expandedPermit, setExpandedPermit] = useState<string | null>(null);
+  const [permits, setPermits] = useState<Permit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch permits for this client
+  useEffect(() => {
+    const fetchPermits = async () => {
+      if (!clientId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        console.log(`🔍 PermitPlan: Fetching permits for clientId: ${clientId}`);
+        const res = await fetch(`/api/permits/management?clientId=${clientId}`);
+        if (res.ok) {
+          const data = await res.json();
+          console.log(`✅ PermitPlan: Received ${data.length} permits for client ${clientId}`);
+          // Transform API response to Permit format
+          const transformedPermits: Permit[] = data.map((p: any, index: number) => ({
+            id: p.id || p._id?.toString() || `perm-${index}`,
+            name: p.name,
+            authority: p.authority,
+            municipality: p.municipality || p.category || 'Unknown',
+            status: p.status || 'not-started',
+            order: p.order || index + 1,
+            blockedBy: p.blockedBy,
+            blocks: p.blocks || [],
+            lastActivity: p.lastActivity || 'Not Started',
+            lastActivityDate: p.lastActivityDate ? new Date(p.lastActivityDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            daysInState: p.lastActivityDate ? Math.floor((Date.now() - new Date(p.lastActivityDate).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+            priority: p.complexity === 'high' ? 'high' : p.complexity === 'medium' ? 'medium' : 'low',
+          }));
+          setPermits(transformedPermits);
+        } else {
+          console.error('Failed to fetch permits:', res.statusText);
+          // Fallback to empty array if fetch fails
+          setPermits([]);
+        }
+      } catch (error) {
+        console.error('Error fetching permits:', error);
+        setPermits([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPermits();
+  }, [clientId]);
 
   const handleDiscoverPermits = () => {
     if (!discoveryInput.trim()) return;
@@ -222,7 +271,7 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
     }
   };
 
-  const filteredPermits = mockPermits.filter((permit) =>
+  const filteredPermits = permits.filter((permit) =>
     permit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     permit.authority.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -353,7 +402,18 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
       {/* Permit List */}
       <div className="flex-1 overflow-auto">
         <div className="p-4 space-y-1.5">
-          {filteredPermits.map((permit) => {
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+              <span className="ml-2 text-sm text-neutral-500">Loading permits...</span>
+            </div>
+          ) : filteredPermits.length === 0 ? (
+            <div className="text-center py-12 text-neutral-500">
+              <p className="text-sm">No permits found for this client.</p>
+              <p className="text-xs mt-1">Use "Discover New Permits" to find and add permits.</p>
+            </div>
+          ) : (
+            filteredPermits.map((permit) => {
             const statusConfig = getStatusConfig(permit.status);
             const isBlocked = !!permit.blockedBy;
             
@@ -442,7 +502,8 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
                 </div>
               </div>
             );
-          })}
+            })
+          )}
         </div>
       </div>
     </div>

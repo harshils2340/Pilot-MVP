@@ -325,9 +325,10 @@ async function extractPermits(driver: WebDriver): Promise<BizpalPermit[]> {
 
     log(`📋 Found ${permitRows.length} permit rows to process`);
 
-    for (let i = 0; i < Math.min(permitRows.length, 50); i++) {
+    // Process ALL permit rows (no limit)
+    for (let i = 0; i < permitRows.length; i++) {
       try {
-        log(`\n📄 Processing permit ${i + 1}/${Math.min(permitRows.length, 50)}...`);
+        log(`\n📄 Processing permit ${i + 1}/${permitRows.length}...`);
         const row = permitRows[i];
         
         // Scroll into view smoothly

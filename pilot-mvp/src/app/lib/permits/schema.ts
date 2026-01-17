@@ -115,9 +115,16 @@ const PermitSchema: Schema<IPermit> = new Schema(
       required: false
     }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    collection: 'permits' // Explicitly set collection name to "permits" (NOT "permitmanagements")
+  }
 );
 
 // Export model
-export const Permit: Model<IPermit> =
-  mongoose.models.Permit || mongoose.model<IPermit>("Permit", PermitSchema);
+// IMPORTANT: This model explicitly queries the "permits" collection (NOT "permitmanagements")
+// If a model with the same name exists, delete it first to ensure fresh initialization
+if (mongoose.models.Permit) {
+  delete mongoose.models.Permit;
+}
+export const Permit: Model<IPermit> = mongoose.model<IPermit>("Permit", PermitSchema);

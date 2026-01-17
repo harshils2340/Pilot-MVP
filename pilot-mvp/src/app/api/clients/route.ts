@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectToDB from "@/app/lib/mongodb";
 import ClientModel from "../../models/client"; // create this model
+import { PermitManagement } from "@/app/lib/permits/managementSchema";
 
 // Helper to convert _id to string
 const serializeClient = (client: any) => ({
@@ -36,18 +37,59 @@ export async function POST(req: NextRequest) {
     }
 
     await connectToDB();
+
+    // Check for duplicate client (same business name and jurisdiction created in last 5 seconds)
+    // This prevents rapid duplicate submissions
+    const recentDuplicate = await ClientModel.findOne({
+      businessName: body.businessName.trim(),
+      jurisdiction: body.jurisdiction.trim(),
+      lastActivity: { $gte: new Date(Date.now() - 5000) } // Within last 5 seconds
+    }).lean();
+
+    if (recentDuplicate) {
+      console.log("⚠️ Duplicate client creation prevented:", {
+        businessName: body.businessName,
+        jurisdiction: body.jurisdiction,
+        existingId: recentDuplicate._id
+      });
+      return NextResponse.json(
+        serializeClient(recentDuplicate),
+        { status: 200 } // Return existing client instead of creating duplicate
+      );
+    }
+
     const newClient = await ClientModel.create({
       ...body,
+      businessName: body.businessName.trim(),
+      jurisdiction: body.jurisdiction.trim(),
       activePermits: body.activePermits ?? 0,
       status: body.status ?? "new",
       completionRate: body.completionRate ?? 0,
       lastActivity: new Date(),
     });
 
+    console.log("✅ New client created:", {
+      _id: newClient._id,
+      businessName: newClient.businessName,
+      jurisdiction: newClient.jurisdiction
+    });
+
     return NextResponse.json(serializeClient(newClient), { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("POST /clients error:", err);
-    return NextResponse.json({ error: "Failed to add client" }, { status: 500 });
+    
+    // Handle duplicate key error (if unique index exists)
+    if (err.code === 11000 || err.message?.includes('duplicate')) {
+      return NextResponse.json(
+        { error: "A client with this name and location already exists" },
+        { status: 409 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: "Failed to add client", details: err.message },
+      { status: 500 }
+    );
   }
 }
 
@@ -85,12 +127,24 @@ export async function DELETE(req: NextRequest) {
     }
 
     await connectToDB();
+    
+    // Delete associated PermitManagement entries first
+    try {
+      const deleteResult = await PermitManagement.deleteMany({ clientId: _id });
+      console.log(`🗑️ Deleted ${deleteResult.deletedCount} permit(s) associated with client ${_id}`);
+    } catch (permitErr) {
+      console.warn('⚠️ Failed to delete associated permits, continuing with client deletion:', permitErr);
+      // Continue with client deletion even if permit deletion fails
+    }
+    
+    // Delete the client
     const deletedClient = await ClientModel.findByIdAndDelete(_id).lean();
 
     if (!deletedClient) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
+    console.log(`✅ Client ${_id} deleted successfully`);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
     console.error("DELETE /clients error:", err);

@@ -2,12 +2,21 @@ import mongoose, { Document, Schema, Model } from "mongoose";
 
 // PermitData interface from the new UI
 export interface IPermitManagement extends Document {
+  clientId?: string; // Link to client
+  permitId?: string; // Link to the master Permit document
   name: string;
   authority: string;
+  municipality?: string;
   complexity: 'low' | 'medium' | 'high';
   estimatedTime: string;
   description: string;
   category: string;
+  status?: 'not-started' | 'submitted' | 'action-required' | 'approved';
+  order?: number;
+  blockedBy?: string;
+  blocks?: string[];
+  lastActivity?: string;
+  lastActivityDate?: Date;
   requirements?: string[];
   fees?: string;
   purpose?: string;
@@ -25,12 +34,25 @@ export interface IPermitManagement extends Document {
 // Mongoose schema for permit management
 const PermitManagementSchema: Schema<IPermitManagement> = new Schema(
   {
+    clientId: { type: String, required: false, index: true }, // Index for faster queries
+    permitId: { type: String, required: false }, // Link to Permit collection
     name: { type: String, required: true },
     authority: { type: String, required: true },
+    municipality: { type: String, required: false },
     complexity: { type: String, enum: ['low', 'medium', 'high'], required: true },
     estimatedTime: { type: String, required: true },
     description: { type: String, required: true },
     category: { type: String, required: true },
+    status: { 
+      type: String, 
+      enum: ['not-started', 'submitted', 'action-required', 'approved'], 
+      default: 'not-started' 
+    },
+    order: { type: Number, default: 0 },
+    blockedBy: { type: String, required: false },
+    blocks: { type: [String], default: [] },
+    lastActivity: { type: String, required: false },
+    lastActivityDate: { type: Date, default: Date.now },
     requirements: { type: [String], required: false },
     fees: { type: String, required: false },
     purpose: { type: String, required: false },

@@ -3,15 +3,36 @@ import connectToDB from '../../../lib/mongodb';
 import { Permit } from '../../../lib/permits/schema';
 import { PermitManagement } from '../../../lib/permits/managementSchema';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectToDB();
     
-    // Try to fetch from PermitManagement collection first
-    let permitManagementDocs = await PermitManagement.find({}).lean();
+    // Get clientId from query params
+    const url = new URL(request.url);
+    const clientId = url.searchParams.get('clientId');
     
-    // If PermitManagement collection is empty, fetch from Permit collection and transform
-    if (permitManagementDocs.length === 0) {
+    // Build query - if clientId is provided, filter by it
+    const query: any = {};
+    if (clientId) {
+      query.clientId = clientId;
+      console.log(`🔍 Fetching permits for clientId: ${clientId}`);
+    } else {
+      console.log('⚠️ No clientId provided, fetching all permits');
+    }
+    
+    // Try to fetch from PermitManagement collection first
+    let permitManagementDocs = await PermitManagement.find(query).sort({ order: 1, createdAt: -1 }).lean();
+    console.log(`📋 Found ${permitManagementDocs.length} PermitManagement entries`);
+    
+    // If clientId is provided but no PermitManagement entries found, return empty array
+    // (Don't fallback to all permits when filtering by clientId)
+    if (clientId && permitManagementDocs.length === 0) {
+      return NextResponse.json([]);
+    }
+    
+    // If PermitManagement collection is empty AND no clientId filter, fetch from Permit collection and transform
+    // (This fallback is only for backward compatibility when no clientId is specified)
+    if (!clientId && permitManagementDocs.length === 0) {
       const permitDocs = await Permit.find({}).sort({ lastUpdated: -1 }).lean();
       
       // Transform Permit documents to match PermitManagement format
@@ -66,12 +87,22 @@ export async function GET() {
     // If PermitManagement collection has data, use it
     const formattedPermits = permitManagementDocs.map((permit: any) => ({
       id: permit._id.toString(),
+      _id: permit._id.toString(),
+      clientId: permit.clientId,
+      permitId: permit.permitId,
       name: permit.name,
       authority: permit.authority,
+      municipality: permit.municipality,
       complexity: permit.complexity,
       estimatedTime: permit.estimatedTime,
       description: permit.description,
       category: permit.category,
+      status: permit.status || 'not-started',
+      order: permit.order || 0,
+      blockedBy: permit.blockedBy,
+      blocks: permit.blocks || [],
+      lastActivity: permit.lastActivity,
+      lastActivityDate: permit.lastActivityDate,
       requirements: permit.requirements || [],
       fees: permit.fees,
       purpose: permit.purpose,
