@@ -127,6 +127,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
   // Fetch test mode configuration and emails
   useEffect(() => {
     const fetchData = async () => {
+      let searchTimeout: NodeJS.Timeout | null = null; // Declare outside try block for finally access
+      
       try {
         setLoading(true);
         
@@ -136,25 +138,39 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         setTestMode(config.test || false);
         
         // Set timeout to stop email searching after 5 seconds (4-6 second range)
-        const searchTimeout = setTimeout(() => {
+        searchTimeout = setTimeout(() => {
           console.log('⏱️ Email search timeout (5 seconds) - stopping search and showing current results');
           setLoading(false);
         }, 5000); // 5 seconds timeout
+        
+        // Display existing emails immediately (don't wait for sync)
+        // This stops loading and shows results right away
+        try {
+          const initialEmailsRes = await fetch('/api/emails?status=all&limit=25');
+          const initialEmailsData = await initialEmailsRes.json();
+          setEmails(initialEmailsData.emails || []);
+          setLoading(false); // Stop loading immediately to show current results
+          console.log(`✅ Displayed ${initialEmailsData.emails?.length || 0} existing emails immediately`);
+          console.log(`✅ Fetching done - Results displayed on website`);
+        } catch (initError) {
+          console.error('Error fetching initial emails:', initError);
+        }
         
         // Sync emails from ALL Gmail tokens in database (not just logged-in user)
         // This will sync emails from all registered Gmail accounts
         let emailsFetched = false;
         
         try {
-          // Sync emails from all Gmail accounts in background
+          // Sync emails from all Gmail accounts in background (non-blocking)
+          // This runs after displaying existing emails, so sync log appears but doesn't block UI
           // Sync all emails with keywords (permits, licensing, licencing), regardless of sender
           const syncResponse = await fetch('/api/gmail/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               // No userId specified = sync from ALL Gmail tokens in database
-              allowedSenders: [], // Empty array = sync all emails with keywords (not just from specific senders)
-              maxResults: 50, // Search only latest 50 emails per Gmail account
+              allowedSenders: [], // Empty array = sync all emails (not just from specific senders)
+              maxResults: 25, // Search only latest 25 emails per Gmail account for faster results
             }),
           });
             
@@ -167,14 +183,15 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
             
             // Always refresh email list after sync (even if no new emails were ingested)
             // This ensures the page shows the current state (empty or with emails)
-            const refreshRes = await fetch('/api/emails?status=all&limit=100');
+            const refreshRes = await fetch('/api/emails?status=all&limit=25');
             const refreshData = await refreshRes.json();
             setEmails(refreshData.emails || []);
             emailsFetched = true;
             console.log(`🔄 Email list refreshed: ${refreshData.emails?.length || 0} emails now displayed`);
+            console.log(`✅ Fetching done - Results displayed on website`);
             
             // Clear timeout since we got a response
-            clearTimeout(searchTimeout);
+            if (searchTimeout) clearTimeout(searchTimeout);
             
             // Stop loading immediately after checking emails - show empty state if no emails found
             setLoading(false);
@@ -186,14 +203,14 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
             const errorData = await syncResponse.json().catch(() => ({ error: 'Unknown error' }));
             console.error('Gmail sync failed:', errorData);
             // Clear timeout on error
-            clearTimeout(searchTimeout);
+            if (searchTimeout) clearTimeout(searchTimeout);
             // Stop loading even if sync failed
             setLoading(false);
           }
         } catch (syncError) {
           console.error('Gmail sync error:', syncError);
           // Clear timeout on error
-          clearTimeout(searchTimeout);
+          if (searchTimeout) clearTimeout(searchTimeout);
           // Stop loading even if sync errored
           setLoading(false);
         }
@@ -204,37 +221,40 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         // This ensures we show the current state even if sync failed
         if (!emailsFetched) {
           try {
-            const emailsRes = await fetch('/api/emails?status=all&limit=100');
-            const emailsData = await emailsRes.json();
-            console.log(`✅ Fetched ${emailsData.emails?.length || 0} emails from API (filtered: registered clients OR permit keywords)`);
-            setEmails(emailsData.emails || []);
-            // Clear timeout after fetching emails
-            clearTimeout(searchTimeout);
-            // Stop loading immediately after fetching emails
-            setLoading(false);
+          const emailsRes = await fetch('/api/emails?status=all&limit=25');
+          const emailsData = await emailsRes.json();
+          console.log(`✅ Fetched ${emailsData.emails?.length || 0} emails from API`);
+          console.log(`✅ Fetching done - Results displayed on website`);
+          setEmails(emailsData.emails || []);
+          // Clear timeout after fetching emails
+          if (searchTimeout) clearTimeout(searchTimeout);
+          // Stop loading immediately after fetching emails
+          setLoading(false);
           } catch (fetchError) {
             console.error('Error fetching emails:', fetchError);
-            clearTimeout(searchTimeout);
+            if (searchTimeout) clearTimeout(searchTimeout);
             setLoading(false);
           }
         }
       } catch (error) {
         console.error('Error fetching inbox data:', error);
         // Clear timeout on error
-        clearTimeout(searchTimeout);
+        if (searchTimeout) clearTimeout(searchTimeout);
         // Set loading to false on error so empty state can show
         setLoading(false);
       } finally {
         // Ensure timeout is cleared and loading is always false after all operations complete
-        clearTimeout(searchTimeout);
+        if (searchTimeout) clearTimeout(searchTimeout);
         setLoading(false);
       }
     };
     
     fetchData();
     
-    // Refresh emails every 10 seconds and sync new emails (reduced from 30s for faster updates)
-    const interval = setInterval(async () => {
+    // DISABLED: Auto-refresh removed to prevent continuous scanning
+    // User can manually refresh if needed
+    // The initial sync will run once when page loads, then stop
+    /* const interval = setInterval(async () => {
       const userEmail = localStorage.getItem('userEmail');
       
       // Sync new emails from ALL Gmail accounts in database
@@ -245,7 +265,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
           body: JSON.stringify({
             // No userId specified = sync from ALL Gmail tokens in database
             allowedSenders: [], // Empty array = sync all emails with keywords
-            maxResults: 50, // Search only latest 50 emails per Gmail account
+            maxResults: 25, // Search only latest 25 emails per Gmail account for faster results
           }),
         });
         
@@ -256,7 +276,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
             console.log(`✅ Synced ${syncData.ingested} new emails from ${syncedAccounts.length} account(s) (${syncedAccounts.join(', ')})`);
             
             // Immediately refresh email list after sync to show new emails right away
-            fetch('/api/emails?status=all&limit=100')
+            fetch('/api/emails?status=all&limit=25')
               .then(res => res.json())
               .then(data => {
                 console.log(`🔄 Email list refreshed: ${data.emails?.length || 0} emails now displayed`);
@@ -272,7 +292,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
       // Also refresh email list even if sync had no new emails (for manually added emails)
       if (true) {
         // Refresh email list even if user is not logged in (for manually added emails)
-        fetch('/api/emails?status=all&limit=100')
+        fetch('/api/emails?status=all&limit=25')
           .then(res => res.json())
           .then(data => {
             console.log(`✅ Refreshed: ${data.emails?.length || 0} emails (filtered: registered clients OR permit keywords)`);
@@ -280,9 +300,10 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
           })
           .catch(err => console.error('Error refreshing emails:', err));
       }
-    }, 10000); // Every 10 seconds for faster email updates
+    }, 10000); // Every 10 seconds for faster email updates */
     
-    return () => clearInterval(interval);
+    // No interval cleanup needed since interval is disabled
+    // return () => clearInterval(interval);
   }, []);
 
   const getPriorityColor = (priority: 'high' | 'medium' | 'low') => {
@@ -352,7 +373,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
         setShowEmailComposer(false);
         setEmailComposerData({ to: '', subject: '', body: '', permitId: '', permitName: '' });
         // Refresh emails
-        const emailsRes = await fetch('/api/emails?status=all&limit=100');
+        const emailsRes = await fetch('/api/emails?status=all&limit=25');
         const emailsData = await emailsRes.json();
         setEmails(emailsData.emails || []);
       } else {
@@ -487,10 +508,89 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     return matchesSearch && matchesPriority;
   });
 
-  // Sort emails by most recent first (already sorted by backend, but ensure it)
-  const sortedEmails = [...filteredEmails].sort((a, b) => {
+  // Separate permit-related/client emails from other emails
+  // Permit-related emails are those that:
+  // 1. Have "Permit" in subject or body
+  // 2. Have a permitName containing "Permit"
+  // 3. Are associated with a permit (have permitId)
+  // 4. Are from clients (have clientId)
+  // BUT exclude promotional/marketing emails even if they contain "permit"
+  const excludedDomains = [
+    'expedia.com',
+    'expedia.ca',
+    'booking.com',
+    'airbnb.com',
+    'amazon.com',
+    'ebay.com',
+    'paypal.com',
+    'facebook.com',
+    'instagram.com',
+    'twitter.com',
+    'linkedin.com',
+    'pinterest.com',
+    'groupon.com',
+    'coupons.com',
+    'retailmenot.com',
+    'shopify.com',
+    'etsy.com',
+    'netflix.com',
+    'spotify.com',
+    'applemusic.com',
+    'uber.com',
+    'lyft.com',
+    'doordash.com',
+    'ubereats.com',
+  ];
+  
+  const permitRelatedEmails = filteredEmails.filter((email) => {
+    // First check if this is a promotional email - exclude it from permit-related
+    const fromEmail = (email.from?.email || '').toLowerCase();
+    const isPromotionalEmail = excludedDomains.some(domain => 
+      fromEmail.includes(`@${domain}`) || fromEmail.endsWith(domain)
+    );
+    
+    if (isPromotionalEmail) {
+      return false; // Always exclude promotional emails from permit-related section
+    }
+    
+    const subject = (email.subject || '').toLowerCase();
+    const body = (email.body || '').toLowerCase();
+    const permitName = (email.permitName || '').toLowerCase().trim();
+    
+    const hasPermitInSubject = subject.includes('permit');
+    const hasPermitInBody = body.includes('permit');
+    const hasPermitInName = permitName.includes('permit');
+    const hasPermitId = !!email.permitId;
+    const hasClientId = !!email.clientId;
+    
+    return hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId;
+  });
+  
+  const otherEmails = filteredEmails.filter((email) => {
+    const subject = (email.subject || '').toLowerCase();
+    const body = (email.body || '').toLowerCase();
+    const permitName = (email.permitName || '').toLowerCase().trim();
+    
+    const hasPermitInSubject = subject.includes('permit');
+    const hasPermitInBody = body.includes('permit');
+    const hasPermitInName = permitName.includes('permit');
+    const hasPermitId = !!email.permitId;
+    const hasClientId = !!email.clientId;
+    
+    return !(hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId);
+  });
+  
+  // Sort each group by most recent first
+  const sortedPermitRelatedEmails = [...permitRelatedEmails].sort((a, b) => {
     return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
   });
+  
+  const sortedOtherEmails = [...otherEmails].sort((a, b) => {
+    return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
+  });
+  
+  // Combine for backward compatibility (used in stats)
+  const sortedEmails = [...sortedPermitRelatedEmails, ...sortedOtherEmails];
 
   // Filter mock items (for city feedback mode)
   const filteredItems = mockInboxItems.filter((item) => {
@@ -730,7 +830,138 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                     </div>
                   )}
                   
-                  {sortedEmails.map((email) => (
+                  {/* Permit-related and client emails */}
+                  {sortedPermitRelatedEmails.map((email) => (
+                    <div
+                      key={email._id}
+                      className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
+                        email.status === 'unread' ? 'border-l-4 border-l-blue-500' : 'border-neutral-200'
+                      } ${multiSelectMode && selectedEmailIds.has(email._id) ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
+                    >
+                      <div className="flex items-start gap-4">
+                        {multiSelectMode && (
+                          <div className="flex-shrink-0 pt-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleSelectEmail(email._id);
+                              }}
+                              className="text-neutral-400 hover:text-neutral-900 transition-colors"
+                            >
+                              {selectedEmailIds.has(email._id) ? (
+                                <CheckSquare className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex-shrink-0">
+                          {email.direction === 'inbound' ? (
+                            <Mail className={`w-6 h-6 ${email.status === 'unread' ? 'text-blue-600' : 'text-neutral-400'}`} />
+                          ) : (
+                            <Send className="w-6 h-6 text-neutral-400" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div 
+                              className="flex-1 cursor-pointer"
+                              onClick={() => {
+                                setSelectedEmail(email);
+                                if (email.status === 'unread') {
+                                  handleMarkAsRead(email._id);
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className={`font-medium text-neutral-900 ${email.status === 'unread' ? 'font-semibold' : ''}`}>
+                                  {email.subject}
+                                </h3>
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getPriorityColor(email.priority)}`}>
+                                  {email.priority}
+                                </span>
+                                {email.status === 'unread' && (
+                                  <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
+                                <span className="font-medium">
+                                  {email.direction === 'inbound' 
+                                    ? `${email.from.name || email.from.email}` 
+                                    : `To: ${email.to.name || email.to.email}`}
+                                </span>
+                                <span className="text-neutral-400">•</span>
+                                <span>{email.permitName || 'No Permit'}</span>
+                                {email.clientName && (
+                                  <>
+                                    <span className="text-neutral-400">•</span>
+                                    <span>{email.clientName}</span>
+                                  </>
+                                )}
+                              </div>
+                              <p className="text-sm text-neutral-700 line-clamp-2">
+                                {email.body.substring(0, 150)}...
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              {testMode && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEmail(email._id);
+                                  }}
+                                  disabled={isDeleting}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Delete email"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                              <ChevronRight className="w-5 h-5 text-neutral-400 flex-shrink-0 cursor-pointer" 
+                                onClick={() => {
+                                  setSelectedEmail(email);
+                                  if (email.status === 'unread') {
+                                    handleMarkAsRead(email._id);
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 pt-3 border-t border-neutral-100 text-sm text-neutral-600">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4" />
+                              <span>{formatDate(email.receivedAt)}</span>
+                            </div>
+                            <span className="text-neutral-400">•</span>
+                            <span className="capitalize">{email.direction}</span>
+                            {email.attachments && email.attachments.length > 0 && (
+                              <>
+                                <span className="text-neutral-400">•</span>
+                                <span>{email.attachments.length} attachment(s)</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Horizontal divider between permit-related and other emails */}
+                  {sortedPermitRelatedEmails.length > 0 && sortedOtherEmails.length > 0 && (
+                    <div className="my-6 border-t border-neutral-300">
+                      <div className="flex items-center justify-center pt-4">
+                        <span className="text-sm text-neutral-500 bg-neutral-50 px-4 py-1 rounded-full">
+                          Other Emails
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Other emails */}
+                  {sortedOtherEmails.map((email) => (
                     <div
                       key={email._id}
                       className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
@@ -895,7 +1126,121 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                     </div>
                   )}
                   
-                  {sortedEmails.map((email) => {
+                  {/* Permit-related and client emails */}
+                  {sortedPermitRelatedEmails.map((email) => {
+                    const daysWaiting = calculateDaysWaiting(email.receivedAt);
+                    const feedbackDate = new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const authority = email.permitDetails?.authority || 'Unknown Authority';
+                    const municipality = email.permitDetails?.municipality || email.permitDetails?.jurisdiction?.city || 'Unknown';
+                    const summary = email.body.length > 100 ? email.body.substring(0, 100) + '...' : email.body;
+                    
+                    return (
+                      <div
+                        key={email._id}
+                        onClick={() => {
+                          if (!multiSelectMode) {
+                            setSelectedEmail(email);
+                            if (email.status === 'unread') {
+                              handleMarkAsRead(email._id);
+                            }
+                            if (email.permitId) {
+                              onSelectPermit(email.permitId, email.clientName || 'Unknown Client');
+                            }
+                          }
+                        }}
+                  className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
+                    multiSelectMode && selectedEmailIds.has(email._id) ? 'ring-2 ring-blue-500 border-blue-500' : 'border-neutral-200'
+                  } ${!multiSelectMode ? 'cursor-pointer' : ''}`}
+                >
+                  <div className="flex items-start gap-6">
+                    {multiSelectMode && testMode && (
+                      <div className="flex-shrink-0 pt-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelectEmail(email._id);
+                          }}
+                          className="text-neutral-400 hover:text-neutral-900 transition-colors"
+                        >
+                          {selectedEmailIds.has(email._id) ? (
+                            <CheckSquare className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="w-8 h-8 text-amber-600" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-neutral-900 text-lg">
+                                    {email.permitName || email.subject}
+                            </h3>
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getPriorityColor(email.priority)}`}>
+                                    {email.priority}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
+                                  <span className="font-medium">{email.clientName || email.from.name || email.from.email}</span>
+                            <span className="text-neutral-400">•</span>
+                                  <span>{authority}</span>
+                            <span className="text-neutral-400">•</span>
+                                  <span>{municipality}</span>
+                          </div>
+                                <p className="text-sm text-neutral-700">{summary}</p>
+                          </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          {testMode && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEmail(email._id);
+                              }}
+                              disabled={isDeleting}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete email"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <ChevronRight className="w-5 h-5 text-neutral-400 flex-shrink-0" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 pt-3 border-t border-neutral-100 text-sm text-neutral-600">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4" />
+                                <span>Feedback received {feedbackDate}</span>
+                        </div>
+                        <span className="text-neutral-400">•</span>
+                              <span className={daysWaiting > 10 ? 'text-red-600 font-medium' : ''}>
+                                Waiting {daysWaiting} days
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                    );
+                  })}
+                  
+                  {/* Horizontal divider between permit-related and other emails */}
+                  {sortedPermitRelatedEmails.length > 0 && sortedOtherEmails.length > 0 && (
+                    <div className="my-6 border-t border-neutral-300">
+                      <div className="flex items-center justify-center pt-4">
+                        <span className="text-sm text-neutral-500 bg-neutral-50 px-4 py-1 rounded-full">
+                          Other Emails
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Other emails */}
+                  {sortedOtherEmails.map((email) => {
                     const daysWaiting = calculateDaysWaiting(email.receivedAt);
                     const feedbackDate = new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     const authority = email.permitDetails?.authority || 'Unknown Authority';
