@@ -41,7 +41,7 @@ interface CityFeedbackItem {
   id: string;
   date: string;
   time: string;
-  type: 'revision_required' | 'comment' | 'question';
+  type: 'revision_required' | 'comment' | 'question' | 'client_message';
   author: string;
   department: string;
   subject: string;
@@ -169,45 +169,8 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
     applicationNumber: 'HP-2024-12345',
   };
 
-  const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([
-    {
-      id: '1',
-      date: 'December 18, 2024',
-      time: '10:34 AM',
-      type: 'revision_required',
-      author: 'Inspector J. Martinez',
-      department: 'Plan Review Department',
-      subject: 'Floor Plan Revisions Required',
-      comment: 'Floor plan does not show required 3-compartment sink dimensions. Please revise to include precise measurements (minimum 18"x18" per compartment) and resubmit.\n\nAdditionally, please provide:\n- Updated equipment schedule\n- Sink specifications from manufacturer\n- Water supply calculations',
-      attachments: [
-        { name: 'rejection_notice_121824.pdf', size: '245 KB', type: 'pdf' },
-        { name: 'marked_up_floor_plan.pdf', size: '1.2 MB', type: 'pdf' },
-      ],
-      status: 'in_progress',
-      requiredDocuments: [
-        'Updated floor plan with sink dimensions',
-        'Equipment schedule',
-        'Sink specifications',
-        'Water supply calculations'
-      ],
-      uploadedDocuments: [
-        { name: 'floor_plan_revised_v2.pdf', size: '1.8 MB', uploadedBy: 'Sarah Chen', uploadedAt: 'Jan 11 at 9:15 AM' }
-      ],
-      consultantResponse: 'We have updated the floor plan to include the 3-compartment sink with dimensions of 18"x18" per compartment as specified. The sink specifications from the manufacturer are attached.\n\nWe are finalizing the water supply calculations and will upload by end of day Thursday.'
-    },
-    {
-      id: '2',
-      date: 'December 16, 2024',
-      time: '2:15 PM',
-      type: 'comment',
-      author: 'Plan Review Department',
-      department: 'SF Dept. of Public Health',
-      subject: 'Initial Review Complete',
-      comment: 'Initial review complete. Equipment layout meets spacing requirements. Minor revisions needed for sink specifications. Overall plan looks good - should be straightforward once sink details are added.',
-      attachments: [],
-      status: 'addressed',
-    },
-  ]);
+  const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([]);
+  const [loadingCityFeedback, setLoadingCityFeedback] = useState(false);
 
   const history = [
     {
@@ -443,6 +406,111 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
 
     if (permitId) {
       fetchEmails();
+    }
+  }, [permitId]);
+
+  // Fetch City Feedback items from API
+  useEffect(() => {
+    const fetchCityFeedback = async () => {
+      if (!permitId) return;
+
+      setLoadingCityFeedback(true);
+      try {
+        // First, try to get clientId from the permit management record
+        // The permitId passed to PermitDetailView is typically the PermitManagement _id
+        let clientId: string | null = null;
+        
+        try {
+          // Fetch all permits for this client to find the matching one
+          // We'll search through all clients' permits to find the one matching permitId
+          // This is a fallback - ideally we'd have clientId passed as a prop
+          const permitResponse = await fetch(`/api/permits/management`);
+          if (permitResponse.ok) {
+            const permitData = await permitResponse.json();
+            const permits = Array.isArray(permitData) ? permitData : [permitData];
+            
+            // Find the permit that matches the permitId (could be _id or permitId field)
+            const permit = permits.find((p: any) => 
+              p._id === permitId || 
+              p._id?.toString() === permitId ||
+              p.permitId === permitId
+            );
+            
+            if (permit && permit.clientId) {
+              clientId = permit.clientId;
+            }
+          }
+        } catch (permitError) {
+          console.warn('Could not fetch permit management data:', permitError);
+        }
+
+        // Fetch City Feedback by permitId (primary) and optionally by clientId (fallback)
+        // This ensures we get all feedback for this permit, even if permitId matching isn't perfect
+        let response;
+        if (clientId) {
+          // Try fetching by both permitId and clientId for more accurate results
+          response = await fetch(`/api/city-feedback?permitId=${permitId}&clientId=${clientId}&status=all`);
+        } else {
+          // Fallback to just permitId
+          response = await fetch(`/api/city-feedback?permitId=${permitId}&status=all`);
+        }
+        
+        if (response.ok) {
+          const data = await response.json();
+          const feedbackItems = data.feedback || [];
+          
+          // If no results by permitId but we have clientId, try fetching by clientId only
+          if (feedbackItems.length === 0 && clientId) {
+            const clientResponse = await fetch(`/api/city-feedback?clientId=${clientId}&status=all`);
+            if (clientResponse.ok) {
+              const clientData = await clientResponse.json();
+              // Filter to only include items that match this permitId or have no permitId (general client feedback)
+              const filteredItems = (clientData.feedback || []).filter((item: any) => 
+                !item.permitId || item.permitId === permitId
+              );
+              feedbackItems.push(...filteredItems);
+            }
+          }
+          
+          // Transform API data to match CityFeedbackItem interface
+          const transformedFeedback: CityFeedbackItem[] = feedbackItems.map((item: any) => ({
+            id: item._id || item.id,
+            date: item.date ? new Date(item.date).toLocaleDateString('en-US', { 
+              month: 'long', 
+              day: 'numeric', 
+              year: 'numeric' 
+            }) : 'Unknown',
+            time: item.time || 'Unknown',
+            type: item.type || 'client_message',
+            author: item.author || 'Unknown',
+            department: item.department || '',
+            subject: item.subject || 'No Subject',
+            comment: item.comment || '',
+            attachments: item.attachments || [],
+            status: item.status || 'not_started',
+            requiredDocuments: item.requiredDocuments || [],
+            uploadedDocuments: item.uploadedDocuments || [],
+            consultantResponse: item.consultantResponse
+          }));
+          
+          // Sort by date (most recent first)
+          transformedFeedback.sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return dateB - dateA;
+          });
+          
+          setCityFeedback(transformedFeedback);
+        }
+      } catch (error) {
+        console.error('Error fetching city feedback:', error);
+      } finally {
+        setLoadingCityFeedback(false);
+      }
+    };
+
+    if (permitId) {
+      fetchCityFeedback();
     }
   }, [permitId]);
 
