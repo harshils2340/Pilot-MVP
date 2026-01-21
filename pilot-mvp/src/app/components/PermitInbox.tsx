@@ -1,4 +1,4 @@
-import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, ExternalLink, Send, RefreshCw, Trash2, X, CheckSquare, Square, Reply, Forward, Archive, Printer, Copy, FileText } from 'lucide-react';
+import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, Send, RefreshCw, Trash2, X, CheckSquare, Square, Reply, Forward, Archive, Printer, Copy, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface PermitEmail {
@@ -386,12 +386,6 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     }
   };
 
-  const openEmailApp = () => {
-    // Open default email client or webmail
-    // You can customize this URL based on your email provider
-    const emailUrl = process.env.NEXT_PUBLIC_EMAIL_APP_URL || 'https://mail.google.com';
-    window.open(emailUrl, '_blank');
-  };
 
   const handleToggleSelectEmail = (emailId: string) => {
     setSelectedEmailIds(prev => {
@@ -508,6 +502,11 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     return matchesSearch && matchesPriority;
   });
 
+  // Deduplicate emails by _id to prevent duplicate key errors
+  const uniqueEmails = Array.from(
+    new Map(filteredEmails.map((email) => [email._id, email])).values()
+  );
+
   // Separate permit-related/client emails from other emails
   // Permit-related emails are those that:
   // 1. Have "Permit" in subject or body
@@ -542,7 +541,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     'ubereats.com',
   ];
   
-  const permitRelatedEmails = filteredEmails.filter((email) => {
+  const permitRelatedEmails = uniqueEmails.filter((email) => {
     // First check if this is a promotional email - exclude it from permit-related
     const fromEmail = (email.from?.email || '').toLowerCase();
     const isPromotionalEmail = excludedDomains.some(domain => 
@@ -566,7 +565,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
     return hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId;
   });
   
-  const otherEmails = filteredEmails.filter((email) => {
+  const otherEmails = uniqueEmails.filter((email) => {
     const subject = (email.subject || '').toLowerCase();
     const body = (email.body || '').toLowerCase();
     const permitName = (email.permitName || '').toLowerCase().trim();
@@ -581,11 +580,15 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
   });
   
   // Sort each group by most recent first
+  // Also ensure no duplicates between the two arrays
+  const permitRelatedIds = new Set(permitRelatedEmails.map(e => e._id));
+  const otherEmailsFiltered = otherEmails.filter(email => !permitRelatedIds.has(email._id));
+  
   const sortedPermitRelatedEmails = [...permitRelatedEmails].sort((a, b) => {
     return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
   });
   
-  const sortedOtherEmails = [...otherEmails].sort((a, b) => {
+  const sortedOtherEmails = [...otherEmailsFiltered].sort((a, b) => {
     return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
   });
   
@@ -675,13 +678,6 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               >
                 <Send className="w-4 h-4" />
                 <span>Send Email</span>
-              </button>
-              <button
-                onClick={openEmailApp}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Open Email App</span>
               </button>
             </div>
           )}
@@ -831,9 +827,9 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   )}
                   
                   {/* Permit-related and client emails */}
-                  {sortedPermitRelatedEmails.map((email) => (
+                  {sortedPermitRelatedEmails.map((email, index) => (
                     <div
-                      key={email._id}
+                      key={`permit-${email._id}-${index}`}
                       className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
                         email.status === 'unread' ? 'border-l-4 border-l-blue-500' : 'border-neutral-200'
                       } ${multiSelectMode && selectedEmailIds.has(email._id) ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
@@ -961,9 +957,9 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   )}
                   
                   {/* Other emails */}
-                  {sortedOtherEmails.map((email) => (
+                  {sortedOtherEmails.map((email, index) => (
                     <div
-                      key={email._id}
+                      key={`other-${email._id}-${index}`}
                       className={`bg-white rounded-lg border p-6 hover:border-neutral-300 hover:shadow-md transition-all ${
                         email.status === 'unread' ? 'border-l-4 border-l-blue-500' : 'border-neutral-200'
                       } ${multiSelectMode && selectedEmailIds.has(email._id) ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
@@ -1127,7 +1123,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   )}
                   
                   {/* Permit-related and client emails */}
-                  {sortedPermitRelatedEmails.map((email) => {
+                  {sortedPermitRelatedEmails.map((email, index) => {
                     const daysWaiting = calculateDaysWaiting(email.receivedAt);
                     const feedbackDate = new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     const authority = email.permitDetails?.authority || 'Unknown Authority';
@@ -1135,8 +1131,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                     const summary = email.body.length > 100 ? email.body.substring(0, 100) + '...' : email.body;
                     
                     return (
-                      <div
-                        key={email._id}
+                <div
+                        key={`permit-card-${email._id}-${index}`}
                         onClick={() => {
                           if (!multiSelectMode) {
                             setSelectedEmail(email);
@@ -1193,7 +1189,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                                   <span>{municipality}</span>
                           </div>
                                 <p className="text-sm text-neutral-700">{summary}</p>
-                          </div>
+                        </div>
                         <div className="flex items-center gap-2 ml-4">
                           {testMode && (
                             <button
@@ -1240,7 +1236,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   )}
                   
                   {/* Other emails */}
-                  {sortedOtherEmails.map((email) => {
+                  {sortedOtherEmails.map((email, index) => {
                     const daysWaiting = calculateDaysWaiting(email.receivedAt);
                     const feedbackDate = new Date(email.receivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     const authority = email.permitDetails?.authority || 'Unknown Authority';
@@ -1249,7 +1245,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                     
                     return (
                       <div
-                        key={email._id}
+                        key={`other-card-${email._id}-${index}`}
                         onClick={() => {
                           if (!multiSelectMode) {
                             setSelectedEmail(email);
@@ -1536,11 +1532,11 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                             Download
                           </a>
                         )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
-              )}
+              ))}
+                  </div>
+            </div>
+          )}
 
               {/* Permit Details */}
               {selectedEmail.permitDetails && (
@@ -1551,13 +1547,13 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                       <div>
                         <span className="font-medium text-neutral-700">Authority:</span>
                         <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.authority}</span>
-                      </div>
+        </div>
                     )}
                     {selectedEmail.permitDetails.municipality && (
                       <div>
                         <span className="font-medium text-neutral-700">Municipality:</span>
                         <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.municipality}</span>
-                      </div>
+      </div>
                     )}
                     {selectedEmail.permitDetails.jurisdiction && (
                       <>

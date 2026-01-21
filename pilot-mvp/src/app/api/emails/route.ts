@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const permitId = searchParams.get('permitId');
     const clientId = searchParams.get('clientId');
     const status = searchParams.get('status'); // 'unread', 'read', 'all'
-    const limit = parseInt(searchParams.get('limit') || '25');
+    const limit = parseInt(searchParams.get('limit') || '25'); // Default to 25 email cap
     const skip = parseInt(searchParams.get('skip') || '0');
 
     // Build query
@@ -25,16 +25,19 @@ export async function GET(request: NextRequest) {
     if (clientId) query.clientId = clientId;
     if (status && status !== 'all') query.status = status;
 
-    // Fetch ALL emails from database - no filtering by client or keywords
-    // Show all emails regardless of client association or permit keywords
-    // Sort: Permit-related emails first (containing "Permit" or associated with permits/clients), then by most recent
+    // Fetch ALL emails from database - no filtering by Gmail account
+    // Show all emails regardless of which Gmail account they came from
+    // Priority: Permit-related and client emails first, then others
+    // Sort by most recent first to ensure latest emails are shown
+    // Fetch more emails to allow re-sorting (permit/client emails prioritized)
     const allEmails = await PermitEmail.find(query)
-      .sort({ receivedAt: -1 }) // First sort by most recent
-      .limit(limit * 2) // Fetch more to re-sort
+      .sort({ receivedAt: -1 }) // Sort by most recent first (newest emails first)
+      .limit(limit * 3) // Fetch 3x limit to ensure we get permit/client emails even if they're older
       .skip(skip)
       .lean();
     
-    // Separate permit-related emails from others
+    // Separate permit-related and client emails from others
+    // These emails should ALWAYS show up regardless of which Gmail account they came from
     // Permit-related emails are those that:
     // 1. Have "Permit" in subject or body
     // 2. Have a permitName containing "Permit"
@@ -45,14 +48,17 @@ export async function GET(request: NextRequest) {
       const body = (email.body || '').toLowerCase();
       const permitName = (email.permitName || '').toLowerCase().trim();
       
-      // Check if email is permit-related
+      // Check if email is permit-related or from a client
       const hasPermitInSubject = subject.includes('permit');
       const hasPermitInBody = body.includes('permit');
       const hasPermitInName = permitName.includes('permit');
       const hasPermitId = !!email.permitId;
-      const hasClientId = !!email.clientId; // Emails from clients should be at top
+      const hasClientId = !!email.clientId; // Emails from clients should ALWAYS be shown
       
-      return hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId;
+      // Also check for licensing keywords
+      const hasLicensingKeywords = subject.includes('licens') || body.includes('licens');
+      
+      return hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId || hasLicensingKeywords;
     });
     
     const otherEmails = allEmails.filter((email: any) => {
@@ -78,7 +84,14 @@ export async function GET(request: NextRequest) {
       new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
     );
     
-    const emails = [...permitRelatedEmails, ...otherEmails].slice(0, limit);
+    // Always prioritize permit-related and client emails
+    // Apply limit: take as many permit-related emails as possible, then fill remaining slots with other emails
+    const permitEmailsCount = Math.min(permitRelatedEmails.length, limit);
+    const otherEmailsCount = Math.max(0, limit - permitEmailsCount);
+    const emails = [
+      ...permitRelatedEmails.slice(0, permitEmailsCount),
+      ...otherEmails.slice(0, otherEmailsCount)
+    ];
 
     // Fetch permit details for emails that have permitId
     const permitIds = [...new Set(emails.map((e: any) => e.permitId).filter(Boolean))];

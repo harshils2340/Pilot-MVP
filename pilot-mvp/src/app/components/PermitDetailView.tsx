@@ -676,12 +676,12 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
                     </p>
                   </div>
                   {cityFeedback.length > 0 && (
-                    <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-green-500 transition-all duration-300"
-                        style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
-                      />
-                    </div>
+                  <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 transition-all duration-300"
+                      style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
+                    />
+                  </div>
                   )}
                 </div>
                 {allFeedbackAddressed && unreadCityEmails === 0 && unreadClientEmails === 0 ? (

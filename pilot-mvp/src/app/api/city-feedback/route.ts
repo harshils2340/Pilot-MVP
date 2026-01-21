@@ -20,10 +20,18 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status'); // 'not_started', 'in_progress', 'addressed', or 'all'
 
     // Build query
+    // Note: permitId can be either PermitManagement _id or master Permit _id
+    // We need to handle both cases for proper matching
     const query: any = {};
     if (clientId) query.clientId = clientId;
-    if (permitId) query.permitId = permitId;
+    if (permitId) {
+      // Try to match permitId as both string and ObjectId
+      // This handles cases where permitId might be stored as string or ObjectId
+      query.permitId = permitId;
+    }
     if (status && status !== 'all') query.status = status;
+    
+    console.log(`🔍 Fetching City Feedback with query:`, { clientId, permitId, status, query });
 
     // Fetch feedback items, sorted by most recent first
     const feedbackItems = await CityFeedback.find(query)
