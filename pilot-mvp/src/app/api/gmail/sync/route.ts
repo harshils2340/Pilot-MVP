@@ -186,6 +186,61 @@ function decodeEmailBody(body: any): string {
   return '';
 }
 
+// Extract attachment metadata from Gmail message parts
+function extractAttachments(payload: any, messageId: string): Array<{
+  filename: string;
+  contentType: string;
+  size: number;
+  attachmentId?: string;
+  gmailMessageId: string;
+}> {
+  const attachments: Array<{
+    filename: string;
+    contentType: string;
+    size: number;
+    attachmentId?: string;
+    gmailMessageId: string;
+  }> = [];
+  
+  if (!payload) return attachments;
+  
+  const processPart = (part: any) => {
+    // Check if this part is an attachment
+    if (part.filename || part.body?.attachmentId) {
+      const filename = part.filename || 'attachment';
+      const contentType = part.mimeType || 'application/octet-stream';
+      const size = part.body?.size || 0;
+      const attachmentId = part.body?.attachmentId;
+      
+      // Only include actual attachments (not inline images in HTML)
+      if (attachmentId || (filename && filename !== 'attachment')) {
+        attachments.push({
+          filename,
+          contentType,
+          size,
+          attachmentId,
+          gmailMessageId: messageId
+        });
+      }
+    }
+    
+    // Recursively process nested parts
+    if (part.parts && Array.isArray(part.parts)) {
+      part.parts.forEach((nestedPart: any) => processPart(nestedPart));
+    }
+  };
+  
+  // Process main payload
+  if (payload.parts && Array.isArray(payload.parts)) {
+    payload.parts.forEach((part: any) => processPart(part));
+  } else if (payload.filename || payload.body?.attachmentId) {
+    // Single attachment
+    processPart(payload);
+  }
+  
+  return attachments;
+}
+
 // POST: Auto-sync emails from specific senders (for cron/webhook)
 // If userId is provided, sync only that user. Otherwise, sync from ALL Gmail tokens in database
 export async function POST(request: NextRequest) {
@@ -301,6 +356,9 @@ export async function POST(request: NextRequest) {
               continue;
             }
             
+        // Extract attachments metadata
+        const attachments = extractAttachments(msg.payload, message.id);
+        
         const emailBody = msg.payload?.body?.data 
           ? decodeEmailBody(msg.payload.body)
           : msg.payload?.parts?.map((part: any) => decodeEmailBody(part.body)).join('\n\n') || '';
@@ -511,7 +569,7 @@ export async function POST(request: NextRequest) {
                   matchScore += 100;
                 }
                 // Check if subject contains key words from permit name (e.g., "Locksmith Licence" in subject)
-                const permitKeyWords = permitNameLower.split(/\s+/).filter(w => w.length >= 4);
+                const permitKeyWords = permitNameLower.split(/\s+/).filter((w: string) => w.length >= 4);
                 const subjectHasKeyWords = permitKeyWords.length > 0 && 
                                          permitKeyWords.every(word => subjectLower2.includes(word) || normalizedCombinedText.includes(normalizePermitName(word)));
                 if (subjectHasKeyWords) {
@@ -524,7 +582,7 @@ export async function POST(request: NextRequest) {
                 }
                 
                 // Score 3: Significant words from permit name (3+ characters)
-                const permitNameWords = permitNameLower.split(/\s+/).filter(w => w.length >= 3);
+                const permitNameWords = permitNameLower.split(/\s+/).filter((w: string) => w.length >= 3);
                 const matchingWords = permitNameWords.filter(word => 
                   combinedText.includes(word) || normalizedCombinedText.includes(normalizePermitName(word))
                 );
@@ -596,11 +654,11 @@ export async function POST(request: NextRequest) {
                 const significantWords: string[] = [];
                 
                 // Extract words from subject (likely to contain permit name)
-                const subjectWords = subjectLower2.split(/\s+/).filter(w => w.length >= 3);
+                const subjectWords = subjectLower2.split(/\s+/).filter((w: string) => w.length >= 3);
                 significantWords.push(...subjectWords.slice(0, 5));
                 
                 // Extract words from body (first 200 chars)
-                const bodyWords = bodyLower2.substring(0, 200).split(/\s+/).filter(w => w.length >= 3);
+                const bodyWords = bodyLower2.substring(0, 200).split(/\s+/).filter((w: string) => w.length >= 3);
                 significantWords.push(...bodyWords.slice(0, 10));
                 
                 // Build search queries
@@ -669,7 +727,7 @@ export async function POST(request: NextRequest) {
                     }
                     
                     // Score 3: Significant words from permit name
-                    const permitNameWords = permitNameLower.split(/\s+/).filter(w => w.length >= 3);
+                    const permitNameWords = permitNameLower.split(/\s+/).filter((w: string) => w.length >= 3);
                     const matchingWords = permitNameWords.filter(word => 
                       combinedText.includes(word) || normalizedCombinedText.includes(normalizePermitName(word))
                     );
@@ -812,6 +870,13 @@ export async function POST(request: NextRequest) {
           },
           body: emailBody.substring(0, 50000),
           htmlBody: emailBody,
+          attachments: attachments.map(att => ({
+            filename: att.filename,
+            contentType: att.contentType,
+            size: att.size,
+            attachmentId: att.attachmentId, // Store attachmentId for fetching later
+            gmailMessageId: att.gmailMessageId || message.id // Use message.id as fallback
+          })),
           direction: 'inbound',
           status: 'unread',
               priority: 'high',

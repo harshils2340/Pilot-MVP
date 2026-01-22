@@ -1,4 +1,4 @@
-import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, Send, RefreshCw, Trash2, X, CheckSquare, Square, Reply, Forward, Archive, Printer, Copy, FileText } from 'lucide-react';
+import { AlertCircle, Clock, ChevronRight, Search, Filter, Mail, Send, RefreshCw, Trash2, X, CheckSquare, Square, Reply, Forward, Archive, Printer, Copy, FileText, Download, Eye, EyeOff, Star, StarOff, ExternalLink, User, Calendar, MapPin, Building2, FileIcon, Image, File, Link2, Paperclip } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface PermitEmail {
@@ -23,6 +23,8 @@ interface PermitEmail {
     contentType: string;
     size: number;
     url?: string;
+    attachmentId?: string; // Gmail attachment ID for fetching
+    gmailMessageId?: string; // Gmail message ID
   }>;
   direction: 'inbound' | 'outbound';
   status: 'unread' | 'read' | 'replied' | 'archived';
@@ -31,6 +33,12 @@ interface PermitEmail {
   sentAt?: string;
   threadId?: string;
   inReplyTo?: string;
+  metadata?: {
+    messageId?: string;
+    headers?: Record<string, string>;
+    labels?: string[];
+    snippet?: string;
+  };
   permitDetails?: {
     authority?: string;
     municipality?: string;
@@ -123,6 +131,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [viewingAttachment, setViewingAttachment] = useState<{ emailId: string; index: number; url: string; filename: string; contentType: string } | null>(null);
+  const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
   // Fetch test mode configuration and emails
   useEffect(() => {
@@ -487,6 +497,111 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
       }
       return newMode;
     });
+  };
+
+  // Handle attachment download
+  const handleDownloadAttachment = async (emailId: string, attachmentIndex: number, filename: string) => {
+    try {
+      setDownloadingAttachment(`${emailId}-${attachmentIndex}`);
+      const response = await fetch(`/api/gmail/attachment?emailId=${emailId}&index=${attachmentIndex}&view=download`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to download attachment');
+      }
+      
+      // Get blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+      alert('Failed to download attachment. Please try again.');
+    } finally {
+      setDownloadingAttachment(null);
+    }
+  };
+
+  // Handle attachment view (open in modal or new tab)
+  const handleViewAttachment = async (emailId: string, attachmentIndex: number, filename: string, contentType: string) => {
+    try {
+      // Check if it's a viewable type (image, PDF, text)
+      const isViewable = contentType?.includes('image') || 
+                        contentType?.includes('pdf') || 
+                        contentType?.includes('text') ||
+                        filename.toLowerCase().endsWith('.pdf') ||
+                        ['jpg', 'jpeg', 'png', 'gif', 'webp'].some(ext => filename.toLowerCase().endsWith(`.${ext}`));
+      
+      if (isViewable) {
+        const response = await fetch(`/api/gmail/attachment?emailId=${emailId}&index=${attachmentIndex}&view=view`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch attachment');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        // Set viewing attachment state to show modal
+        setViewingAttachment({
+          emailId,
+          index: attachmentIndex,
+          url,
+          filename,
+          contentType
+        });
+      } else {
+        // For non-viewable types, just download
+        await handleDownloadAttachment(emailId, attachmentIndex, filename);
+      }
+    } catch (error) {
+      console.error('Error viewing attachment:', error);
+      alert('Failed to view attachment. Please try downloading it instead.');
+    }
+  };
+
+  // Handle attachment open (try to open in system default app)
+  const handleOpenAttachment = async (emailId: string, attachmentIndex: number, filename: string, contentType: string) => {
+    try {
+      const response = await fetch(`/api/gmail/attachment?emailId=${emailId}&index=${attachmentIndex}&view=view`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch attachment');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link and trigger download/open
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      
+      // For images and PDFs, try to open in new tab
+      if (contentType?.includes('image') || contentType?.includes('pdf')) {
+        window.open(url, '_blank');
+      } else {
+        // For other types, download
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      
+      // Clean up after a delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Error opening attachment:', error);
+      alert('Failed to open attachment. Please try downloading it instead.');
+    }
   };
 
   // Filter emails
@@ -947,7 +1062,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   
                   {/* Horizontal divider between permit-related and other emails */}
                   {sortedPermitRelatedEmails.length > 0 && sortedOtherEmails.length > 0 && (
-                    <div className="my-6 border-t border-neutral-300">
+                    <div className="my-6">
+                      <div className="border-t-2 border-neutral-300"></div>
                       <div className="flex items-center justify-center pt-4">
                         <span className="text-sm text-neutral-500 bg-neutral-50 px-4 py-1 rounded-full">
                           Other Emails
@@ -1226,7 +1342,8 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                   
                   {/* Horizontal divider between permit-related and other emails */}
                   {sortedPermitRelatedEmails.length > 0 && sortedOtherEmails.length > 0 && (
-                    <div className="my-6 border-t border-neutral-300">
+                    <div className="my-6">
+                      <div className="border-t-2 border-neutral-300"></div>
                       <div className="flex items-center justify-center pt-4">
                         <span className="text-sm text-neutral-500 bg-neutral-50 px-4 py-1 rounded-full">
                           Other Emails
@@ -1345,228 +1462,395 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
 
       {/* Email Detail Modal - Enhanced UI */}
       {selectedEmail && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] flex flex-col shadow-xl">
-            {/* Header */}
-            <div className="p-6 border-b border-neutral-200 flex-shrink-0">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-2xl font-semibold text-neutral-900">{selectedEmail.subject}</h2>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(selectedEmail.priority)}`}>
-                      {selectedEmail.priority}
-                    </span>
-                    {selectedEmail.status === 'unread' && (
-                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-neutral-600">
-                    <div>
-                      <span className="font-medium text-neutral-700">From:</span>
-                      <span className="ml-2">{selectedEmail.from.name || selectedEmail.from.email}</span>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEmail(null)}>
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Enhanced Header */}
+            <div className="bg-gradient-to-r from-neutral-50 to-white border-b border-neutral-200 flex-shrink-0">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
+                      <h2 className="text-2xl font-bold text-neutral-900 break-words">{selectedEmail.subject || '(No Subject)'}</h2>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(selectedEmail.priority)} whitespace-nowrap`}>
+                        {selectedEmail.priority}
+                      </span>
+                      {selectedEmail.status === 'unread' && (
+                        <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse" title="Unread"></span>
+                      )}
+                      {selectedEmail.status === 'read' && (
+                        <span className="w-2.5 h-2.5 bg-green-500 rounded-full" title="Read"></span>
+                      )}
                     </div>
-                    <div>
-                      <span className="font-medium text-neutral-700">To:</span>
-                      <span className="ml-2">{selectedEmail.to.name || selectedEmail.to.email}</span>
-                    </div>
-                    {selectedEmail.permitName && (
-                      <div>
-                        <span className="font-medium text-neutral-700">Permit:</span>
-                        <span className="ml-2">{selectedEmail.permitName}</span>
+                    
+                    {/* Enhanced Metadata Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-start gap-2">
+                        <User className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold text-neutral-700">From:</span>
+                          <span className="ml-2 text-neutral-900">{selectedEmail.from.name || selectedEmail.from.email}</span>
+                          {selectedEmail.from.name && (
+                            <div className="text-xs text-neutral-500 mt-0.5">{selectedEmail.from.email}</div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    {selectedEmail.clientName && (
-                      <div>
-                        <span className="font-medium text-neutral-700">Client:</span>
-                        <span className="ml-2">{selectedEmail.clientName}</span>
+                      <div className="flex items-start gap-2">
+                        <Mail className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold text-neutral-700">To:</span>
+                          <span className="ml-2 text-neutral-900">{selectedEmail.to.name || selectedEmail.to.email}</span>
+                          {selectedEmail.to.name && selectedEmail.to.email && (
+                            <div className="text-xs text-neutral-500 mt-0.5">{selectedEmail.to.email}</div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <span className="font-medium text-neutral-700">Date:</span>
-                      <span className="ml-2">{new Date(selectedEmail.receivedAt).toLocaleString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit'
-                      })}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-neutral-700">Direction:</span>
-                      <span className="ml-2 capitalize">{selectedEmail.direction}</span>
+                      {selectedEmail.permitName && (
+                        <div className="flex items-start gap-2">
+                          <FileIcon className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-semibold text-neutral-700">Permit:</span>
+                            <span className="ml-2 text-neutral-900">{selectedEmail.permitName}</span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedEmail.clientName && (
+                        <div className="flex items-start gap-2">
+                          <Building2 className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-semibold text-neutral-700">Client:</span>
+                            <span className="ml-2 text-neutral-900">{selectedEmail.clientName}</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <Calendar className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold text-neutral-700">Date:</span>
+                          <span className="ml-2 text-neutral-900">
+                            {new Date(selectedEmail.receivedAt).toLocaleString('en-US', { 
+                              weekday: 'short',
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Send className={`w-4 h-4 mt-0.5 flex-shrink-0 ${selectedEmail.direction === 'inbound' ? 'text-blue-500' : 'text-green-500'}`} />
+                        <div>
+                          <span className="font-semibold text-neutral-700">Direction:</span>
+                          <span className={`ml-2 capitalize font-medium ${selectedEmail.direction === 'inbound' ? 'text-blue-600' : 'text-green-600'}`}>
+                            {selectedEmail.direction}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setSelectedEmail(null)}
+                    className="ml-4 p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors flex-shrink-0"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setSelectedEmail(null)}
-                  className="ml-4 p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
-                  title="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-4 border-t border-neutral-100">
-                <button
-                  onClick={() => {
-                    setEmailComposerData({
-                      to: selectedEmail.from.email,
-                      subject: `Re: ${selectedEmail.subject}`,
-                      body: `\n\n--- Original Message ---\n${selectedEmail.body}`,
-                      permitId: selectedEmail.permitId || '',
-                      permitName: selectedEmail.permitName || ''
-                    });
-                    setSelectedEmail(null);
-                    setShowEmailComposer(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
-                >
-                  <Reply className="w-4 h-4" />
-                  Reply
-                </button>
-                <button
-                  onClick={() => {
-                    setEmailComposerData({
-                      to: '',
-                      subject: `Fwd: ${selectedEmail.subject}`,
-                      body: `\n\n--- Forwarded Message ---\n${selectedEmail.body}`,
-                      permitId: selectedEmail.permitId || '',
-                      permitName: selectedEmail.permitName || ''
-                    });
-                    setSelectedEmail(null);
-                    setShowEmailComposer(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-                >
-                  <Forward className="w-4 h-4" />
-                  Forward
-                </button>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedEmail.body);
-                    alert('Email content copied to clipboard');
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-                  title="Copy email content"
-                >
-                  <Copy className="w-4 h-4" />
-                  Copy
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-                  title="Print email"
-                >
-                  <Printer className="w-4 h-4" />
-                  Print
-                </button>
-                {testMode && (
+                
+                {/* Enhanced Action Buttons */}
+                <div className="flex items-center gap-2 pt-4 border-t border-neutral-200 flex-wrap">
                   <button
                     onClick={() => {
-                      if (confirm('Are you sure you want to delete this email?')) {
-                        handleDeleteEmail(selectedEmail._id);
-                        setSelectedEmail(null);
+                      setEmailComposerData({
+                        to: selectedEmail.from.email,
+                        subject: `Re: ${selectedEmail.subject}`,
+                        body: `\n\n--- Original Message ---\nFrom: ${selectedEmail.from.name || selectedEmail.from.email}\nDate: ${new Date(selectedEmail.receivedAt).toLocaleString()}\nSubject: ${selectedEmail.subject}\n\n${selectedEmail.body}`,
+                        permitId: selectedEmail.permitId || '',
+                        permitName: selectedEmail.permitName || ''
+                      });
+                      setSelectedEmail(null);
+                      setShowEmailComposer(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium"
+                  >
+                    <Reply className="w-4 h-4" />
+                    Reply
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEmailComposerData({
+                        to: '',
+                        subject: `Fwd: ${selectedEmail.subject}`,
+                        body: `\n\n--- Forwarded Message ---\nFrom: ${selectedEmail.from.name || selectedEmail.from.email}\nDate: ${new Date(selectedEmail.receivedAt).toLocaleString()}\nSubject: ${selectedEmail.subject}\n\n${selectedEmail.body}`,
+                        permitId: selectedEmail.permitId || '',
+                        permitName: selectedEmail.permitName || ''
+                      });
+                      setSelectedEmail(null);
+                      setShowEmailComposer(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors font-medium"
+                  >
+                    <Forward className="w-4 h-4" />
+                    Forward
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const fullEmailText = `Subject: ${selectedEmail.subject}\nFrom: ${selectedEmail.from.name || selectedEmail.from.email} <${selectedEmail.from.email}>\nTo: ${selectedEmail.to.name || selectedEmail.to.email} <${selectedEmail.to.email}>\nDate: ${new Date(selectedEmail.receivedAt).toLocaleString()}\n\n${selectedEmail.body}`;
+                      try {
+                        await navigator.clipboard.writeText(fullEmailText);
+                        alert('Email copied to clipboard');
+                      } catch (err) {
+                        alert('Failed to copy email');
                       }
                     }}
-                    disabled={isDeleting}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                    title="Copy full email"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
+                    <Copy className="w-4 h-4" />
+                    Copy
                   </button>
-                )}
+                  <button
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html>
+                            <head><title>${selectedEmail.subject}</title></head>
+                            <body style="font-family: Arial, sans-serif; padding: 20px;">
+                              <h2>${selectedEmail.subject}</h2>
+                              <p><strong>From:</strong> ${selectedEmail.from.name || selectedEmail.from.email}</p>
+                              <p><strong>To:</strong> ${selectedEmail.to.name || selectedEmail.to.email}</p>
+                              <p><strong>Date:</strong> ${new Date(selectedEmail.receivedAt).toLocaleString()}</p>
+                              <hr>
+                              <div>${selectedEmail.htmlBody || selectedEmail.body.replace(/\n/g, '<br>')}</div>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.print();
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                    title="Print email"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print
+                  </button>
+                  {selectedEmail.status === 'unread' && (
+                    <button
+                      onClick={async () => {
+                        await handleMarkAsRead(selectedEmail._id);
+                        setSelectedEmail({ ...selectedEmail, status: 'read' });
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                      title="Mark as read"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Mark Read
+                    </button>
+                  )}
+                  {testMode && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this email?')) {
+                          handleDeleteEmail(selectedEmail._id);
+                          setSelectedEmail(null);
+                        }
+                      }}
+                      disabled={isDeleting}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Email Body */}
-            <div className="flex-1 overflow-auto p-6">
-              {selectedEmail.htmlBody ? (
-                <div 
-                  className="prose max-w-none email-body"
-                  dangerouslySetInnerHTML={{ __html: selectedEmail.htmlBody }}
-                  style={{
-                    fontFamily: 'system-ui, -apple-system, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    color: '#1f2937'
-                  }}
-                />
-              ) : (
-                <div className="prose max-w-none">
-                  <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed">{selectedEmail.body}</p>
+            <div className="flex-1 overflow-auto p-6 bg-neutral-50">
+              {/* Attachments Section - Show before body if present */}
+              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                <div className="mb-6 p-4 bg-white border border-neutral-200 rounded-lg">
+                  <h3 className="font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+                    <Paperclip className="w-5 h-5 text-neutral-600" />
+                    Attachments ({selectedEmail.attachments.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedEmail.attachments.map((att, idx) => {
+                      const getFileIcon = (filename: string, contentType: string) => {
+                        const ext = filename.split('.').pop()?.toLowerCase();
+                        if (contentType?.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+                          return <Image className="w-5 h-5 text-blue-500" />;
+                        } else if (contentType?.includes('pdf') || ext === 'pdf') {
+                          return <FileText className="w-5 h-5 text-red-500" />;
+                        } else if (['doc', 'docx'].includes(ext || '')) {
+                          return <FileText className="w-5 h-5 text-blue-600" />;
+                        } else if (['xls', 'xlsx'].includes(ext || '')) {
+                          return <FileText className="w-5 h-5 text-green-600" />;
+                        } else {
+                          return <File className="w-5 h-5 text-neutral-500" />;
+                        }
+                      };
+                      
+                      const fileSize = att.size ? (att.size / 1024).toFixed(1) : 'Unknown';
+                      const hasAttachmentId = !!(att as any).attachmentId && !!(att as any).gmailMessageId;
+                      const isDownloading = downloadingAttachment === `${selectedEmail._id}-${idx}`;
+                      const isImage = att.contentType?.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].some(ext => att.filename.toLowerCase().endsWith(`.${ext}`));
+                      const isPDF = att.contentType?.includes('pdf') || att.filename.toLowerCase().endsWith('.pdf');
+                      const canView = isImage || isPDF;
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className="flex items-center justify-between p-4 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 hover:shadow-md transition-all"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-12 h-12 bg-white border border-neutral-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              {getFileIcon(att.filename, att.contentType)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-neutral-900 truncate" title={att.filename}>
+                                {att.filename}
+                              </p>
+                              <p className="text-xs text-neutral-500 mt-0.5">
+                                {att.contentType || 'Unknown type'} • {fileSize} KB
+                              </p>
+                            </div>
+                          </div>
+                          <div className="ml-3 flex items-center gap-2 flex-shrink-0">
+                            {hasAttachmentId ? (
+                              <>
+                                {canView && (
+                                  <button
+                                    onClick={() => handleViewAttachment(selectedEmail._id, idx, att.filename, att.contentType)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                    title="View attachment"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    View
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDownloadAttachment(selectedEmail._id, idx, att.filename)}
+                                  disabled={isDownloading}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Download attachment"
+                                >
+                                  {isDownloading ? (
+                                    <>
+                                      <RefreshCw className="w-4 h-4 animate-spin" />
+                                      Downloading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="w-4 h-4" />
+                                      Download
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleOpenAttachment(selectedEmail._id, idx, att.filename, att.contentType)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                                  title="Open attachment"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  Open
+                                </button>
+                              </>
+                            ) : att.url ? (
+                              <a
+                                href={att.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                              >
+                                <Download className="w-4 h-4" />
+                                Download
+                              </a>
+                            ) : (
+                              <span className="text-xs text-neutral-400 italic">Not available</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* Attachments */}
-              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                <div className="mt-8 pt-6 border-t border-neutral-200">
-                  <h3 className="font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Attachments ({selectedEmail.attachments.length})
-                  </h3>
-                  <div className="grid grid-cols-1 gap-3">
-                    {selectedEmail.attachments.map((att, idx) => (
-                      <div 
-                        key={idx} 
-                        className="flex items-center justify-between p-4 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-neutral-200 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-neutral-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-neutral-900">{att.filename}</p>
-                            <p className="text-xs text-neutral-500">
-                              {att.contentType} • {(att.size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                        </div>
-                        {att.url && (
-                          <a
-                            href={att.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
-                          >
-                            Download
-                          </a>
-                        )}
-                </div>
-              ))}
+              {/* Email Content */}
+              <div className="bg-white border border-neutral-200 rounded-lg p-6">
+                {selectedEmail.htmlBody ? (
+                  <div 
+                    className="prose max-w-none email-body"
+                    dangerouslySetInnerHTML={{ __html: selectedEmail.htmlBody }}
+                    style={{
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      fontSize: '15px',
+                      lineHeight: '1.7',
+                      color: '#1f2937'
+                    }}
+                  />
+                ) : selectedEmail.body ? (
+                  <div className="prose max-w-none">
+                    <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed text-[15px]">{selectedEmail.body}</p>
                   </div>
-            </div>
-          )}
+                ) : (
+                  <div className="text-center py-12 text-neutral-400">
+                    <Mail className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">No email content available</p>
+                  </div>
+                )}
+              </div>
 
               {/* Permit Details */}
               {selectedEmail.permitDetails && (
-                <div className="mt-8 pt-6 border-t border-neutral-200">
-                  <h3 className="font-semibold text-neutral-900 mb-4">Permit Details</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+                    <FileIcon className="w-5 h-5 text-blue-600" />
+                    Permit Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     {selectedEmail.permitDetails.authority && (
-                      <div>
-                        <span className="font-medium text-neutral-700">Authority:</span>
-                        <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.authority}</span>
-        </div>
+                      <div className="flex items-start gap-2">
+                        <Building2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold text-neutral-700">Authority:</span>
+                          <span className="ml-2 text-neutral-900">{selectedEmail.permitDetails.authority}</span>
+                        </div>
+                      </div>
                     )}
                     {selectedEmail.permitDetails.municipality && (
-                      <div>
-                        <span className="font-medium text-neutral-700">Municipality:</span>
-                        <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.municipality}</span>
-      </div>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold text-neutral-700">Municipality:</span>
+                          <span className="ml-2 text-neutral-900">{selectedEmail.permitDetails.municipality}</span>
+                        </div>
+                      </div>
                     )}
                     {selectedEmail.permitDetails.jurisdiction && (
                       <>
                         {selectedEmail.permitDetails.jurisdiction.city && (
-                          <div>
-                            <span className="font-medium text-neutral-700">City:</span>
-                            <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.jurisdiction.city}</span>
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="font-semibold text-neutral-700">City:</span>
+                              <span className="ml-2 text-neutral-900">{selectedEmail.permitDetails.jurisdiction.city}</span>
+                            </div>
                           </div>
                         )}
                         {selectedEmail.permitDetails.jurisdiction.province && (
-                          <div>
-                            <span className="font-medium text-neutral-700">Province:</span>
-                            <span className="ml-2 text-neutral-600">{selectedEmail.permitDetails.jurisdiction.province}</span>
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="font-semibold text-neutral-700">Province:</span>
+                              <span className="ml-2 text-neutral-900">{selectedEmail.permitDetails.jurisdiction.province}</span>
+                            </div>
                           </div>
                         )}
                       </>
@@ -1576,17 +1860,29 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               )}
             </div>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-neutral-200 bg-neutral-50 flex items-center justify-between text-sm text-neutral-600 flex-shrink-0">
-              <div className="flex items-center gap-4">
-                <span>Email ID: {selectedEmail._id}</span>
+            {/* Enhanced Footer */}
+            <div className="p-4 border-t border-neutral-200 bg-neutral-50 flex items-center justify-between text-xs text-neutral-500 flex-shrink-0">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-neutral-600">Email ID:</span>
+                  <span className="font-mono text-neutral-500">{selectedEmail._id}</span>
+                </div>
                 {selectedEmail.threadId && (
-                  <span>Thread: {selectedEmail.threadId}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-neutral-600">Thread:</span>
+                    <span className="font-mono text-neutral-500">{selectedEmail.threadId}</span>
+                  </div>
+                )}
+                {selectedEmail.metadata?.messageId && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-neutral-600">Message ID:</span>
+                    <span className="font-mono text-neutral-500 truncate max-w-[200px]">{selectedEmail.metadata.messageId}</span>
+                  </div>
                 )}
               </div>
               <button
                 onClick={() => setSelectedEmail(null)}
-                className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-100 transition-colors font-medium"
               >
                 Close
               </button>
@@ -1660,8 +1956,56 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               >
                 Send
               </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Attachment Viewer Modal */}
+      {viewingAttachment && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4" onClick={() => setViewingAttachment(null)}>
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900">{viewingAttachment.filename}</h3>
+              <button
+                onClick={() => setViewingAttachment(null)}
+                className="p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-neutral-900 flex items-center justify-center">
+              {viewingAttachment.contentType?.includes('image') ? (
+                <img 
+                  src={viewingAttachment.url} 
+                  alt={viewingAttachment.filename}
+                  className="max-w-full max-h-[80vh] object-contain"
+                />
+              ) : viewingAttachment.contentType?.includes('pdf') ? (
+                <iframe
+                  src={viewingAttachment.url}
+                  className="w-full h-[80vh] border-0"
+                  title={viewingAttachment.filename}
+                />
+              ) : (
+                <div className="text-white text-center">
+                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>Preview not available for this file type</p>
+                  <button
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = viewingAttachment.url;
+                      a.download = viewingAttachment.filename;
+                      a.click();
+                    }}
+                    className="mt-4 px-4 py-2 bg-white text-neutral-900 rounded-lg hover:bg-neutral-100 transition-colors"
+                  >
+                    Download File
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
