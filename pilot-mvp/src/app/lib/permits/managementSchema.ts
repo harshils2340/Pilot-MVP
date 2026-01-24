@@ -1,17 +1,16 @@
-import mongoose, { Document, Schema, Model } from "mongoose";
+import mongoose, { Schema, Document } from 'mongoose';
 
-// PermitData interface from the new UI
 export interface IPermitManagement extends Document {
   clientId?: string; // Link to client
-  permitId?: string; // Link to the master Permit document
+  permitId?: string; // Link to master permit collection
   name: string;
   authority: string;
   municipality?: string;
   complexity: 'low' | 'medium' | 'high';
-  estimatedTime: string;
-  description: string;
-  category: string;
-  status?: 'not-started' | 'submitted' | 'action-required' | 'approved';
+  estimatedTime?: string;
+  description?: string;
+  category?: string;
+  status: 'not-started' | 'in-progress' | 'submitted' | 'action-required' | 'approved';
   order?: number;
   blockedBy?: string;
   blocks?: string[];
@@ -29,47 +28,58 @@ export interface IPermitManagement extends Document {
     officeHours?: string;
   };
   additionalNotes?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// Mongoose schema for permit management
 const PermitManagementSchema: Schema<IPermitManagement> = new Schema(
   {
-    clientId: { type: String, required: false, index: true }, // Index for faster queries
-    permitId: { type: String, required: false }, // Link to Permit collection
+    clientId: { type: String, index: true },
+    permitId: { type: String, index: true },
     name: { type: String, required: true },
     authority: { type: String, required: true },
-    municipality: { type: String, required: false },
-    complexity: { type: String, enum: ['low', 'medium', 'high'], required: true },
-    estimatedTime: { type: String, required: true },
-    description: { type: String, required: true },
-    category: { type: String, required: true },
-    status: { 
-      type: String, 
-      enum: ['not-started', 'submitted', 'action-required', 'approved'], 
-      default: 'not-started' 
+    municipality: { type: String },
+    complexity: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium',
+    },
+    estimatedTime: { type: String },
+    description: { type: String },
+    category: { type: String },
+    status: {
+      type: String,
+      enum: ['not-started', 'in-progress', 'submitted', 'action-required', 'approved'],
+      default: 'not-started',
     },
     order: { type: Number, default: 0 },
-    blockedBy: { type: String, required: false },
-    blocks: { type: [String], default: [] },
-    lastActivity: { type: String, required: false },
-    lastActivityDate: { type: Date, default: Date.now },
-    requirements: { type: [String], required: false },
-    fees: { type: String, required: false },
-    purpose: { type: String, required: false },
-    howToApply: { type: String, required: false },
+    blockedBy: { type: String },
+    blocks: [{ type: String }],
+    lastActivity: { type: String },
+    lastActivityDate: { type: Date },
+    requirements: [{ type: String }],
+    fees: { type: String },
+    purpose: { type: String },
+    howToApply: { type: String },
     contactInfo: {
-      phone: { type: String, required: false },
-      email: { type: String, required: false },
-      website: { type: String, required: false },
-      address: { type: String, required: false },
-      officeHours: { type: String, required: false },
+      phone: { type: String },
+      email: { type: String },
+      website: { type: String },
+      address: { type: String },
+      officeHours: { type: String },
     },
-    additionalNotes: { type: String, required: false },
+    additionalNotes: { type: String },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Export model
-export const PermitManagement: Model<IPermitManagement> =
-  mongoose.models.PermitManagement || mongoose.model<IPermitManagement>("PermitManagement", PermitManagementSchema);
+// Indexes for common queries
+PermitManagementSchema.index({ clientId: 1, status: 1 });
+PermitManagementSchema.index({ status: 1, order: 1 });
 
+const PermitManagement = mongoose.models.PermitManagement || mongoose.model<IPermitManagement>('PermitManagement', PermitManagementSchema);
+
+export { PermitManagement };
+export default PermitManagement;

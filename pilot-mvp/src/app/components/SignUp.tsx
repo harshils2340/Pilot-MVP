@@ -34,12 +34,12 @@ export function SignUp({ onSignUp, onSwitchToSignIn }: SignUpProps) {
           <p className="text-sm text-neutral-600 mb-6">
             Connect your Google account to get started
           </p>
-          
-          <button
+
+            <button
             onClick={handleGoogleSignUp}
             disabled={isLoading}
             className="w-full flex items-center justify-center gap-3 bg-white border-2 border-neutral-300 text-neutral-900 py-2.5 rounded-lg hover:bg-neutral-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+            >
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
@@ -56,7 +56,7 @@ export function SignUp({ onSignUp, onSwitchToSignIn }: SignUpProps) {
                 <span>Continue with Google</span>
               </>
             )}
-          </button>
+            </button>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-neutral-600">

@@ -31,9 +31,11 @@ interface DiscoveredPermit {
   reason: string;
 }
 
-const mockPermits: Permit[] = [
+// Jurisdiction-specific permits - hardcoded for demo
+const JURISDICTION_PERMITS: Record<string, Permit[]> = {
+  'San Francisco': [
   {
-    id: 'p1',
+      id: 'sf-1',
     name: "Seller's Permit",
     authority: 'California CDTFA',
     municipality: 'State of California',
@@ -43,14 +45,10 @@ const mockPermits: Permit[] = [
     lastActivity: 'Approved',
     lastActivityDate: 'Nov 28, 2024',
     daysInState: 45,
-    assignee: {
-      name: 'Sarah Chen',
-      initials: 'SC',
-      color: 'bg-green-500',
+      assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
     },
-  },
-  {
-    id: 'p2',
+    {
+      id: 'sf-2',
     name: 'Food Service Establishment Permit',
     authority: 'SF Dept. of Public Health',
     municipality: 'San Francisco',
@@ -60,68 +58,51 @@ const mockPermits: Permit[] = [
     lastActivity: 'Awaiting city review',
     lastActivityDate: 'Dec 15, 2024',
     daysInState: 8,
-    assignee: {
-      name: 'Sarah Chen',
-      initials: 'SC',
-      color: 'bg-green-500',
+      assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
     },
-  },
-  {
-    id: 'p3',
+    {
+      id: 'sf-3',
     name: 'Health Department Plan Review',
     authority: 'SF Dept. of Public Health',
     municipality: 'San Francisco',
     status: 'action-required',
     order: 3,
-    blocks: ['Business Operating Permit', 'Building Modification Permit'],
+      blocks: ['Business Operating Permit'],
     lastActivity: 'City requested revisions',
     lastActivityDate: 'Dec 18, 2024',
     daysInState: 5,
     priority: 'high',
-    assignee: {
-      name: 'Sarah Chen',
-      initials: 'SC',
-      color: 'bg-green-500',
+      assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
     },
-  },
-  {
-    id: 'p4',
+    {
+      id: 'sf-4',
     name: 'Business Operating Permit',
     authority: 'City of San Francisco',
     municipality: 'San Francisco',
     status: 'not-started',
     order: 4,
     blockedBy: 'Health Department Plan Review',
-    blocks: ['Building Modification Permit'],
+      blocks: ['Fire Department Inspection'],
     lastActivity: 'Blocked',
     lastActivityDate: 'Dec 5, 2024',
     daysInState: 18,
-    assignee: {
-      name: 'Michael Park',
-      initials: 'MP',
-      color: 'bg-blue-500',
+      assignee: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-500' },
     },
-  },
-  {
-    id: 'p5',
+    {
+      id: 'sf-5',
     name: 'Building Modification Permit',
     authority: 'SF Dept. of Building Inspection',
     municipality: 'San Francisco',
     status: 'not-started',
     order: 5,
-    blockedBy: 'Business Operating Permit',
     blocks: ['Fire Department Inspection'],
-    lastActivity: 'Blocked',
+      lastActivity: 'Not Started',
     lastActivityDate: 'Dec 5, 2024',
     daysInState: 18,
-    assignee: {
-      name: 'Michael Park',
-      initials: 'MP',
-      color: 'bg-blue-500',
+      assignee: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-500' },
     },
-  },
-  {
-    id: 'p6',
+    {
+      id: 'sf-6',
     name: 'Fire Department Inspection',
     authority: 'San Francisco Fire Department',
     municipality: 'San Francisco',
@@ -133,7 +114,185 @@ const mockPermits: Permit[] = [
     lastActivityDate: 'Dec 5, 2024',
     daysInState: 18,
   },
-];
+  ],
+  'Calgary': [
+    {
+      id: 'cal-1',
+      name: 'Business Licence',
+      authority: 'City of Calgary',
+      municipality: 'Calgary',
+      status: 'not-started',
+      order: 1,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'cal-2',
+      name: 'Food Handling Permit',
+      authority: 'Alberta Health Services',
+      municipality: 'Calgary',
+      status: 'not-started',
+      order: 2,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'cal-3',
+      name: 'Development Permit',
+      authority: 'City of Calgary Planning',
+      municipality: 'Calgary',
+      status: 'not-started',
+      order: 3,
+      blocks: ['Building Permit'],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'cal-4',
+      name: 'Building Permit',
+      authority: 'City of Calgary Building Services',
+      municipality: 'Calgary',
+      status: 'not-started',
+      order: 4,
+      blockedBy: 'Development Permit',
+      blocks: [],
+      lastActivity: 'Blocked',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'cal-5',
+      name: 'Fire Safety Inspection',
+      authority: 'Calgary Fire Department',
+      municipality: 'Calgary',
+      status: 'not-started',
+      order: 5,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+  ],
+  'Toronto': [
+    {
+      id: 'tor-1',
+      name: 'Business Licence',
+      authority: 'City of Toronto Municipal Licensing',
+      municipality: 'Toronto',
+      status: 'not-started',
+      order: 1,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'tor-2',
+      name: 'Food Premises Licence',
+      authority: 'Toronto Public Health',
+      municipality: 'Toronto',
+      status: 'not-started',
+      order: 2,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'tor-3',
+      name: 'Building Permit',
+      authority: 'City of Toronto Building Division',
+      municipality: 'Toronto',
+      status: 'not-started',
+      order: 3,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'tor-4',
+      name: 'Sign Permit',
+      authority: 'City of Toronto Sign Unit',
+      municipality: 'Toronto',
+      status: 'not-started',
+      order: 4,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+  ],
+  'default': [
+    {
+      id: 'def-1',
+      name: 'Business Registration',
+      authority: 'Local Government',
+      municipality: 'Local',
+      status: 'not-started',
+      order: 1,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'def-2',
+      name: 'Health & Safety Permit',
+      authority: 'Health Department',
+      municipality: 'Local',
+      status: 'not-started',
+      order: 2,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+    {
+      id: 'def-3',
+      name: 'Building Permit',
+      authority: 'Building Department',
+      municipality: 'Local',
+      status: 'not-started',
+      order: 3,
+      blocks: [],
+      lastActivity: 'Not Started',
+      lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      daysInState: 0,
+    },
+  ],
+};
+
+// Helper function to get permits for a jurisdiction
+function getPermitsForJurisdiction(jurisdiction: string): Permit[] {
+  // Try exact match first
+  if (JURISDICTION_PERMITS[jurisdiction]) {
+    return JURISDICTION_PERMITS[jurisdiction];
+  }
+  
+  // Check if jurisdiction contains any of our known cities
+  const jurisdictionLower = jurisdiction.toLowerCase();
+  if (jurisdictionLower.includes('san francisco') || jurisdictionLower.includes('sf')) {
+    return JURISDICTION_PERMITS['San Francisco'];
+  }
+  if (jurisdictionLower.includes('calgary')) {
+    return JURISDICTION_PERMITS['Calgary'];
+  }
+  if (jurisdictionLower.includes('toronto')) {
+    return JURISDICTION_PERMITS['Toronto'];
+  }
+  
+  // Default permits
+  return JURISDICTION_PERMITS['default'];
+}
+
+// Legacy mock permits for backwards compatibility
+const mockPermits: Permit[] = JURISDICTION_PERMITS['San Francisco'];
 
 interface PermitPlanProps {
   clientId: string | null;
@@ -151,7 +310,7 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
   const [permits, setPermits] = useState<Permit[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch permits for this client
+  // Fetch permits based on client's jurisdiction
   useEffect(() => {
     const fetchPermits = async () => {
       if (!clientId) {
@@ -161,35 +320,27 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
 
       try {
         setLoading(true);
-        console.log(`🔍 PermitPlan: Fetching permits for clientId: ${clientId}`);
-        const res = await fetch(`/api/permits/management?clientId=${clientId}`);
-        if (res.ok) {
-          const data = await res.json();
-          console.log(`✅ PermitPlan: Received ${data.length} permits for client ${clientId}`);
-          // Transform API response to Permit format
-          const transformedPermits: Permit[] = data.map((p: any, index: number) => ({
-            id: p.id || p._id?.toString() || `perm-${index}`,
-            name: p.name,
-            authority: p.authority,
-            municipality: p.municipality || p.category || 'Unknown',
-            status: p.status || 'not-started',
-            order: p.order || index + 1,
-            blockedBy: p.blockedBy,
-            blocks: p.blocks || [],
-            lastActivity: p.lastActivity || 'Not Started',
-            lastActivityDate: p.lastActivityDate ? new Date(p.lastActivityDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            daysInState: p.lastActivityDate ? Math.floor((Date.now() - new Date(p.lastActivityDate).getTime()) / (1000 * 60 * 60 * 24)) : 0,
-            priority: p.complexity === 'high' ? 'high' : p.complexity === 'medium' ? 'medium' : 'low',
-          }));
-          setPermits(transformedPermits);
-        } else {
-          console.error('Failed to fetch permits:', res.statusText);
-          // Fallback to empty array if fetch fails
-          setPermits([]);
+        console.log(`🔍 PermitPlan: Fetching permits for client ${clientId}`);
+        
+        // First, fetch client info to get jurisdiction
+        const clientRes = await fetch(`/api/clients/${clientId}`);
+        let clientJurisdiction = 'San Francisco'; // Default
+        
+        if (clientRes.ok) {
+          const clientData = await clientRes.json();
+          clientJurisdiction = clientData.jurisdiction || clientData.client?.jurisdiction || 'San Francisco';
+          console.log(`📍 Client jurisdiction: ${clientJurisdiction}`);
         }
+        
+        // Get hardcoded permits for this jurisdiction
+        const jurisdictionPermits = getPermitsForJurisdiction(clientJurisdiction);
+        console.log(`✅ Using ${jurisdictionPermits.length} hardcoded permits for ${clientJurisdiction}`);
+        setPermits(jurisdictionPermits);
+        
       } catch (error) {
         console.error('Error fetching permits:', error);
-        setPermits([]);
+        // Fall back to default SF permits
+        setPermits(mockPermits);
       } finally {
         setLoading(false);
       }

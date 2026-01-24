@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PermitPlan } from '../../components/PermitPlan';
+import { EnhancedPermitPlan } from '../../components/EnhancedPermitPlan';
 import { PermitDiscovery } from '../../components/PermitDiscovery';
 import { PermitDetailView } from '../../components/PermitDetailView';
-import { ListOrdered, Search, ArrowLeft, LogOut } from 'lucide-react';
+import { ClientBilling } from '../../components/ClientBilling';
+import { EnhancedDocumentsView } from '../../components/EnhancedDocumentsView';
+import { InviteClientModal } from '../../components/InviteClientModal';
+import { ListOrdered, Search, ArrowLeft, LogOut, DollarSign, FileText, UserPlus } from 'lucide-react';
 
-type Tab = 'plan' | 'discovery' | 'permit-detail';
+type Tab = 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents';
 
 interface Client {
   _id: string;
@@ -29,11 +32,12 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('plan');
   const [selectedPermit, setSelectedPermit] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Sync tab with URL query params on mount and when URL changes
   useEffect(() => {
     const tab = searchParams.get('tab') as Tab | null;
-    if (tab && ['plan', 'discovery', 'permit-detail'].includes(tab)) {
+    if (tab && ['plan', 'discovery', 'permit-detail', 'billing', 'documents'].includes(tab)) {
       setActiveTab(tab);
     }
     const permitId = searchParams.get('permit');
@@ -51,6 +55,8 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const clientNavigation = [
     { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
     { id: 'discovery' as Tab, label: 'Permit Discovery', icon: Search },
+    { id: 'documents' as Tab, label: 'Documents', icon: FileText },
+    { id: 'billing' as Tab, label: 'Billing', icon: DollarSign },
   ];
 
   const handleLogout = () => {
@@ -64,6 +70,9 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
       setActiveTab('plan');
       router.push(`/clients/${clientId}?tab=plan`);
     } else {
+      if (tab !== 'permit-detail') {
+        setSelectedPermit(null);
+      }
       setActiveTab(tab);
       router.push(`/clients/${clientId}?tab=${tab}`);
     }
@@ -95,14 +104,14 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
             }}
           />
         );
-      case 'plan':
-        return (
-          <PermitPlan
-            clientId={clientId}
-            clientName={client?.businessName || 'Client'}
-            onSelectPermit={handlePermitSelect}
-          />
-        );
+          case 'plan':
+            return (
+              <EnhancedPermitPlan
+                clientId={clientId}
+                clientName={client?.businessName || 'Client'}
+                onSelectPermit={handlePermitSelect}
+              />
+            );
       case 'permit-detail':
         return (
           <PermitDetailView
@@ -110,16 +119,56 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
             onBack={handleBackToPlan}
           />
         );
-      default:
+      case 'billing':
         return (
-          <PermitPlan
+          <ClientBilling
             clientId={clientId}
             clientName={client?.businessName || 'Client'}
-            onSelectPermit={handlePermitSelect}
           />
         );
+      case 'documents':
+        return (
+          <EnhancedDocumentsView
+            clientId={clientId}
+            consultantId={clientId} // TODO: Get actual consultant ID from auth
+            clientName={client?.businessName || 'Client'}
+            clientEmail={client?.contactInfo?.email}
+            consultantName="Consultant" // TODO: Get from auth
+            viewMode="consultant"
+          />
+        );
+          default:
+            return (
+              <EnhancedPermitPlan
+                clientId={clientId}
+                clientName={client?.businessName || 'Client'}
+                onSelectPermit={handlePermitSelect}
+              />
+            );
     }
   };
+
+  // When viewing permit detail, hide the left sidebar
+  if (activeTab === 'permit-detail') {
+    return (
+      <div className="h-screen bg-neutral-50">
+        <PermitDetailView
+          permitId={selectedPermit || ''}
+          onBack={handleBackToPlan}
+          clientName={client?.businessName}
+        />
+        {/* Invite Client Modal */}
+        {showInviteModal && (
+          <InviteClientModal
+            clientId={clientId}
+            clientName={client?.businessName || 'Client'}
+            clientEmail={client?.contactInfo?.email}
+            onClose={() => setShowInviteModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -153,9 +202,16 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         {/* Client Name Display */}
         <div className="px-4 pt-4 pb-2">
           <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Current Client</p>
-          <p className="text-sm font-medium text-neutral-900 bg-blue-50 px-2 py-1 rounded">
+          <p className="text-sm font-medium text-neutral-900 bg-blue-50 px-2 py-1 rounded mb-2">
             {client?.businessName || 'Loading...'}
           </p>
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite Client
+          </button>
         </div>
 
         {/* Navigation Tabs */}
@@ -203,6 +259,16 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">{renderTab()}</main>
+
+      {/* Invite Client Modal */}
+      {showInviteModal && (
+        <InviteClientModal
+          clientId={clientId}
+          clientName={client?.businessName || 'Client'}
+          clientEmail={client?.contactInfo?.email}
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
     </div>
   );
 }

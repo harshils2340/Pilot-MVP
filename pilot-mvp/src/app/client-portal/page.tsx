@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { DocumentsView } from '../components/DocumentsView';
 import { ClientBilling } from '../components/ClientBilling';
-import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle, DollarSign } from 'lucide-react';
 
 type Tab = 'documents' | 'requests' | 'shared' | 'billing';
 
@@ -52,18 +52,6 @@ const getLocalRequests = (clientId: string) => {
 };
 
 export default function ClientPortalPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-neutral-600">Loading...</div>
-      </div>
-    }>
-      <ClientPortalPageContent />
-    </Suspense>
-  );
-}
-
-function ClientPortalPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('documents');
@@ -129,17 +117,6 @@ function ClientPortalPageContent() {
               <p className="text-neutral-500 text-xs">Client Portal</p>
             </div>
           </div>
-        </div>
-
-        {/* Back to Dashboard */}
-        <div className="p-4 border-b border-neutral-200">
-          <button
-            onClick={() => router.push('/')}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Dashboard</span>
-          </button>
         </div>
 
         {/* Client Info */}
@@ -218,6 +195,7 @@ function ClientPortalPageContent() {
           <ClientBilling
             clientId={clientId}
             clientName={clientName}
+            viewMode="client"
           />
         )}
       </main>
@@ -236,9 +214,8 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
         const res = await fetch(`/api/documents/requests?clientId=${clientId}&status=pending`);
         if (res.ok) {
           const data = await res.json();
-          const apiRequests = Array.isArray(data) ? data : (data?.requests ?? []);
           const localRequests = getLocalRequests(clientId);
-          const merged = [...localRequests, ...apiRequests];
+          const merged = [...localRequests, ...data];
           setRequests(merged.length > 0 ? merged : MOCK_REQUESTS);
         } else {
           const localRequests = getLocalRequests(clientId);

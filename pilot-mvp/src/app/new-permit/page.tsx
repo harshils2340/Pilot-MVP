@@ -49,18 +49,22 @@ export default function NewPermitPage() {
   const handleInputChange = (field: string, value: any) => {
     if (field.includes('.')) {
       const [parent, child, grandchild] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...(prev[parent as keyof typeof prev] as any || {}),
-          [child]: grandchild
-            ? {
-                ...((prev[parent as keyof typeof prev] as any)?.[child] || {}),
-                [grandchild]: value,
-              }
-            : value,
-        },
-      }));
+      setFormData(prev => {
+        const parentValue = prev[parent as keyof typeof prev];
+        const parentObj = parentValue && typeof parentValue === 'object' ? parentValue as Record<string, any> : {};
+        return {
+          ...prev,
+          [parent]: {
+            ...parentObj,
+            [child]: grandchild
+              ? {
+                  ...(parentObj[child] && typeof parentObj[child] === 'object' ? parentObj[child] as Record<string, any> : {}),
+                  [grandchild]: value,
+                }
+              : value,
+          },
+        };
+      });
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }

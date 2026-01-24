@@ -1,6 +1,7 @@
-import { Plus, Search, Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, FileText, Trash2, Square, CheckSquare } from 'lucide-react';
+import { Plus, Search, Filter, MoreVertical, CheckCircle2, Clock, AlertCircle, FileText, Trash2, Square, CheckSquare, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
+import { InviteClientModal } from './InviteClientModal';
 
 interface Client {
   _id: string;
@@ -15,9 +16,10 @@ interface Client {
 interface WorkspaceDashboardProps {
   onSelectClient?: (clientId: string) => void;
   onStartPermit: () => void;
+  onOpenInbox?: () => void;
 }
 
-export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceDashboardProps) {
+export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox }: WorkspaceDashboardProps) {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [inviteClient, setInviteClient] = useState<Client | null>(null);
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -92,6 +95,32 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'draft':
         return 'bg-neutral-50 text-neutral-600 border-neutral-200';
+    }
+  };
+
+  const formatLastActivity = (dateString: string) => {
+    // Handle already formatted strings like "2 days ago"
+    if (!dateString || !dateString.includes('T')) {
+      return dateString;
+    }
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return dateString;
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
   };
 
@@ -269,7 +298,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-neutral-200 px-8 py-6">
+      <div className="bg-white px-8 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-neutral-900 mb-1">Workspace</h1>
@@ -408,7 +437,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
       </div>
 
       {/* Client List */}
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto px-8 pb-8">
         <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-neutral-50 border-b border-neutral-200 text-sm font-medium text-neutral-600">
@@ -428,10 +457,10 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
               </div>
             )}
             <div className={multiSelectMode ? "col-span-3" : "col-span-4"}>Client</div>
-            <div className="col-span-2">Jurisdiction</div>
-            <div className="col-span-2">Active Permits</div>
             <div className="col-span-2">Status</div>
-            <div className={multiSelectMode ? "col-span-1" : "col-span-2"}>Last Activity</div>
+            <div className="col-span-2">Permits</div>
+            <div className="col-span-2">Pending Items</div>
+            <div className={multiSelectMode ? "col-span-1" : "col-span-1"}>Updated</div>
             <div className="col-span-1"></div>
           </div>
 
@@ -443,7 +472,13 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
               {clients.length === 0 ? 'No clients found' : 'No clients match your search or filters'}
             </div>
           ) : (
-            filteredClients.map((client) => (
+            filteredClients.map((client) => {
+              // Mock pending items - in real app, this would come from API
+              const pendingDocs = client.status === 'action-required' ? 2 : client.status === 'draft' ? 3 : 0;
+              const pendingReview = client.status === 'submitted' ? 1 : 0;
+              const hasPending = pendingDocs > 0 || pendingReview > 0;
+              
+              return (
               <div
                 key={client._id}
                 className={`grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${
@@ -475,29 +510,8 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                   }
                 }}
               >
-                <p className="font-medium text-neutral-900 leading-none">{client.businessName}</p>
-              </div>
-              <div 
-                className="col-span-2 flex items-center text-neutral-600"
-                onClick={() => {
-                  if (!multiSelectMode) {
-                    handleClientClick(client);
-                  }
-                }}
-              >
-                {client.jurisdiction}
-              </div>
-              <div 
-                className="col-span-2 flex items-center"
-                onClick={() => {
-                  if (!multiSelectMode) {
-                    handleClientClick(client);
-                  }
-                }}
-              >
-                <span className="px-3 py-1 bg-neutral-100 text-neutral-700 rounded-full text-sm font-medium">
-                  {client.activePermits} permits
-                </span>
+                <p className="font-medium text-neutral-900">{client.businessName}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{client.jurisdiction}</p>
               </div>
               <div 
                 className="col-span-2 flex items-center"
@@ -508,7 +522,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                 }}
               >
                 <span
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(
                     client.status
                   )}`}
                 >
@@ -517,14 +531,53 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                 </span>
               </div>
               <div 
-                className={`${multiSelectMode ? "col-span-1" : "col-span-1"} flex items-center text-neutral-500 text-sm`}
+                className="col-span-2 flex items-center"
                 onClick={() => {
                   if (!multiSelectMode) {
                     handleClientClick(client);
                   }
                 }}
               >
-                {client.lastActivity}
+                <span className="text-sm text-neutral-700">
+                  {client.activePermits} active
+                </span>
+              </div>
+              <div 
+                className="col-span-2 flex items-center"
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
+                {hasPending ? (
+                  <div className="flex items-center gap-2">
+                    {pendingDocs > 0 && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
+                        <FileText className="w-3 h-3" />
+                        {pendingDocs} docs
+                      </span>
+                    )}
+                    {pendingReview > 0 && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                        <Clock className="w-3 h-3" />
+                        review
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-neutral-400">—</span>
+                )}
+              </div>
+              <div 
+                className="col-span-1 flex items-center text-neutral-500 text-xs"
+                onClick={() => {
+                  if (!multiSelectMode) {
+                    handleClientClick(client);
+                  }
+                }}
+              >
+                {formatLastActivity(client.lastActivity)}
               </div>
               <div className="col-span-1 flex items-center justify-end relative">
                 <button
@@ -543,6 +596,17 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setInviteClient(client);
+                        setOpenMenuId(null);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 transition-colors"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Invite Client
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleDeleteClient(client._id, client.businessName);
                       }}
                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
@@ -554,7 +618,8 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                 )}
               </div>
             </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -578,6 +643,15 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
           </div>
         </div>
       </div>
+
+      {/* Invite Client Modal */}
+      {inviteClient && (
+        <InviteClientModal
+          clientId={inviteClient._id}
+          clientName={inviteClient.businessName}
+          onClose={() => setInviteClient(null)}
+        />
+      )}
     </div>
   );
 }

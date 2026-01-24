@@ -14,7 +14,6 @@ import {
   Plus,
   Star,
   FileText,
-  LayoutGrid,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -359,28 +358,24 @@ export function Leads() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Header – Opportunities, search, filters */}
-      <div className="flex-shrink-0 bg-white border-b border-neutral-200 px-6 py-4">
+      {/* Header – matches Workspace theme */}
+      <div className="flex-shrink-0 bg-white px-8 py-6">
         <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <LayoutGrid className="w-5 h-5 text-neutral-500" />
-            <div>
-              <h1 className="text-xl font-semibold text-neutral-900">Opportunities</h1>
-              <p className="text-sm text-neutral-500 mt-0.5">
-                Pipeline · Permit-related leads
-              </p>
-            </div>
+          <div>
+            <h1 className="text-neutral-900 mb-1">Leads</h1>
+            <p className="text-neutral-600">Pipeline · Permit-related opportunities</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[200px] max-w-md relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
-            <Input
+            <input
+              type="text"
               placeholder="Search leads..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-neutral-50 border-neutral-200 focus:bg-white"
+              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
             />
           </div>
 
@@ -389,10 +384,10 @@ export function Leads() {
               <button
                 key={chip}
                 onClick={() => setFilterChip(chip)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
                   filterChip === chip
-                    ? 'bg-neutral-900 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    ? 'bg-neutral-900 text-white border-neutral-900'
+                    : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
                 }`}
               >
                 {chip === 'all' ? 'All' : 'Pre-Sales'}
@@ -406,7 +401,7 @@ export function Leads() {
                 <span className="font-medium text-neutral-900">{selectedLeadIds.size}</span> selected
               </span>
               {movingStage ? (
-                <span className="text-sm text-neutral-500 px-3 py-2">
+                <span className="text-sm text-neutral-600 px-3 py-2">
                   Moving {movingStage.count} to {movingStage.stage.name}…
                 </span>
               ) : (
@@ -417,7 +412,7 @@ export function Leads() {
                     if (s) handleMoveSelectedToStage(s);
                   }}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[180px] border-neutral-300">
                     <SelectValue placeholder="Move to…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -429,34 +424,43 @@ export function Leads() {
                   </SelectContent>
                 </Select>
               )}
-              <Button variant="ghost" size="sm" onClick={clearSelection} disabled={!!movingStage}>
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={!!movingStage}
+                className="px-4 py-2 text-sm text-neutral-700 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50"
+              >
                 Clear
-              </Button>
+              </button>
             </div>
           )}
 
           {totalLeads > 0 && selectedLeadIds.size === 0 && !loading && (
-            <Button variant="outline" size="sm" onClick={selectAllVisible}>
+            <button
+              type="button"
+              onClick={selectAllVisible}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+            >
               Select all
-            </Button>
+            </button>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            type="button"
             onClick={() => {
               setLastMovedLeadIds(new Set());
               fetchLeads();
             }}
             title="Refresh"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Kanban board */}
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto px-8 pb-8">
         {loading ? (
           <div className="flex items-center justify-center h-48">
             <p className="text-neutral-500">Loading...</p>

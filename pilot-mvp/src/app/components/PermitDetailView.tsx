@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 interface PermitDetailViewProps {
   permitId: string;
   onBack: () => void;
+  clientName?: string;
 }
 
 interface Reply {
@@ -41,7 +42,7 @@ interface CityFeedbackItem {
   id: string;
   date: string;
   time: string;
-  type: 'revision_required' | 'comment' | 'question' | 'client_message';
+  type: 'revision_required' | 'comment' | 'question';
   author: string;
   department: string;
   subject: string;
@@ -53,7 +54,7 @@ interface CityFeedbackItem {
   consultantResponse?: string;
 }
 
-type Section = 'overview' | 'city-feedback' | 'discussion' | 'history';
+type Section = 'overview' | 'city-feedback' | 'discussion' | 'history' | 'documents';
 
 interface ClientEmail {
   _id: string;
@@ -138,7 +139,7 @@ const mockComments: Comment[] = [
   },
 ];
 
-export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
+export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailViewProps) {
   const [activeSection, setActiveSection] = useState<Section>('city-feedback');
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState<Comment[]>(mockComments);
@@ -169,8 +170,45 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
     applicationNumber: 'HP-2024-12345',
   };
 
-  const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([]);
-  const [loadingCityFeedback, setLoadingCityFeedback] = useState(false);
+  const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([
+    {
+      id: '1',
+      date: 'December 18, 2024',
+      time: '10:34 AM',
+      type: 'revision_required',
+      author: 'Inspector J. Martinez',
+      department: 'Plan Review Department',
+      subject: 'Floor Plan Revisions Required',
+      comment: 'Floor plan does not show required 3-compartment sink dimensions. Please revise to include precise measurements (minimum 18"x18" per compartment) and resubmit.\n\nAdditionally, please provide:\n- Updated equipment schedule\n- Sink specifications from manufacturer\n- Water supply calculations',
+      attachments: [
+        { name: 'rejection_notice_121824.pdf', size: '245 KB', type: 'pdf' },
+        { name: 'marked_up_floor_plan.pdf', size: '1.2 MB', type: 'pdf' },
+      ],
+      status: 'in_progress',
+      requiredDocuments: [
+        'Updated floor plan with sink dimensions',
+        'Equipment schedule',
+        'Sink specifications',
+        'Water supply calculations'
+      ],
+      uploadedDocuments: [
+        { name: 'floor_plan_revised_v2.pdf', size: '1.8 MB', uploadedBy: 'Sarah Chen', uploadedAt: 'Jan 11 at 9:15 AM' }
+      ],
+      consultantResponse: 'We have updated the floor plan to include the 3-compartment sink with dimensions of 18"x18" per compartment as specified. The sink specifications from the manufacturer are attached.\n\nWe are finalizing the water supply calculations and will upload by end of day Thursday.'
+    },
+    {
+      id: '2',
+      date: 'December 16, 2024',
+      time: '2:15 PM',
+      type: 'comment',
+      author: 'Plan Review Department',
+      department: 'SF Dept. of Public Health',
+      subject: 'Initial Review Complete',
+      comment: 'Initial review complete. Equipment layout meets spacing requirements. Minor revisions needed for sink specifications. Overall plan looks good - should be straightforward once sink details are added.',
+      attachments: [],
+      status: 'addressed',
+    },
+  ]);
 
   const history = [
     {
@@ -409,111 +447,6 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
     }
   }, [permitId]);
 
-  // Fetch City Feedback items from API
-  useEffect(() => {
-    const fetchCityFeedback = async () => {
-      if (!permitId) return;
-
-      setLoadingCityFeedback(true);
-      try {
-        // First, try to get clientId from the permit management record
-        // The permitId passed to PermitDetailView is typically the PermitManagement _id
-        let clientId: string | null = null;
-        
-        try {
-          // Fetch all permits for this client to find the matching one
-          // We'll search through all clients' permits to find the one matching permitId
-          // This is a fallback - ideally we'd have clientId passed as a prop
-          const permitResponse = await fetch(`/api/permits/management`);
-          if (permitResponse.ok) {
-            const permitData = await permitResponse.json();
-            const permits = Array.isArray(permitData) ? permitData : [permitData];
-            
-            // Find the permit that matches the permitId (could be _id or permitId field)
-            const permit = permits.find((p: any) => 
-              p._id === permitId || 
-              p._id?.toString() === permitId ||
-              p.permitId === permitId
-            );
-            
-            if (permit && permit.clientId) {
-              clientId = permit.clientId;
-            }
-          }
-        } catch (permitError) {
-          console.warn('Could not fetch permit management data:', permitError);
-        }
-
-        // Fetch City Feedback by permitId (primary) and optionally by clientId (fallback)
-        // This ensures we get all feedback for this permit, even if permitId matching isn't perfect
-        let response;
-        if (clientId) {
-          // Try fetching by both permitId and clientId for more accurate results
-          response = await fetch(`/api/city-feedback?permitId=${permitId}&clientId=${clientId}&status=all`);
-        } else {
-          // Fallback to just permitId
-          response = await fetch(`/api/city-feedback?permitId=${permitId}&status=all`);
-        }
-        
-        if (response.ok) {
-          const data = await response.json();
-          const feedbackItems = data.feedback || [];
-          
-          // If no results by permitId but we have clientId, try fetching by clientId only
-          if (feedbackItems.length === 0 && clientId) {
-            const clientResponse = await fetch(`/api/city-feedback?clientId=${clientId}&status=all`);
-            if (clientResponse.ok) {
-              const clientData = await clientResponse.json();
-              // Filter to only include items that match this permitId or have no permitId (general client feedback)
-              const filteredItems = (clientData.feedback || []).filter((item: any) => 
-                !item.permitId || item.permitId === permitId
-              );
-              feedbackItems.push(...filteredItems);
-            }
-          }
-          
-          // Transform API data to match CityFeedbackItem interface
-          const transformedFeedback: CityFeedbackItem[] = feedbackItems.map((item: any) => ({
-            id: item._id || item.id,
-            date: item.date ? new Date(item.date).toLocaleDateString('en-US', { 
-              month: 'long', 
-              day: 'numeric', 
-              year: 'numeric' 
-            }) : 'Unknown',
-            time: item.time || 'Unknown',
-            type: item.type || 'client_message',
-            author: item.author || 'Unknown',
-            department: item.department || '',
-            subject: item.subject || 'No Subject',
-            comment: item.comment || '',
-            attachments: item.attachments || [],
-            status: item.status || 'not_started',
-            requiredDocuments: item.requiredDocuments || [],
-            uploadedDocuments: item.uploadedDocuments || [],
-            consultantResponse: item.consultantResponse
-          }));
-          
-          // Sort by date (most recent first)
-          transformedFeedback.sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            return dateB - dateA;
-          });
-          
-          setCityFeedback(transformedFeedback);
-        }
-      } catch (error) {
-        console.error('Error fetching city feedback:', error);
-      } finally {
-        setLoadingCityFeedback(false);
-      }
-    };
-
-    if (permitId) {
-      fetchCityFeedback();
-    }
-  }, [permitId]);
-
   const formatEmailDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -676,12 +609,12 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
                     </p>
                   </div>
                   {cityFeedback.length > 0 && (
-                  <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-green-500 transition-all duration-300"
-                      style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
-                    />
-                  </div>
+                    <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-500 transition-all duration-300"
+                        style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
+                      />
+                    </div>
                   )}
                 </div>
                 {allFeedbackAddressed && unreadCityEmails === 0 && unreadClientEmails === 0 ? (
@@ -1696,12 +1629,125 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
             </div>
           </div>
         );
+      case 'documents':
+        return (
+          <div className="space-y-6">
+            {/* Upload Area */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-neutral-900">Permit Documents</h3>
+                <button className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  Upload Document
+                </button>
+              </div>
+              
+              {/* Required Documents */}
+              <div className="mb-6">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">Required Documents</p>
+                <div className="space-y-2">
+                  {[
+                    { name: 'Permit Application Form', required: true, uploaded: true, uploadedBy: 'Sarah Chen', uploadedAt: 'Dec 10, 2024' },
+                    { name: 'Site Plan / Floor Plan', required: true, uploaded: true, uploadedBy: 'Michael Park', uploadedAt: 'Dec 12, 2024' },
+                    { name: 'Equipment Specifications', required: true, uploaded: false },
+                    { name: 'Insurance Certificate', required: true, uploaded: false },
+                  ].map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        {doc.uploaded ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-neutral-300" />
+                        )}
+                        <div>
+                          <p className="text-sm font-medium text-neutral-900">{doc.name}</p>
+                          {doc.uploaded && (
+                            <p className="text-xs text-neutral-500">{doc.uploadedBy} • {doc.uploadedAt}</p>
+                          )}
+                        </div>
+                      </div>
+                      {doc.uploaded ? (
+                        <div className="flex items-center gap-2">
+                          <button className="p-1.5 text-neutral-400 hover:text-neutral-600 transition-colors">
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button className="px-3 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50 transition-colors">
+                          Upload
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Additional Documents */}
+              <div>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">Additional Documents</p>
+                <div className="space-y-2">
+                  {[
+                    { name: 'City Feedback Response - Dec 15.pdf', size: '245 KB', uploadedBy: 'Sarah Chen', uploadedAt: 'Dec 16, 2024' },
+                    { name: 'Revised Floor Plan v2.pdf', size: '1.2 MB', uploadedBy: 'Michael Park', uploadedAt: 'Dec 18, 2024' },
+                  ].map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-blue-500" />
+                        <div>
+                          <p className="text-sm font-medium text-neutral-900">{doc.name}</p>
+                          <p className="text-xs text-neutral-500">{doc.size} • {doc.uploadedBy} • {doc.uploadedAt}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button className="p-1.5 text-neutral-400 hover:text-neutral-600 transition-colors">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Submission History */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+              <h3 className="text-sm font-semibold text-neutral-900 mb-4">Submission History</h3>
+              <div className="space-y-3">
+                {[
+                  { version: 'Initial Submission', date: 'Dec 10, 2024', status: 'Revision Required', files: 3 },
+                  { version: 'Resubmission #1', date: 'Dec 18, 2024', status: 'Under Review', files: 5 },
+                ].map((submission, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-900">{submission.version}</p>
+                      <p className="text-xs text-neutral-500">{submission.date} • {submission.files} files</p>
+                    </div>
+                    <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${
+                      submission.status === 'Under Review' 
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {submission.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
     }
   };
 
   const sections = [
     { id: 'overview' as Section, label: 'Overview', icon: Info },
     { id: 'city-feedback' as Section, label: 'City Feedback', icon: AlertCircle, badge: cityFeedback.filter(f => f.status !== 'addressed').length + cityEmails.filter(e => e.status === 'unread').length },
+    { id: 'documents' as Section, label: 'Documents', icon: FileText },
     { id: 'discussion' as Section, label: 'Discussion', icon: MessageCircle, badge: comments.filter(c => !c.resolved).length },
     { id: 'history' as Section, label: 'History', icon: Clock },
   ];
@@ -1710,13 +1756,21 @@ export function PermitDetailView({ permitId, onBack }: PermitDetailViewProps) {
     <div className="h-full flex flex-col bg-neutral-50">
       {/* Header */}
       <div className="bg-white border-b border-neutral-200 px-6 py-4">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 mb-3 transition-colors font-medium"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Permit Plan
-        </button>
+        <div className="flex items-center gap-3 mb-3">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors font-medium"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Permit Plan
+          </button>
+          {clientName && (
+            <span className="text-sm text-neutral-400">•</span>
+          )}
+          {clientName && (
+            <span className="text-sm text-neutral-500">{clientName}</span>
+          )}
+        </div>
 
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">

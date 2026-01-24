@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, Building2, MapPin, Briefcase, FileText, CheckCircle2, Loader2, Info, Lightbulb, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Building2, MapPin, Briefcase, FileText, CheckCircle2, Loader2, Info, Lightbulb, CheckCircle, AlertCircle, Search } from 'lucide-react';
 
 interface ClientOnboardingProps {
   onComplete: (clientData: any) => void;
@@ -120,6 +120,337 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     };
   }, []);
 
+  // Hardcoded permits based on location and business type
+  const getHardcodedPermits = (location: string, businessType: string): Permit[] => {
+    const locationLower = location.toLowerCase();
+    const businessLower = businessType.toLowerCase();
+    
+    // Check if San Francisco / California location
+    const isSanFrancisco = locationLower.includes('san francisco') || 
+                          locationLower.includes('sf') ||
+                          (locationLower.includes('california') || locationLower.includes('ca'));
+    
+    // Check if restaurant/food business
+    const isRestaurant = businessLower.includes('restaurant') || 
+                        businessLower.includes('food') ||
+                        businessLower.includes('cafe') ||
+                        businessLower.includes('bar') ||
+                        businessLower.includes('dining');
+    
+    // San Francisco Restaurant permits (18 total)
+    if (isSanFrancisco && isRestaurant) {
+      return [
+        {
+          _id: 'sf-health-permit',
+          name: 'Food Service Health Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Department of Public Health',
+          activities: ['Food preparation', 'Food service', 'Food handling'],
+          priority: 'High',
+          category: 'Health & Safety',
+        },
+        {
+          _id: 'sf-business-license',
+          name: 'Business Registration Certificate',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Office of the Treasurer & Tax Collector',
+          activities: ['Operating a business in San Francisco'],
+          priority: 'High',
+          category: 'Business',
+        },
+        {
+          _id: 'sf-food-handler',
+          name: 'Food Handler Certificate',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Department of Public Health',
+          activities: ['Food handling', 'Food preparation'],
+          priority: 'High',
+          category: 'Health & Safety',
+        },
+        {
+          _id: 'sf-fire-permit',
+          name: 'Fire Department Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Fire Department',
+          activities: ['Commercial cooking', 'Hood and duct systems', 'Fire safety'],
+          priority: 'High',
+          category: 'Fire Safety',
+        },
+        {
+          _id: 'sf-building-permit',
+          name: 'Building Permit (Tenant Improvements)',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Department of Building Inspection',
+          activities: ['Interior construction', 'Restaurant build-out', 'Kitchen installation'],
+          priority: 'High',
+          category: 'Construction',
+        },
+        {
+          _id: 'sf-conditional-use',
+          name: 'Conditional Use Authorization',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Planning Commission',
+          activities: ['Restaurant use in certain zoning districts', 'Late night operations'],
+          priority: 'High',
+          category: 'Planning',
+        },
+        {
+          _id: 'sf-grease-trap',
+          name: 'Grease Trap/Interceptor Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Public Utilities Commission',
+          activities: ['Wastewater discharge', 'Grease management'],
+          priority: 'Medium',
+          category: 'Environmental',
+        },
+        {
+          _id: 'sf-hood-duct',
+          name: 'Commercial Kitchen Hood & Duct Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Fire Department',
+          activities: ['Kitchen ventilation', 'Fire suppression systems'],
+          priority: 'Medium',
+          category: 'Fire Safety',
+        },
+        {
+          _id: 'sf-signage-permit',
+          name: 'Sign Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Planning Department',
+          activities: ['Business signage', 'Exterior signs'],
+          priority: 'Medium',
+          category: 'Planning',
+        },
+        {
+          _id: 'sf-sidewalk-permit',
+          name: 'Sidewalk Tables & Chairs Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Department of Public Works',
+          activities: ['Outdoor seating', 'Sidewalk dining'],
+          priority: 'Medium',
+          category: 'Public Works',
+        },
+        {
+          _id: 'sf-entertainment',
+          name: 'Place of Entertainment Permit',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'SF Entertainment Commission',
+          activities: ['Live music', 'DJ performances', 'Dancing'],
+          priority: 'Medium',
+          category: 'Entertainment',
+        },
+        {
+          _id: 'sf-alcohol-abc',
+          name: 'Alcoholic Beverage License (Type 47)',
+          level: 'provincial',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'California Dept of Alcoholic Beverage Control',
+          activities: ['On-premises alcohol sales', 'Beer, wine, and spirits'],
+          priority: 'High',
+          category: 'Alcohol',
+        },
+        {
+          _id: 'ca-sellers-permit',
+          name: 'California Seller\'s Permit',
+          level: 'provincial',
+          jurisdiction: { province: 'California' },
+          authority: 'CA Department of Tax and Fee Administration',
+          activities: ['Selling taxable goods', 'Retail sales'],
+          priority: 'High',
+          category: 'State Tax',
+        },
+        {
+          _id: 'ca-ehs-permit',
+          name: 'Environmental Health Services Permit',
+          level: 'provincial',
+          jurisdiction: { province: 'California' },
+          authority: 'California Department of Public Health',
+          activities: ['Food facility operation', 'Environmental compliance'],
+          priority: 'Medium',
+          category: 'Health & Safety',
+        },
+        {
+          _id: 'ca-weights-measures',
+          name: 'Weights & Measures Registration',
+          level: 'provincial',
+          jurisdiction: { province: 'California' },
+          authority: 'CA Dept of Food and Agriculture',
+          activities: ['Commercial scales', 'Measuring devices'],
+          priority: 'Low',
+          category: 'State',
+        },
+        {
+          _id: 'fed-ein',
+          name: 'Federal Employer Identification Number (EIN)',
+          level: 'federal',
+          jurisdiction: { province: 'USA' },
+          authority: 'Internal Revenue Service (IRS)',
+          activities: ['Business tax identification', 'Hiring employees'],
+          priority: 'High',
+          category: 'Federal',
+        },
+        {
+          _id: 'fed-fda',
+          name: 'FDA Food Facility Registration',
+          level: 'federal',
+          jurisdiction: { province: 'USA' },
+          authority: 'U.S. Food and Drug Administration',
+          activities: ['Food manufacturing', 'Food storage'],
+          priority: 'Medium',
+          category: 'Federal',
+        },
+        {
+          _id: 'sf-music-license',
+          name: 'Music License (ASCAP/BMI/SESAC)',
+          level: 'municipal',
+          jurisdiction: { city: 'San Francisco', province: 'California' },
+          authority: 'Music Licensing Organizations',
+          activities: ['Playing recorded music', 'Background music'],
+          priority: 'Low',
+          category: 'Entertainment',
+        },
+      ];
+    }
+    
+    // Default permits for other locations/business types (12 permits)
+    const city = location.split(',')[0]?.trim() || 'Your City';
+    const state = location.split(',')[1]?.trim() || 'Your State';
+    
+    return [
+      {
+        _id: 'general-business-license',
+        name: 'Business License',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'City Business Administration',
+        activities: ['General business operations'],
+        priority: 'High',
+        category: 'Business',
+      },
+      {
+        _id: 'general-health-permit',
+        name: 'Health Department Permit',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'County Health Department',
+        activities: ['Food service', 'Public health compliance'],
+        priority: 'High',
+        category: 'Health & Safety',
+      },
+      {
+        _id: 'general-food-handler',
+        name: 'Food Handler Certification',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'Health Department',
+        activities: ['Food handling', 'Food safety training'],
+        priority: 'High',
+        category: 'Health & Safety',
+      },
+      {
+        _id: 'general-fire-safety',
+        name: 'Fire Safety Permit',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'Fire Department',
+        activities: ['Fire safety compliance', 'Commercial operations'],
+        priority: 'High',
+        category: 'Fire Safety',
+      },
+      {
+        _id: 'general-building',
+        name: 'Building Permit',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'Building Department',
+        activities: ['Construction', 'Tenant improvements'],
+        priority: 'Medium',
+        category: 'Construction',
+      },
+      {
+        _id: 'general-zoning',
+        name: 'Zoning Compliance Certificate',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'Planning Department',
+        activities: ['Land use compliance', 'Business location approval'],
+        priority: 'Medium',
+        category: 'Planning',
+      },
+      {
+        _id: 'general-signage',
+        name: 'Sign Permit',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'Planning Department',
+        activities: ['Business signage', 'Exterior signs'],
+        priority: 'Low',
+        category: 'Planning',
+      },
+      {
+        _id: 'general-alcohol',
+        name: 'Liquor License',
+        level: 'provincial',
+        jurisdiction: { province: state },
+        authority: 'State Alcoholic Beverage Control',
+        activities: ['Alcohol sales', 'On-premises consumption'],
+        priority: 'High',
+        category: 'Alcohol',
+      },
+      {
+        _id: 'general-sales-tax',
+        name: 'Sales Tax Permit',
+        level: 'provincial',
+        jurisdiction: { province: state },
+        authority: 'State Revenue Department',
+        activities: ['Collecting sales tax', 'Retail transactions'],
+        priority: 'High',
+        category: 'State Tax',
+      },
+      {
+        _id: 'general-ein',
+        name: 'Federal Employer ID (EIN)',
+        level: 'federal',
+        jurisdiction: { province: 'USA' },
+        authority: 'Internal Revenue Service',
+        activities: ['Business identification', 'Tax filing'],
+        priority: 'High',
+        category: 'Federal',
+      },
+      {
+        _id: 'general-outdoor',
+        name: 'Outdoor Seating Permit',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'Public Works Department',
+        activities: ['Patio seating', 'Sidewalk dining'],
+        priority: 'Medium',
+        category: 'Public Works',
+      },
+      {
+        _id: 'general-music',
+        name: 'Music License',
+        level: 'municipal',
+        jurisdiction: { city, province: state },
+        authority: 'ASCAP/BMI/SESAC',
+        activities: ['Background music', 'Entertainment'],
+        priority: 'Low',
+        category: 'Entertainment',
+      },
+    ];
+  };
+
   const handleFindPermits = async () => {
     // Validate form fields before proceeding
     const trimmedData = {
@@ -135,262 +466,34 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     }
 
     setLoading(true);
-    isCancelledRef.current = false; // Reset cancellation flag
-    
-    // Generate unique request ID for cancellation tracking
-    const requestId = `scrape-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    requestIdRef.current = requestId;
-    console.log(`🆔 Generated request ID: ${requestId}`);
+    isCancelledRef.current = false;
     
     console.log('🔍 Starting permit discovery...');
     console.log('📋 Form data:', trimmedData);
     
-    let scrapingStarted = false;
-    let permitsFromResponse: Permit[] = [];
+    // Simulate loading for 5 seconds then show hardcoded permits
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => resolve(), 5000);
+      timeoutIdRef.current = timeout;
+    });
     
-    try {
-      // Call BizPaL scraping API with a longer timeout
-      console.log('📡 Calling BizPaL scraping API...');
-      console.log('⏳ This may take several minutes. Please wait...');
-      
-      // Create an AbortController for timeout handling and store in ref
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      const timeoutId = setTimeout(() => {
-        console.log('⏱️ Request timeout reached, aborting...');
-        controller.abort();
-      }, 30 * 60 * 1000); // 30 minute timeout
-      timeoutIdRef.current = timeoutId;
-      
-      try {
-        const response = await fetch('/api/bizpal/scrape', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            location: trimmedData.location,
-            businessType: trimmedData.businessType,
-            permitKeywords: trimmedData.permitKeywords,
-            requestId: requestId, // Send request ID so backend can track it
-          }),
-          signal: controller.signal,
-        });
-
-        // Clear timeout on successful response
-        if (timeoutIdRef.current) {
-          clearTimeout(timeoutIdRef.current);
-          timeoutIdRef.current = null;
-        }
-
-        // Read response body once
-        let responseText: string;
-        try {
-          responseText = await response.text();
-        } catch (e) {
-          console.error('❌ Failed to read response:', e);
-          throw new Error('Failed to read response from server');
-        }
-
-        if (!response.ok) {
-          // Try to parse as JSON for error details
-          let errorData;
-          try {
-            errorData = JSON.parse(responseText);
-          } catch (e) {
-            // Not JSON, use text as error message
-            console.error('❌ API Error - Response text:', responseText);
-            throw new Error(`Server error (${response.status}): ${responseText || 'Unknown error'}`);
-          }
-          console.error('❌ API Error:', errorData);
-          throw new Error(errorData.error || errorData.details || 'Failed to fetch permits');
-        }
-
-        // Parse successful response as JSON
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error('❌ Failed to parse JSON response:', responseText);
-          throw new Error('Invalid response from server');
-        }
-        
-        scrapingStarted = true;
-        console.log('✅ API Response received:', data);
-        
-        // Store request ID for cancellation (if provided)
-        if (data.requestId) {
-          requestIdRef.current = data.requestId;
-          console.log(`🆔 Request ID stored: ${data.requestId}`);
-        }
-        
-        console.log(`📊 Found ${data.totalFound} permits, saved ${data.totalSaved} to database`);
-        
-        // Transform permits to match our display format
-        permitsFromResponse = data.permits.map((p: any, index: number) => ({
-          _id: p._id ? (typeof p._id === 'string' ? p._id : p._id.toString()) : undefined,
-          name: p.name,
-          level: p.level,
-          jurisdiction: p.jurisdiction,
-          authority: p.authority || p.jurisdiction?.province || 'Unknown',
-          activities: p.activities || [],
-          sourceUrl: p.sourceUrl,
-          priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
-          category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
-        }));
-      } catch (fetchError: any) {
-        // Clear timeout on error
-        if (timeoutIdRef.current) {
-          clearTimeout(timeoutIdRef.current);
-          timeoutIdRef.current = null;
-        }
-
-        // If user cancelled, don't continue
-        if (fetchError.name === 'AbortError' && !abortControllerRef.current) {
-          console.log('🚫 User cancelled the operation');
-          return;
-        }
-        
-        // If it's an abort (timeout) or network error, try fetching from database
-        if (fetchError.name === 'AbortError' || fetchError.message.includes('fetch')) {
-          // Check if operation was cancelled by user
-          if (isCancelledRef.current) {
-            console.log('🚫 Operation was cancelled by user, not fetching from database');
-            return;
-          }
-
-          console.log('⏱️ Request timed out or failed. Fetching permits from database...');
-          scrapingStarted = true; // Assume scraping may have completed
-          
-          // Wait a bit for scraping to potentially complete, then fetch from database
-          // Store timeout in ref so we can cancel it
-          const dbTimeout = new Promise<void>((resolve) => {
-            const timeout = setTimeout(() => resolve(), 5000);
-            dbFetchTimeoutRef.current = timeout;
-          });
-          await dbTimeout;
-          
-          // Check again if cancelled during wait
-          if (isCancelledRef.current) {
-            console.log('🚫 Operation was cancelled during database fetch wait');
-            if (dbFetchTimeoutRef.current) {
-              clearTimeout(dbFetchTimeoutRef.current);
-              dbFetchTimeoutRef.current = null;
-            }
-            return;
-          }
-          
-          if (dbFetchTimeoutRef.current) {
-            clearTimeout(dbFetchTimeoutRef.current);
-            dbFetchTimeoutRef.current = null;
-          }
-          
-          // Try to fetch permits from database
-          try {
-            const dbResponse = await fetch('/api/permits');
-            if (dbResponse.ok) {
-              const dbPermits = await dbResponse.json();
-              console.log(`📊 Fetched ${dbPermits.length} permits from database`);
-              
-              // Filter permits that match the business type or location
-              const relevantPermits = dbPermits
-                .filter((p: any) => {
-                  const nameMatch = p.name?.toLowerCase().includes(trimmedData.businessType.toLowerCase()) ||
-                                   p.name?.toLowerCase().includes(trimmedData.location.toLowerCase());
-                  const activityMatch = p.activities?.some((a: string) => 
-                    a.toLowerCase().includes(trimmedData.businessType.toLowerCase())
-                  );
-                  return nameMatch || activityMatch;
-                })
-                .slice(0, 50) // Limit to 50 most recent
-                .map((p: any, index: number) => ({
-                  _id: p._id,
-                  name: p.name,
-                  level: p.level,
-                  jurisdiction: p.jurisdiction,
-                  authority: p.authority || p.jurisdiction?.province || 'Unknown',
-                  activities: p.activities || [],
-                  sourceUrl: p.sourceUrl,
-                  priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
-                  category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
-                }));
-              
-              if (relevantPermits.length > 0) {
-                permitsFromResponse = relevantPermits;
-                console.log(`✅ Found ${relevantPermits.length} relevant permits from database`);
-              } else {
-                // If no relevant permits found, show all recent permits (no limit)
-                permitsFromResponse = dbPermits.map((p: any, index: number) => ({
-                  _id: p._id,
-                  name: p.name,
-                  level: p.level,
-                  jurisdiction: p.jurisdiction,
-                  authority: p.authority || p.jurisdiction?.province || 'Unknown',
-                  activities: p.activities || [],
-                  sourceUrl: p.sourceUrl,
-                  priority: index < 3 ? 'High' : index < 10 ? 'Medium' : 'Low',
-                  category: p.level === 'federal' ? 'Federal' : p.level === 'municipal' ? 'Municipal' : 'Provincial',
-                }));
-                console.log(`✅ Showing ${permitsFromResponse.length} most recent permits from database`);
-              }
-            }
-          } catch (dbError) {
-            console.error('❌ Failed to fetch from database:', dbError);
-            throw fetchError; // Re-throw original error
-          }
-        } else {
-          throw fetchError;
-        }
-      }
-      
-      // Display permits (either from API response or database)
-      if (permitsFromResponse.length > 0) {
-        setPermits(permitsFromResponse);
-        setShowPermits(true);
-        console.log(`✅ Displaying ${permitsFromResponse.length} permits to user`);
-      } else {
-        throw new Error('No permits found. The scraping may still be in progress. Please try again in a few minutes or check the permit management page.');
-      }
-    } catch (error: any) {
-      // If operation was cancelled by user, don't show error
-      if (isCancelledRef.current) {
-        console.log('🚫 Operation cancelled by user, not showing error');
-        return;
-      }
-
-      console.error('❌ Error fetching permits:', error);
-      const errorMessage = error.message || 'Unknown error occurred';
-      
-      // Provide more helpful error messages
-      let userMessage = '';
-      if (error.name === 'AbortError') {
-        userMessage = 'The request took too long. The scraping may still be in progress. Please check the permit management page in a few minutes.';
-      } else if (error.message?.includes('fetch')) {
-        userMessage = 'Network error: Could not connect to the server. Please check your internet connection and try again.';
-      } else if (error.message?.includes('Failed to import')) {
-        userMessage = 'Server configuration error. Please contact support or try again later.';
-      } else if (scrapingStarted) {
-        userMessage = `Scraping completed but no permits were returned. The permits may have been saved to the database. Please check the permit management page or try again.`;
-      } else {
-        userMessage = `Failed to start permit discovery: ${errorMessage}. Please check the browser console (F12) for more details.`;
-      }
-      
-      alert(userMessage);
-    } finally {
-      // Clean up refs (but keep isCancelledRef to track cancellation state)
-      abortControllerRef.current = null;
-      if (timeoutIdRef.current) {
-        clearTimeout(timeoutIdRef.current);
-        timeoutIdRef.current = null;
-      }
-      if (dbFetchTimeoutRef.current) {
-        clearTimeout(dbFetchTimeoutRef.current);
-        dbFetchTimeoutRef.current = null;
-      }
-      // Only reset loading if not cancelled (to prevent state updates after unmount)
-      if (!isCancelledRef.current) {
-        setLoading(false);
-      }
-      console.log('🏁 Permit discovery process completed');
+    // Check if cancelled during wait
+    if (isCancelledRef.current) {
+      console.log('🚫 Operation was cancelled');
+      setLoading(false);
+      return;
     }
+    
+    // Get hardcoded permits based on location and business type
+    const discoveredPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
+    
+    console.log(`✅ Found ${discoveredPermits.length} permits for ${trimmedData.location}`);
+    
+    setPermits(discoveredPermits);
+    setShowPermits(true);
+    setLoading(false);
+    
+    console.log('🏁 Permit discovery process completed');
   };
 
   // Handle cancel with cleanup
@@ -554,41 +657,51 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 {permits.map((permit, index) => (
                   <div
                     key={permit._id || index}
-                    className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-colors"
+                    className="bg-white border border-neutral-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-neutral-900 text-white text-xs font-medium">
-                            {index + 1}
-                          </span>
-                          <h3 className="font-medium text-neutral-900">{permit.name}</h3>
+                    <div className="flex items-start gap-4">
+                      {/* Number Badge */}
+                      <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-neutral-900 text-white text-sm font-semibold">
+                        {index + 1}
+                      </span>
+                      
+                      <div className="flex-1 min-w-0">
+                        {/* Title Row */}
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <h3 className="font-semibold text-neutral-900 text-base">{permit.name}</h3>
                           <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${
                               permit.priority === 'High'
-                                ? 'bg-red-50 text-red-700'
+                                ? 'bg-red-100 text-red-700 border border-red-200'
                                 : permit.priority === 'Medium'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-neutral-100 text-neutral-600'
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
                             }`}
                           >
-                            {permit.priority} Priority
+                            {permit.priority}
                           </span>
                         </div>
-                        <div className="flex items-center gap-6 text-sm text-neutral-600">
-                          <span className="flex items-center gap-1.5">
-                            <FileText className="w-4 h-4" />
+                        
+                        {/* Authority */}
+                        <p className="text-sm text-neutral-600 mb-2">
+                          {permit.authority || permit.jurisdiction?.province || 'Unknown'}
+                        </p>
+                        
+                        {/* Tags Row */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+                            <FileText className="w-3 h-3" />
                             {permit.category || permit.level || 'General'}
                           </span>
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="w-4 h-4" />
-                            {permit.authority || permit.jurisdiction?.province || 'Unknown'}
-                          </span>
+                          {permit.jurisdiction?.city && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 text-neutral-600 rounded-md text-xs">
+                              <MapPin className="w-3 h-3" />
+                              {permit.jurisdiction.city}
+                            </span>
+                          )}
                           {permit.activities && permit.activities.length > 0 && (
-                            <span className="flex items-center gap-1.5">
-                              <Briefcase className="w-4 h-4" />
-                              {permit.activities.slice(0, 2).join(', ')}
-                              {permit.activities.length > 2 && '...'}
+                            <span className="text-xs text-neutral-500">
+                              {permit.activities.slice(0, 2).join(' • ')}
                             </span>
                           )}
                         </div>
@@ -602,7 +715,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-neutral-200">
               <button
                 onClick={() => setShowPermits(false)}
-                className="flex items-center gap-2 px-4 py-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors border border-neutral-200"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Details
@@ -610,17 +723,17 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
               <button
                 onClick={handleComplete}
                 disabled={permits.length === 0 || submitting}
-                className="flex items-center gap-2 px-6 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:bg-neutral-300 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:bg-neutral-300 disabled:cursor-not-allowed disabled:shadow-none font-medium text-base"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                     Adding Client...
                   </>
                 ) : (
                   <>
+                    <CheckCircle2 className="w-5 h-5" />
                     Add Client to Dashboard
-                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
@@ -773,14 +886,22 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
 
                 {/* Helpful Note */}
                 {loading && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Loader2 className="w-5 h-5 text-amber-600 animate-spin flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-amber-900 mb-1">Searching for permits...</p>
-                        <p className="text-xs text-amber-800">
-                          This process may take a few minutes. Please don't close this page. You can cancel the search at any time.
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Search className="w-5 h-5 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-base font-semibold text-blue-900 mb-1">Discovering Permits...</p>
+                        <p className="text-sm text-blue-700">
+                          Analyzing business requirements for {formData.location || 'your location'}
                         </p>
+                        <div className="mt-3 w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '60%' }} />
+                        </div>
                       </div>
                     </div>
                   </div>

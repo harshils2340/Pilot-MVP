@@ -554,7 +554,7 @@
 
 'use client';
 
-import { Search, MapPin, Building2, Briefcase, Plus } from 'lucide-react';
+import { Search, MapPin, Building2, Briefcase, Plus, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { BUSINESS_TYPES } from '@/constants/businessTypes';
 import { ACTIVITIES } from '@/constants/activities';
@@ -595,6 +595,8 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
   const [permits, setPermits] = useState<APIPermit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [addingPermitId, setAddingPermitId] = useState<string | null>(null);
+  const [addedPermits, setAddedPermits] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (client?.jurisdiction) setLocation(client.jurisdiction);
@@ -805,14 +807,420 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
 
                   <div className="pt-4">
                     <button
-                      onClick={() => {
-                        // TODO: Add permit to client
-                        console.log('Add permit:', permit);
+                      onClick={async () => {
+                        if (!clientId) {
+                          alert('Client ID is required to add permits');
+                          return;
+                        }
+                        
+                        setAddingPermitId(permit._id);
+                        try {
+                          // Determine complexity from level
+                          const complexity = permit.level === 'federal' ? 'high' : permit.level === 'municipal' ? 'low' : 'medium';
+                          const category = permit.level === 'federal' ? 'Federal' 
+                            : permit.level === 'municipal' ? 'Municipal' 
+                            : 'Provincial';
+                          
+                          const response = await fetch(`/api/clients/${encodeURIComponent(clientId || '')}/permits`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              permitId: permit._id,
+                              name: permit.name,
+                              authority: permit.authority,
+                              municipality: permit.contactInfo?.municipality || permit.jurisdiction?.city || '',
+                              complexity,
+                              estimatedTime: 'N/A',
+                              description: permit.activities?.[0] || permit.name || '',
+                              category,
+                              status: 'not-started',
+                              order: 0,
+                              requirements: permit.activities || [],
+                              fees: 'N/A',
+                              purpose: permit.prerequisites || '',
+                              howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : '',
+                              contactInfo: {
+                                phone: permit.contactInfo?.phone,
+                                email: permit.contactInfo?.email,
+                                website: permit.applyUrl || permit.sourceUrl,
+                                address: permit.contactInfo?.address?.fullAddress || '',
+                              },
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            setAddedPermits(prev => new Set([...prev, permit._id]));
+                            alert(`Permit "${permit.name}" added successfully!`);
+                          } else {
+                            const errorData = await response.json();
+                            alert(`Failed to add permit: ${errorData.error || 'Unknown error'}`);
+                          }
+                        } catch (err) {
+                          console.error('Error adding permit:', err);
+                          alert('Failed to add permit. Please try again.');
+                        } finally {
+                          setAddingPermitId(null);
+                        }
                       }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium"
+                      disabled={addingPermitId === permit._id || addedPermits.has(permit._id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Plus className="w-4 h-4" />
-                      Add Permit
+                      {addingPermitId === permit._id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Adding...
+                        </>
+                      ) : addedPermits.has(permit._id) ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add Permit
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+                              permitId: permit._id,
+                              name: permit.name,
+                              authority: permit.authority,
+                              municipality: permit.contactInfo?.municipality || permit.jurisdiction?.city || '',
+                              complexity,
+                              estimatedTime: 'N/A',
+                              description: permit.activities?.[0] || permit.name || '',
+                              category,
+                              status: 'not-started',
+                              order: 0,
+                              requirements: permit.activities || [],
+                              fees: 'N/A',
+                              purpose: permit.prerequisites || '',
+                              howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : '',
+                              contactInfo: {
+                                phone: permit.contactInfo?.phone,
+                                email: permit.contactInfo?.email,
+                                website: permit.applyUrl || permit.sourceUrl,
+                                address: permit.contactInfo?.address?.fullAddress || '',
+                              },
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            setAddedPermits(prev => new Set([...prev, permit._id]));
+                            alert(`Permit "${permit.name}" added successfully!`);
+                          } else {
+                            const errorData = await response.json();
+                            alert(`Failed to add permit: ${errorData.error || 'Unknown error'}`);
+                          }
+                        } catch (err) {
+                          console.error('Error adding permit:', err);
+                          alert('Failed to add permit. Please try again.');
+                        } finally {
+                          setAddingPermitId(null);
+                        }
+                      }}
+                      disabled={addingPermitId === permit._id || addedPermits.has(permit._id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingPermitId === permit._id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Adding...
+                        </>
+                      ) : addedPermits.has(permit._id) ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add Permit
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+                              permitId: permit._id,
+                              name: permit.name,
+                              authority: permit.authority,
+                              municipality: permit.contactInfo?.municipality || permit.jurisdiction?.city || '',
+                              complexity,
+                              estimatedTime: 'N/A',
+                              description: permit.activities?.[0] || permit.name || '',
+                              category,
+                              status: 'not-started',
+                              order: 0,
+                              requirements: permit.activities || [],
+                              fees: 'N/A',
+                              purpose: permit.prerequisites || '',
+                              howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : '',
+                              contactInfo: {
+                                phone: permit.contactInfo?.phone,
+                                email: permit.contactInfo?.email,
+                                website: permit.applyUrl || permit.sourceUrl,
+                                address: permit.contactInfo?.address?.fullAddress || '',
+                              },
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            setAddedPermits(prev => new Set([...prev, permit._id]));
+                            alert(`Permit "${permit.name}" added successfully!`);
+                          } else {
+                            const errorData = await response.json();
+                            alert(`Failed to add permit: ${errorData.error || 'Unknown error'}`);
+                          }
+                        } catch (err) {
+                          console.error('Error adding permit:', err);
+                          alert('Failed to add permit. Please try again.');
+                        } finally {
+                          setAddingPermitId(null);
+                        }
+                      }}
+                      disabled={addingPermitId === permit._id || addedPermits.has(permit._id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingPermitId === permit._id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Adding...
+                        </>
+                      ) : addedPermits.has(permit._id) ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add Permit
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+                              permitId: permit._id,
+                              name: permit.name,
+                              authority: permit.authority,
+                              municipality: permit.contactInfo?.municipality || permit.jurisdiction?.city || '',
+                              complexity,
+                              estimatedTime: 'N/A',
+                              description: permit.activities?.[0] || permit.name || '',
+                              category,
+                              status: 'not-started',
+                              order: 0,
+                              requirements: permit.activities || [],
+                              fees: 'N/A',
+                              purpose: permit.prerequisites || '',
+                              howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : '',
+                              contactInfo: {
+                                phone: permit.contactInfo?.phone,
+                                email: permit.contactInfo?.email,
+                                website: permit.applyUrl || permit.sourceUrl,
+                                address: permit.contactInfo?.address?.fullAddress || '',
+                              },
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            setAddedPermits(prev => new Set([...prev, permit._id]));
+                            alert(`Permit "${permit.name}" added successfully!`);
+                          } else {
+                            const errorData = await response.json();
+                            alert(`Failed to add permit: ${errorData.error || 'Unknown error'}`);
+                          }
+                        } catch (err) {
+                          console.error('Error adding permit:', err);
+                          alert('Failed to add permit. Please try again.');
+                        } finally {
+                          setAddingPermitId(null);
+                        }
+                      }}
+                      disabled={addingPermitId === permit._id || addedPermits.has(permit._id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingPermitId === permit._id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Adding...
+                        </>
+                      ) : addedPermits.has(permit._id) ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add Permit
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+                              permitId: permit._id,
+                              name: permit.name,
+                              authority: permit.authority,
+                              municipality: permit.contactInfo?.municipality || permit.jurisdiction?.city || '',
+                              complexity,
+                              estimatedTime: 'N/A',
+                              description: permit.activities?.[0] || permit.name || '',
+                              category,
+                              status: 'not-started',
+                              order: 0,
+                              requirements: permit.activities || [],
+                              fees: 'N/A',
+                              purpose: permit.prerequisites || '',
+                              howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : '',
+                              contactInfo: {
+                                phone: permit.contactInfo?.phone,
+                                email: permit.contactInfo?.email,
+                                website: permit.applyUrl || permit.sourceUrl,
+                                address: permit.contactInfo?.address?.fullAddress || '',
+                              },
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            setAddedPermits(prev => new Set([...prev, permit._id]));
+                            alert(`Permit "${permit.name}" added successfully!`);
+                          } else {
+                            const errorData = await response.json();
+                            alert(`Failed to add permit: ${errorData.error || 'Unknown error'}`);
+                          }
+                        } catch (err) {
+                          console.error('Error adding permit:', err);
+                          alert('Failed to add permit. Please try again.');
+                        } finally {
+                          setAddingPermitId(null);
+                        }
+                      }}
+                      disabled={addingPermitId === permit._id || addedPermits.has(permit._id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingPermitId === permit._id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Adding...
+                        </>
+                      ) : addedPermits.has(permit._id) ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add Permit
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+                              permitId: permit._id,
+                              name: permit.name,
+                              authority: permit.authority,
+                              municipality: permit.contactInfo?.municipality || permit.jurisdiction?.city || '',
+                              complexity,
+                              estimatedTime: 'N/A',
+                              description: permit.activities?.[0] || permit.name || '',
+                              category,
+                              status: 'not-started',
+                              order: 0,
+                              requirements: permit.activities || [],
+                              fees: 'N/A',
+                              purpose: permit.prerequisites || '',
+                              howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : '',
+                              contactInfo: {
+                                phone: permit.contactInfo?.phone,
+                                email: permit.contactInfo?.email,
+                                website: permit.applyUrl || permit.sourceUrl,
+                                address: permit.contactInfo?.address?.fullAddress || '',
+                              },
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            setAddedPermits(prev => new Set([...prev, permit._id]));
+                            alert(`Permit "${permit.name}" added successfully!`);
+                          } else {
+                            const errorData = await response.json();
+                            alert(`Failed to add permit: ${errorData.error || 'Unknown error'}`);
+                          }
+                        } catch (err) {
+                          console.error('Error adding permit:', err);
+                          alert('Failed to add permit. Please try again.');
+                        } finally {
+                          setAddingPermitId(null);
+                        }
+                      }}
+                      disabled={addingPermitId === permit._id || addedPermits.has(permit._id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingPermitId === permit._id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Adding...
+                        </>
+                      ) : addedPermits.has(permit._id) ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add Permit
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

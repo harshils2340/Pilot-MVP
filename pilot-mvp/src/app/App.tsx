@@ -377,3 +377,12 @@ export default function App() {
     </div>
   );
 }
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">{renderClientScreen()}</main>
+    </div>
+  );
+}

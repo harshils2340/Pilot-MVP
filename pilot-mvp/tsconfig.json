@@ -30,9 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": [
-    "node_modules",
-    "AI Permit Management Interface (2)",
-    "AI Permit Management Interface (3)"
-  ]
+  "exclude": ["node_modules"]
 }

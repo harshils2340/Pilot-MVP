@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDB from '@/app/lib/mongodb';
 import mongoose from 'mongoose';
 import { PermitEmail } from '@/app/lib/emails/schema';
-import { ensureLeadForPermitEmail } from '@/app/lib/crm/ensureLeadForPermitEmail';
 
 // Schema for storing OAuth tokens
 const GmailTokenSchema = new mongoose.Schema({
@@ -277,33 +276,6 @@ export async function POST(request: NextRequest) {
         await emailRecord.save();
         ingestedEmails.push(emailRecord.toObject());
 
-        // Create/update lead for permit-related emails (same as Gmail sync)
-        const fromEmailClean = (fromEmail || '').trim();
-        if (fromEmailClean) {
-          const requiredKeywords = ['permit', 'permits', 'licensing', 'licencing', 'license', 'licence'];
-          const subjectLower = (subject || '').toLowerCase();
-          const bodyLower = (emailBody || '').toLowerCase();
-          const hasKeyword = requiredKeywords.some((k) => subjectLower.includes(k) || bodyLower.includes(k));
-          const fromLower = fromEmailClean.toLowerCase();
-          const isCity = fromLower.includes('@gov') || fromLower.includes('@city') || fromLower.includes('@department') || fromLower.includes('noreply') || fromLower.includes('no-reply');
-          const excluded = ['expedia', 'booking', 'amazon', 'paypal', 'facebook', 'instagram', 'twitter', 'linkedin', 'netflix', 'spotify', 'uber', 'lyft', 'doordash'];
-          const isPromo = excluded.some((d) => fromLower.includes(`@${d}`) || fromLower.endsWith(d));
-          if (hasKeyword && !isCity && !isPromo) {
-            try {
-              const receivedAt = headers.date ? new Date(headers.date) : new Date();
-              await ensureLeadForPermitEmail({
-                emailId: emailRecord._id.toString(),
-                fromEmail: fromEmailClean,
-                fromName: (fromName || '').trim(),
-                subject,
-                receivedAt,
-              });
-            } catch (e) {
-              console.error(`Lead create/update failed for ${fromEmailClean}:`, (e as Error).message);
-            }
-          }
-        }
-
         // Mark as read in Gmail (optional)
         if (body.markAsRead !== false) {
           await gmail.users.messages.modify({
@@ -337,4 +309,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

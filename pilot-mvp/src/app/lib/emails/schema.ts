@@ -23,8 +23,6 @@ export interface IPermitEmail extends Document {
     contentType: string;
     size: number;
     url?: string;
-    attachmentId?: string; // Gmail attachment ID for fetching
-    gmailMessageId?: string; // Gmail message ID
   }>;
   direction: 'inbound' | 'outbound'; // Email direction
   status: 'unread' | 'read' | 'replied' | 'archived';
@@ -64,9 +62,7 @@ const PermitEmailSchema: Schema<IPermitEmail> = new Schema(
       filename: String,
       contentType: String,
       size: Number,
-      url: String,
-      attachmentId: String, // Gmail attachment ID for fetching
-      gmailMessageId: String // Gmail message ID
+      url: String
     }],
     direction: { type: String, enum: ['inbound', 'outbound'], required: true, index: true },
     status: { type: String, enum: ['unread', 'read', 'replied', 'archived'], default: 'unread', index: true },

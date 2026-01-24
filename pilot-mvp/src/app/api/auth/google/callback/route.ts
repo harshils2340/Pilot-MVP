@@ -37,15 +37,21 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    // Use the request origin to support both localhost and production
-    const origin = request.nextUrl.origin;
-    const redirectUri = `${origin}/api/auth/google/callback`;
-
+    
     if (!clientId || !clientSecret) {
       return NextResponse.redirect(
         new URL('/?error=oauth_not_configured', request.url)
       );
     }
+
+    // Always use the request origin to determine redirect URI
+    // This must match EXACTLY what was used in the initial OAuth request
+    const origin = request.nextUrl.origin;
+    const redirectUri = `${origin}/api/auth/google/callback`;
+
+    console.log('🔗 OAuth Callback:');
+    console.log('  - Origin:', origin);
+    console.log('  - Redirect URI:', redirectUri);
 
     const oauth2Client = new google.auth.OAuth2(
       clientId,
@@ -119,4 +125,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

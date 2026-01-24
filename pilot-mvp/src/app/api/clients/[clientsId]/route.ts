@@ -47,3 +47,58 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to fetch client' }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ clientsId: string }> }
+) {
+  try {
+    const { clientsId } = await params;
+    const clientParam = decodeURIComponent(clientsId);
+    const body = await req.json();
+
+    const mongoClient = await clientPromise;
+    const db = mongoClient.db('pilotClients');
+
+    let query: any = {};
+    if (ObjectId.isValid(clientParam)) {
+      query._id = new ObjectId(clientParam);
+    } else {
+      query.businessName = clientParam;
+    }
+
+    const updateData: any = {};
+    if (body.contactInfo) {
+      updateData.contactInfo = body.contactInfo;
+    }
+    if (body.consultantId) {
+      updateData.consultantId = body.consultantId;
+    }
+    if (body.consultantEmail) {
+      updateData.consultantEmail = body.consultantEmail;
+    }
+
+    const result = await db.collection('clients').updateOne(
+      query,
+      { $set: updateData }
+    );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+
+    // Fetch updated client
+    const updatedClient = await db.collection('clients').findOne(query);
+    if (!updatedClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ...updatedClient,
+      _id: updatedClient._id.toString(),
+    });
+  } catch (error) {
+    console.error('Failed to update client:', error);
+    return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });
+  }
+}

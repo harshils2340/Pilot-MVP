@@ -1,5 +1,5 @@
 import { Sparkles, Plus, Building2, MapPin, CheckCircle2, Clock, ChevronRight, Loader2, ArrowRight, X, AlertCircle, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface DiscoveredPermit {
   id: string;
@@ -19,89 +19,116 @@ interface PermitDiscoveryProps {
   onAddPermits: (permits: DiscoveredPermit[]) => void;
 }
 
+// Jurisdiction-specific discovered permits for different activities
+const JURISDICTION_DISCOVERED_PERMITS: Record<string, Record<string, DiscoveredPermit[]>> = {
+  'San Francisco': {
+    'outdoor': [
+      { id: 'sf-out-1', name: 'Sidewalk Cafe Permit', authority: 'SF Public Works Department', municipality: 'San Francisco', estimatedTime: '4-6 weeks', description: 'Required for outdoor seating on public sidewalk', reason: 'Outdoor seating on public property requires Public Works approval', dependencies: [], selected: true },
+      { id: 'sf-out-2', name: 'Planning Department Conditional Use', authority: 'SF Planning Department', municipality: 'San Francisco', estimatedTime: '8-12 weeks', description: 'Conditional use authorization for outdoor dining', reason: 'Required for restaurants adding outdoor seating in commercial districts', dependencies: [], selected: true },
+      { id: 'sf-out-3', name: 'Health Dept. Outdoor Service Approval', authority: 'SF Dept. of Public Health', municipality: 'San Francisco', estimatedTime: '2-3 weeks', description: 'Health inspection for outdoor food service area', reason: 'Outdoor food service areas require separate health department inspection', dependencies: ['Sidewalk Cafe Permit'], selected: true },
+      { id: 'sf-out-4', name: 'Fire Department Outdoor Seating Review', authority: 'SF Fire Department', municipality: 'San Francisco', estimatedTime: '2-3 weeks', description: 'Fire safety review for outdoor seating configuration', reason: 'Fire dept must review egress and emergency access with new outdoor layout', dependencies: [], selected: false },
+    ],
+    'alcohol': [
+      { id: 'sf-alc-1', name: 'Type 47 Liquor License (On-Sale General)', authority: 'California ABC', municipality: 'State of California', estimatedTime: '6-8 weeks', description: 'Full liquor license for restaurant serving all types of alcohol', reason: 'Required for serving distilled spirits, beer, and wine', dependencies: [], selected: true },
+      { id: 'sf-alc-2', name: 'Planning Department CU Approval', authority: 'SF Planning Department', municipality: 'San Francisco', estimatedTime: '8-12 weeks', description: 'Conditional use for alcohol sales', reason: 'San Francisco requires CU approval for alcohol service in most zoning districts', dependencies: [], selected: true },
+    ],
+    'default': [
+      { id: 'sf-def-1', name: 'Business Tax Registration Certificate', authority: 'SF Office of the Treasurer', municipality: 'San Francisco', estimatedTime: '1-2 weeks', description: 'Required for all businesses operating in SF', reason: 'All businesses in San Francisco must register for business taxes', dependencies: [], selected: true },
+    ],
+  },
+  'Calgary': {
+    'outdoor': [
+      { id: 'cal-out-1', name: 'Sidewalk Patio Permit', authority: 'City of Calgary Roads', municipality: 'Calgary', estimatedTime: '4-6 weeks', description: 'Required for outdoor seating on public sidewalk', reason: 'Outdoor patios on city property require Roads department approval', dependencies: [], selected: true },
+      { id: 'cal-out-2', name: 'Development Permit Amendment', authority: 'City of Calgary Planning', municipality: 'Calgary', estimatedTime: '6-8 weeks', description: 'Amendment for outdoor dining area', reason: 'Adding patio seating may require zoning amendment', dependencies: [], selected: true },
+    ],
+    'alcohol': [
+      { id: 'cal-alc-1', name: 'Liquor Licence', authority: 'AGLC (Alberta Gaming & Liquor)', municipality: 'Alberta', estimatedTime: '4-6 weeks', description: 'Provincial liquor licence', reason: 'Required for serving alcohol in Alberta', dependencies: [], selected: true },
+    ],
+    'default': [
+      { id: 'cal-def-1', name: 'Business Licence Amendment', authority: 'City of Calgary', municipality: 'Calgary', estimatedTime: '1-2 weeks', description: 'Amendment to existing business licence', reason: 'Business activities may require licence updates', dependencies: [], selected: true },
+    ],
+  },
+  'Toronto': {
+    'outdoor': [
+      { id: 'tor-out-1', name: 'Cafe TO Permit', authority: 'City of Toronto Transportation', municipality: 'Toronto', estimatedTime: '2-4 weeks', description: 'Permit for curb lane or sidewalk patio', reason: 'Required for outdoor dining on city property', dependencies: [], selected: true },
+      { id: 'tor-out-2', name: 'DineSafe Inspection', authority: 'Toronto Public Health', municipality: 'Toronto', estimatedTime: '1-2 weeks', description: 'Health inspection for outdoor service area', reason: 'All food service areas require health inspection', dependencies: [], selected: true },
+    ],
+    'alcohol': [
+      { id: 'tor-alc-1', name: 'Liquor Licence', authority: 'AGCO (Alcohol & Gaming Commission)', municipality: 'Ontario', estimatedTime: '6-8 weeks', description: 'Provincial liquor licence', reason: 'Required for serving alcohol in Ontario', dependencies: [], selected: true },
+    ],
+    'default': [
+      { id: 'tor-def-1', name: 'Business Licence Amendment', authority: 'City of Toronto Municipal Licensing', municipality: 'Toronto', estimatedTime: '1-2 weeks', description: 'Amendment to existing business licence', reason: 'Business activities may require licence updates', dependencies: [], selected: true },
+    ],
+  },
+};
+
+function getDiscoveredPermitsForJurisdiction(jurisdiction: string, activityQuery: string): DiscoveredPermit[] {
+  const jurisdictionLower = jurisdiction.toLowerCase();
+  const queryLower = activityQuery.toLowerCase();
+  
+  // Determine which jurisdiction permits to use
+  let jurisdictionKey = 'San Francisco'; // default
+  if (jurisdictionLower.includes('calgary')) jurisdictionKey = 'Calgary';
+  else if (jurisdictionLower.includes('toronto')) jurisdictionKey = 'Toronto';
+  else if (jurisdictionLower.includes('san francisco') || jurisdictionLower.includes('sf')) jurisdictionKey = 'San Francisco';
+  
+  const jurisdictionPermits = JURISDICTION_DISCOVERED_PERMITS[jurisdictionKey] || JURISDICTION_DISCOVERED_PERMITS['San Francisco'];
+  
+  // Determine activity type from query
+  let activityKey = 'default';
+  if (queryLower.includes('outdoor') || queryLower.includes('patio') || queryLower.includes('seating')) activityKey = 'outdoor';
+  else if (queryLower.includes('alcohol') || queryLower.includes('liquor') || queryLower.includes('bar') || queryLower.includes('beer') || queryLower.includes('wine')) activityKey = 'alcohol';
+  
+  return jurisdictionPermits[activityKey] || jurisdictionPermits['default'] || [];
+}
+
 export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDiscoveryProps) {
   const [input, setInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [discoveredPermits, setDiscoveredPermits] = useState<DiscoveredPermit[]>([]);
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [clientJurisdiction, setClientJurisdiction] = useState('San Francisco');
 
-  // Mock client context - would come from database
+  // Fetch client jurisdiction on mount
+  useEffect(() => {
+    const fetchClientInfo = async () => {
+      if (!clientId) return;
+      try {
+        const res = await fetch(`/api/clients/${clientId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const jurisdiction = data.jurisdiction || data.client?.jurisdiction || 'San Francisco';
+          setClientJurisdiction(jurisdiction);
+          console.log(`📍 PermitDiscovery: Client jurisdiction is ${jurisdiction}`);
+        }
+      } catch (error) {
+        console.error('Error fetching client info:', error);
+      }
+    };
+    fetchClientInfo();
+  }, [clientId]);
+
+  // Client context derived from actual client data
   const clientContext = {
-    name: 'Urban Eats Restaurant Group',
+    name: clientName,
     businessType: 'Restaurant',
-    location: 'San Francisco, CA',
-    existingActivities: ['Indoor dining', 'Food preparation', 'Alcohol service'],
-    existingPermits: ['Business Operating Permit', 'Food Service Establishment Permit', 'Liquor License'],
+    location: clientJurisdiction,
+    existingActivities: ['Indoor dining', 'Food preparation'],
+    existingPermits: [],
   };
 
   const handleAnalyze = () => {
     setIsAnalyzing(true);
     setHasAnalyzed(true);
     
-    // Simulate AI analysis
+    // Get permits based on jurisdiction and query
     setTimeout(() => {
-      // Mock discovered permits based on "outdoor seating" example
-      const permits: DiscoveredPermit[] = [
-        {
-          id: 'new-1',
-          name: 'Sidewalk Cafe Permit',
-          authority: 'SF Public Works Department',
-          municipality: 'San Francisco',
-          estimatedTime: '4-6 weeks',
-          description: 'Required for outdoor seating on public sidewalk',
-          reason: 'Outdoor seating on public property requires Public Works approval for sidewalk usage',
-          dependencies: [],
-          selected: true,
-        },
-        {
-          id: 'new-2',
-          name: 'Planning Department Conditional Use',
-          authority: 'SF Planning Department',
-          municipality: 'San Francisco',
-          estimatedTime: '8-12 weeks',
-          description: 'Conditional use authorization for outdoor dining',
-          reason: 'Required for restaurants adding outdoor seating in commercial districts',
-          dependencies: [],
-          selected: true,
-        },
-        {
-          id: 'new-3',
-          name: 'Health Dept. Outdoor Service Approval',
-          authority: 'SF Dept. of Public Health',
-          municipality: 'San Francisco',
-          estimatedTime: '2-3 weeks',
-          description: 'Health inspection for outdoor food service area',
-          reason: 'Outdoor food service areas require separate health department inspection and approval',
-          dependencies: ['Sidewalk Cafe Permit'],
-          selected: true,
-        },
-        {
-          id: 'new-4',
-          name: 'Alcohol Beverage Control - Outdoor Service',
-          authority: 'California ABC',
-          municipality: 'State of California',
-          estimatedTime: '6-8 weeks',
-          description: 'Amendment to existing liquor license for outdoor service',
-          reason: 'Your existing liquor license needs to be amended to cover the outdoor seating area',
-          dependencies: ['Sidewalk Cafe Permit', 'Planning Department Conditional Use'],
-          selected: true,
-        },
-        {
-          id: 'new-5',
-          name: 'Fire Department Outdoor Seating Review',
-          authority: 'SF Fire Department',
-          municipality: 'San Francisco',
-          estimatedTime: '2-3 weeks',
-          description: 'Fire safety review for outdoor seating configuration',
-          reason: 'Fire dept must review egress and emergency access with new outdoor layout',
-          dependencies: [],
-          selected: false,
-        },
-      ];
-      
+      const permits = getDiscoveredPermitsForJurisdiction(clientJurisdiction, input);
+      console.log(`🔍 Discovered ${permits.length} permits for ${clientJurisdiction} based on query: "${input}"`);
       setDiscoveredPermits(permits);
       setIsAnalyzing(false);
-    }, 2000);
+    }, 1500);
   };
 
   const togglePermit = (permitId: string) => {
@@ -110,13 +137,65 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
     ));
   };
 
-  const handleAddToPermitPlan = () => {
+  const handleAddToPermitPlan = async () => {
     const selectedPermits = discoveredPermits.filter(p => p.selected);
-    onAddPermits(selectedPermits);
-    // Reset
-    setInput('');
-    setDiscoveredPermits([]);
-    setHasAnalyzed(false);
+    
+    if (!clientId || selectedPermits.length === 0) {
+      return;
+    }
+
+    setIsAdding(true);
+    
+    try {
+      // Save each permit to the database
+      const savePromises = selectedPermits.map(async (permit) => {
+        const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/permits`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: permit.name,
+            authority: permit.authority,
+            municipality: permit.municipality,
+            complexity: 'medium', // Default complexity for discovered permits
+            estimatedTime: permit.estimatedTime,
+            description: permit.description,
+            category: permit.municipality.includes('State') ? 'State' : 'Municipal',
+            status: 'not-started',
+            order: 0,
+            lastActivity: 'Added from discovery',
+            lastActivityDate: new Date(),
+            requirements: permit.dependencies || [],
+            fees: 'N/A',
+            purpose: permit.reason,
+            howToApply: 'Contact the issuing authority',
+            contactInfo: {},
+            additionalNotes: '',
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to add ${permit.name}`);
+        }
+
+        return response.json();
+      });
+
+      await Promise.all(savePromises);
+      
+      // Call the callback to notify parent component
+      onAddPermits(selectedPermits);
+      
+      // Reset
+      setInput('');
+      setDiscoveredPermits([]);
+      setHasAnalyzed(false);
+    } catch (error: any) {
+      console.error('Error adding permits:', error);
+      alert(`Failed to add permits: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const suggestedPrompts = [
@@ -385,11 +464,20 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                   </div>
                   <button
                     onClick={handleAddToPermitPlan}
-                    disabled={discoveredPermits.filter(p => p.selected).length === 0}
+                    disabled={discoveredPermits.filter(p => p.selected).length === 0 || isAdding}
                     className="flex items-center gap-2 px-6 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                   >
-                    Add to Permit Plan
-                    <ArrowRight className="w-4 h-4" />
+                    {isAdding ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        Add to Permit Plan
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

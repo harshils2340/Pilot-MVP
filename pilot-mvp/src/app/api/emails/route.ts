@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const permitId = searchParams.get('permitId');
     const clientId = searchParams.get('clientId');
     const status = searchParams.get('status'); // 'unread', 'read', 'all'
-    const limit = parseInt(searchParams.get('limit') || '25'); // Default to 25 email cap
+    const limit = parseInt(searchParams.get('limit') || '50');
     const skip = parseInt(searchParams.get('skip') || '0');
 
     // Build query
@@ -24,92 +24,52 @@ export async function GET(request: NextRequest) {
     if (permitId) query.permitId = permitId;
     if (clientId) query.clientId = clientId;
     if (status && status !== 'all') query.status = status;
+    
+    // When test=false, only show client emails (inbound with clientName)
+    // When test=true, show all emails
+    if (!EMAIL_TEST_MODE) {
+      query.direction = 'inbound';
+      query.clientName = { $exists: true, $ne: null, $nin: ['', null] };
+    }
 
-    // Fetch ALL emails from database - no filtering by Gmail account
-    // Show all emails regardless of which Gmail account they came from
-    // Priority: Permit-related and client emails first, then others
-    // Sort by most recent first to ensure latest emails are shown
-    // Fetch more emails to allow re-sorting (permit/client emails prioritized)
-    const rawEmails = await PermitEmail.find(query)
-      .sort({ receivedAt: -1 }) // Sort by most recent first (newest emails first)
-      .limit(limit * 3) // Fetch 3x limit to ensure we get permit/client emails even if they're older
+    // Fetch emails sorted by most recent first
+    let emails = await PermitEmail.find(query)
+      .sort({ receivedAt: -1 })
+      .limit(limit * 2) // Fetch more to filter, then limit
       .skip(skip)
       .lean();
 
-    // Deduplicate by gmailId (keep first = most recent); emails without gmailId are kept
-    const seenGmailIds = new Set<string>();
-    const allEmails = rawEmails.filter((e: any) => {
-      const gid = e.gmailId;
-      if (!gid) return true;
-      if (seenGmailIds.has(gid)) return false;
-      seenGmailIds.add(gid);
-      return true;
-    });
+    // Get all registered clients from the database
+    const registeredClients = await ClientModel.find().lean();
+    const registeredClientIds = new Set(registeredClients.map((c: any) => c._id.toString()));
     
-    // Separate permit-related and client emails from others
-    // These emails should ALWAYS show up regardless of which Gmail account they came from
-    // Permit-related emails are those that:
-    // 1. Have "Permit" in subject or body
-    // 2. Have a permitName containing "Permit"
-    // 3. Are associated with a permit (have permitId)
-    // 4. Are from clients (have clientId) - these sync from clients
-    const permitRelatedEmails = allEmails.filter((email: any) => {
+    // Filter to only show emails that are either:
+    // 1. From a registered client (has clientId that exists in clients collection), OR
+    // 2. Contains permit-related keywords (permits, licensing, licencing)
+    const requiredKeywords = ['permits', 'licensing', 'licencing'];
+    
+    const permitRelatedEmails = emails.filter((email: any) => {
+      // Check if email is from a registered client (clientId exists and is in registered clients)
+      const isFromRegisteredClient = email.clientId && registeredClientIds.has(email.clientId.toString());
+      
+      // Check if email contains permit-related keywords
       const subject = (email.subject || '').toLowerCase();
       const body = (email.body || '').toLowerCase();
-      const permitName = (email.permitName || '').toLowerCase().trim();
-      
-      // Check if email is permit-related or from a client
-      const hasPermitInSubject = subject.includes('permit');
-      const hasPermitInBody = body.includes('permit');
-      const hasPermitInName = permitName.includes('permit');
-      const hasPermitId = !!email.permitId;
-      const hasClientId = !!email.clientId; // Emails from clients should ALWAYS be shown
-      
-      // Also check for licensing keywords
-      const hasLicensingKeywords = subject.includes('licens') || body.includes('licens');
-      
-      return hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId || hasLicensingKeywords;
-    });
-    
-    const otherEmails = allEmails.filter((email: any) => {
-      const subject = (email.subject || '').toLowerCase();
-      const body = (email.body || '').toLowerCase();
-      const permitName = (email.permitName || '').toLowerCase().trim();
-      
-      // Check if email is NOT permit-related
-      const hasPermitInSubject = subject.includes('permit');
-      const hasPermitInBody = body.includes('permit');
-      const hasPermitInName = permitName.includes('permit');
-      const hasPermitId = !!email.permitId;
-      const hasClientId = !!email.clientId;
-      
-      return !(hasPermitInSubject || hasPermitInBody || hasPermitInName || hasPermitId || hasClientId);
-    });
-    
-    // Sort each group by most recent, then combine (permit-related first, others below)
-    permitRelatedEmails.sort((a: any, b: any) => 
-      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
-    );
-    otherEmails.sort((a: any, b: any) => 
-      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
-    );
-    
-    // Always prioritize permit-related and client emails
-    // Apply limit: take as many permit-related emails as possible, then fill remaining slots with other emails
-    const permitEmailsCount = Math.min(permitRelatedEmails.length, limit);
-    const otherEmailsCount = Math.max(0, limit - permitEmailsCount);
-    const emails = [
-      ...permitRelatedEmails.slice(0, permitEmailsCount),
-      ...otherEmails.slice(0, otherEmailsCount)
-    ];
+      const hasRequiredKeyword = requiredKeywords.some(keyword => 
+        subject.includes(keyword.toLowerCase()) || body.includes(keyword.toLowerCase())
+      );
+
+      // Show email if it's from a registered client OR contains permit keywords
+      return isFromRegisteredClient || hasRequiredKeyword;
+    }).slice(0, limit); // Apply limit after filtering
 
     // Fetch permit details for emails that have permitId
-    const permitIds = [...new Set(emails.map((e: any) => e.permitId).filter(Boolean))];
+    const permitIds = [...new Set(permitRelatedEmails.map((e: any) => e.permitId).filter(Boolean))];
     const permits = await Permit.find({ _id: { $in: permitIds } }).lean();
     const permitMap = new Map(permits.map((p: any) => [p._id.toString(), p]));
 
     // Enrich emails with permit details
-    const enrichedEmails = emails.map((email: any) => {
+    const enrichedEmails = permitRelatedEmails.map((email: any) => {
       const permit = email.permitId ? permitMap.get(email.permitId) : null;
       return {
         ...email,
@@ -121,13 +81,27 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Get unread count for ALL emails (no filtering)
-    const unreadCount = await PermitEmail.countDocuments({ ...query, status: 'unread' });
+    // Get unread count for emails from registered clients OR with permit keywords
+    const allUnreadEmails = await PermitEmail.find({ ...query, status: 'unread' }).lean();
+    const permitRelatedUnread = allUnreadEmails.filter((email: any) => {
+      // Check if email is from a registered client
+      const isFromRegisteredClient = email.clientId && registeredClientIds.has(email.clientId.toString());
+      
+      // Check if email contains permit-related keywords
+      const subject = (email.subject || '').toLowerCase();
+      const body = (email.body || '').toLowerCase();
+      const hasRequiredKeyword = requiredKeywords.some(keyword => 
+        subject.includes(keyword.toLowerCase()) || body.includes(keyword.toLowerCase())
+      );
+
+      return isFromRegisteredClient || hasRequiredKeyword;
+    });
+    const unreadCount = permitRelatedUnread.length;
 
     return NextResponse.json({
       emails: enrichedEmails,
       unreadCount,
-      total: emails.length,
+      total: permitRelatedEmails.length,
       test: EMAIL_TEST_MODE
     });
   } catch (error: any) {

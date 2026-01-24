@@ -8,7 +8,9 @@ import './styles/theme.css';
 
 export const metadata: Metadata = {
   icons: {
-    icon: '/file.svg',
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
   },
 };
 
