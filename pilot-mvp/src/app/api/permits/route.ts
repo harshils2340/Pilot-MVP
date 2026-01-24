@@ -139,11 +139,12 @@ export async function POST(request: Request) {
     
     console.log('✅ Permit created successfully:', newPermit._id);
     
+    const permitObj = newPermit.toObject();
     return NextResponse.json({
       success: true,
       permit: {
-        _id: newPermit._id.toString(),
-        ...newPermit.toObject(),
+        ...permitObj,
+        _id: permitObj._id.toString(),
       },
     }, { status: 201 });
   } catch (error: any) {

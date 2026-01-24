@@ -30,11 +30,21 @@ export async function GET(request: NextRequest) {
     // Priority: Permit-related and client emails first, then others
     // Sort by most recent first to ensure latest emails are shown
     // Fetch more emails to allow re-sorting (permit/client emails prioritized)
-    const allEmails = await PermitEmail.find(query)
+    const rawEmails = await PermitEmail.find(query)
       .sort({ receivedAt: -1 }) // Sort by most recent first (newest emails first)
       .limit(limit * 3) // Fetch 3x limit to ensure we get permit/client emails even if they're older
       .skip(skip)
       .lean();
+
+    // Deduplicate by gmailId (keep first = most recent); emails without gmailId are kept
+    const seenGmailIds = new Set<string>();
+    const allEmails = rawEmails.filter((e: any) => {
+      const gid = e.gmailId;
+      if (!gid) return true;
+      if (seenGmailIds.has(gid)) return false;
+      seenGmailIds.add(gid);
+      return true;
+    });
     
     // Separate permit-related and client emails from others
     // These emails should ALWAYS show up regardless of which Gmail account they came from

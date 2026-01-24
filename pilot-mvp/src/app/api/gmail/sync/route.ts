@@ -7,6 +7,7 @@ import ClientModel from '@/app/models/client';
 import { PermitManagement } from '@/app/lib/permits/managementSchema';
 import { CityFeedback } from '@/app/lib/cityFeedback/schema';
 import { Permit } from '@/app/lib/permits/schema';
+import { ensureLeadForPermitEmail } from '@/app/lib/crm/ensureLeadForPermitEmail';
 
 // Schema for storing OAuth tokens
 const GmailTokenSchema = new mongoose.Schema({
@@ -898,6 +899,45 @@ export async function POST(request: NextRequest) {
               : (hasRequiredKeyword ? `has permit keywords` : `unknown`);
             
             console.log(`✅ Email saved immediately: ${subject} from ${fromEmail} (${matchInfo}${matchedPermitId ? ` - Permit: ${matchedPermitName}` : ''})`);
+
+            // CREATE/UPDATE LEAD: Only for permit-related emails (not city/authority, not promotional)
+            // Permit-related = has permit keywords, matched to a permit, or from a registered client
+            const isPermitRelated = !!(hasRequiredKeyword || matchedPermitId || matchedClientId);
+            
+            console.log(`🔍 Lead creation check for email: ${fromEmail}`);
+            console.log(`   - isCityEmail: ${isCityEmail}`);
+            console.log(`   - isPromotionalEmail: ${isPromotionalEmail}`);
+            console.log(`   - isPermitRelated: ${isPermitRelated} (keyword: ${!!hasRequiredKeyword}, permit: ${!!matchedPermitId}, client: ${!!matchedClientId})`);
+            
+            if (!isCityEmail && !isPromotionalEmail && fromEmail && isPermitRelated) {
+              try {
+                const receivedAt = headers.date ? new Date(headers.date) : new Date();
+                const leadId = await ensureLeadForPermitEmail({
+                  emailId: emailRecord._id.toString(),
+                  fromEmail,
+                  fromName: fromName || '',
+                  subject,
+                  receivedAt,
+                });
+                if (leadId) {
+                  console.log(`✅ Lead created/updated for permit email: ${fromEmail} -> Lead ID: ${leadId}`);
+                }
+              } catch (leadError: any) {
+                console.error(`❌ Failed to create/update lead from email ${fromEmail}:`, leadError.message);
+                // Don't throw - continue processing other emails
+              }
+            } else {
+              // Log why lead was not created
+              if (isCityEmail) {
+                console.log(`⏭️ Skipping lead creation: Email is from city/authority (${fromEmail})`);
+              } else if (isPromotionalEmail) {
+                console.log(`⏭️ Skipping lead creation: Email is promotional (${fromEmail})`);
+              } else if (!fromEmail) {
+                console.log(`⏭️ Skipping lead creation: No fromEmail found`);
+              } else if (!isPermitRelated) {
+                console.log(`⏭️ Skipping lead creation: Email is not permit-related (${fromEmail})`);
+              }
+            }
 
             // CREATE CITY FEEDBACK ITEM: If email is from a client AND mentions a permit, create a City Feedback item
             // Only create if not already synced (check by emailId)

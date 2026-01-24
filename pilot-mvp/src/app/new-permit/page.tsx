@@ -52,10 +52,10 @@ export default function NewPermitPage() {
       setFormData(prev => ({
         ...prev,
         [parent]: {
-          ...prev[parent as keyof typeof prev],
+          ...(prev[parent as keyof typeof prev] as any || {}),
           [child]: grandchild
             ? {
-                ...(prev[parent as keyof typeof prev] as any)?.[child],
+                ...((prev[parent as keyof typeof prev] as any)?.[child] || {}),
                 [grandchild]: value,
               }
             : value,

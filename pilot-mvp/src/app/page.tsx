@@ -3,7 +3,7 @@
 // Trigger Vercel deployment
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { WorkspaceDashboard } from './components/WorkspaceDashboard';
 import { PermitDiscovery } from './components/PermitDiscovery';
 import { PermitPlan } from './components/PermitPlan';
@@ -13,11 +13,13 @@ import { SignUp } from './components/SignUp';
 import { PermitManagement } from './components/PermitManagement';
 import { PermitDetailView } from './components/PermitDetailView';
 import { ClientOnboarding } from './components/ClientOnboarding';
-import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search } from 'lucide-react';
+import { Leads } from './components/Leads';
+import { ClientPortalDashboard } from './components/ClientPortalDashboard';
+import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, UserPlus, LayoutDashboard } from 'lucide-react';
 
 type ClientScreen = 'discovery' | 'plan' | 'permit-detail';
 type AuthScreen = 'signin' | 'signup';
-type View = 'dashboard' | 'client' | 'permit-management' | 'inbox' | 'add-client';
+type View = 'dashboard' | 'client' | 'permit-management' | 'inbox' | 'add-client' | 'client-portal' | 'leads';
 
 export default function App() {
   const router = useRouter();
@@ -32,6 +34,15 @@ export default function App() {
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+
+  const searchParams = useSearchParams();
+
+  // Sync ?view=leads -> Leads view (e.g. when navigating back from lead detail page)
+  useEffect(() => {
+    if (searchParams.get('view') === 'leads') {
+      setCurrentView('leads');
+    }
+  }, [searchParams]);
 
   // Load auth state from localStorage and URL params on mount
   useEffect(() => {
@@ -214,81 +225,14 @@ export default function App() {
     );
   }
 
-  // Show Permit Inbox view
-  if (currentView === 'inbox') {
+  // Show Client Portal view
+  if (currentView === 'client-portal') {
     return (
-      <div className="flex h-screen bg-neutral-50">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-          <div className="px-6 py-5 border-b border-neutral-200">
-            <div className="flex items-center gap-3">
-              <img 
-                src="/file.svg" 
-                alt="Pilot" 
-                className="h-8 w-8"
-              />
-              <div>
-                <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
-                <p className="text-neutral-500 text-xs">Permit Management</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
-            <button
-              onClick={() => setCurrentView('dashboard')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              <Users className="w-5 h-5" />
-              <span className="text-sm">Clients</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('inbox')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neutral-900 text-white transition-colors"
-            >
-              <Inbox className="w-5 h-5" />
-              <div className="flex items-center justify-between flex-1">
-                <span className="text-sm">Permit Inbox</span>
-                <span className="px-2 py-0.5 bg-red-500 text-white rounded text-xs font-medium">4</span>
-              </div>
-            </button>
-            <div className="pt-4 border-t border-neutral-200 mt-4">
-              <button
-                onClick={() => router.push('/permit-management')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
-              >
-                <Settings className="w-5 h-5" />
-                <span className="text-sm">Permit Management</span>
-              </button>
-            </div>
-          </nav>
-
-          <div className="p-4 border-t border-neutral-200">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-                {userName ? userName.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
-                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content - Permit Inbox */}
-        <main className="flex-1 overflow-hidden">
-          <PermitInbox
-            onSelectPermit={(permitId, clientName) => {
-              setSelectedClient(clientName);
-              setSelectedPermit(permitId);
-              setCurrentView('client');
-              setCurrentScreen('permit-detail');
-            }}
-          />
-        </main>
-      </div>
+      <ClientPortalDashboard
+        clientId={selectedClient || undefined}
+        clientName={selectedClient || 'Client'}
+        onBack={() => setCurrentView('dashboard')}
+      />
     );
   }
 
@@ -316,8 +260,11 @@ export default function App() {
     );
   }
 
-  // Show dashboard if no client is selected
-  if (currentView === 'dashboard') {
+  // Show dashboard, inbox, or leads (shared layout – same sidebar, highlight active)
+  if (currentView === 'dashboard' || currentView === 'inbox' || currentView === 'leads') {
+    const isDashboard = currentView === 'dashboard';
+    const isInbox = currentView === 'inbox';
+    const isLeads = currentView === 'leads';
     return (
       <div className="flex h-screen bg-neutral-50">
         {/* Sidebar */}
@@ -340,19 +287,25 @@ export default function App() {
           <nav className="flex-1 p-4 space-y-1">
             <button
               onClick={() => setCurrentView('dashboard')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neutral-900 text-white transition-colors"
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
+                isDashboard ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
             >
               <Users className="w-5 h-5" />
               <span className="text-sm">Clients</span>
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
+                isInbox ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
             >
               <Inbox className="w-5 h-5" />
               <div className="flex items-center justify-between flex-1">
                 <span className="text-sm">Permit Inbox</span>
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">4</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  isInbox ? 'bg-neutral-700 text-white' : 'bg-red-100 text-red-700'
+                }`}>4</span>
               </div>
             </button>
             <div className="pt-4 border-t border-neutral-200 mt-4">
@@ -362,6 +315,22 @@ export default function App() {
               >
                 <Settings className="w-5 h-5" />
                 <span className="text-sm">Permit Management</span>
+              </button>
+              <button
+                onClick={() => setCurrentView('client-portal')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors mt-1"
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-sm">Preview Client Portal</span>
+              </button>
+              <button
+                onClick={() => setCurrentView('leads')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors mt-1 ${
+                  isLeads ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                <UserPlus className="w-5 h-5" />
+                <span className="text-sm">Leads</span>
               </button>
             </div>
           </nav>
@@ -385,13 +354,26 @@ export default function App() {
           </div>
         </aside>
 
-        {/* Main Content - Dashboard */}
-        <main className="flex-1 overflow-auto">
-          <WorkspaceDashboard
-            onStartPermit={() => {
-              setShowClientOnboarding(true);
-            }}
-          />
+        {/* Main Content */}
+        <main className={`flex-1 overflow-auto ${(isInbox || isLeads) ? 'min-h-0' : ''}`}>
+          {isDashboard && (
+            <WorkspaceDashboard
+              onStartPermit={() => {
+                setShowClientOnboarding(true);
+              }}
+            />
+          )}
+          {isInbox && (
+            <PermitInbox
+              onSelectPermit={(permitId, clientName) => {
+                setSelectedClient(clientName);
+                setSelectedPermit(permitId);
+                setCurrentView('client');
+                setCurrentScreen('permit-detail');
+              }}
+            />
+          )}
+          {isLeads && <Leads />}
         </main>
       </div>
     );

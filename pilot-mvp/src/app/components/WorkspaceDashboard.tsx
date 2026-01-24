@@ -537,7 +537,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit }: WorkspaceD
                 {/* Dropdown Menu */}
                 {openMenuId === client._id && (
                   <div
-                    ref={(el) => (menuRefs.current[client._id] = el)}
+                    ref={(el) => { menuRefs.current[client._id] = el; }}
                     className="absolute right-0 top-8 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[150px]"
                   >
                     <button
