@@ -48,75 +48,7 @@ interface FolderNode {
   children: FolderNode[];
 }
 
-const MOCK_DOCUMENTS: Document[] = [
-  {
-    id: 'doc-1',
-    name: 'Health Dept Plan Review - Revision Notes',
-    fileName: 'plan_review_notes.pdf',
-    fileUrl: '/file.svg',
-    fileType: 'pdf',
-    fileSize: 245000,
-    workspace: 'permits',
-    folder: 'Permits/City Feedback',
-    tags: ['needs-review', 'urgent'],
-    status: 'shared',
-    uploadedBy: {
-      userName: 'Sarah Chen',
-      userEmail: 'sarah@pilot.com',
-      isClient: false,
-    },
-    metadata: {
-      permitName: 'Health Department Plan Review',
-      description: 'City feedback and required revisions summary.',
-    },
-    createdAt: '2026-01-10T10:15:00.000Z',
-    updatedAt: '2026-01-10T10:15:00.000Z',
-  },
-  {
-    id: 'doc-2',
-    name: 'Sink Specs - Manufacturer Sheet',
-    fileName: 'sink_specs.pdf',
-    fileUrl: '/file.svg',
-    fileType: 'pdf',
-    fileSize: 132000,
-    workspace: 'permits',
-    folder: 'Permits/Plans',
-    tags: ['equipment'],
-    status: 'draft',
-    uploadedBy: {
-      userName: 'Client',
-      userEmail: 'client@example.com',
-      isClient: true,
-    },
-    metadata: {
-      description: 'Manufacturer specs for 3-compartment sink.',
-    },
-    createdAt: '2026-01-12T08:30:00.000Z',
-    updatedAt: '2026-01-12T08:30:00.000Z',
-  },
-  {
-    id: 'doc-3',
-    name: 'Signed Engagement Letter',
-    fileName: 'engagement_letter.pdf',
-    fileUrl: '/file.svg',
-    fileType: 'pdf',
-    fileSize: 98000,
-    workspace: 'contracts',
-    folder: 'Contracts/Engagement',
-    tags: ['signed'],
-    status: 'signed',
-    uploadedBy: {
-      userName: 'Michael Park',
-      userEmail: 'michael@pilot.com',
-      isClient: false,
-    },
-    metadata: {
-      description: 'Signed engagement letter for consulting services.',
-    },
-    createdAt: '2026-01-08T15:45:00.000Z',
-    updatedAt: '2026-01-08T15:45:00.000Z',
-  },
-];
+// No mock documents - show empty state until real documents are uploaded
 
 // Folder structure - simple nested tree
 const FOLDER_STRUCTURE: FolderNode[] = [
@@ -226,13 +158,15 @@ export function DocumentsView({
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data?.documents || [];
-        setDocuments(list.length > 0 ? list : MOCK_DOCUMENTS);
+        setDocuments(list);
+        console.log(`📄 Loaded ${list.length} documents for client ${clientId}`);
       } else {
-        setDocuments(MOCK_DOCUMENTS);
+        console.error('Failed to fetch documents:', await res.text());
+        setDocuments([]);
       }
     } catch (error) {
       console.error('Failed to fetch documents:', error);
-      setDocuments(MOCK_DOCUMENTS);
+      setDocuments([]);
     } finally {
       setLoading(false);
     }
@@ -241,6 +175,12 @@ export function DocumentsView({
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Validate file size (max 10MB for base64 storage)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
 
     setUploading(true);
     try {
@@ -251,10 +191,12 @@ export function DocumentsView({
       formData.append('folder', selectedPath || 'General');
       formData.append('uploadedBy', JSON.stringify({
         userId: consultantId || clientId,
-        userName: 'User',
+        userName: viewMode === 'client' ? (clientName || 'Client') : (consultantName || 'Consultant'),
         userEmail: clientEmail || '',
         isClient: viewMode === 'client',
       }));
+
+      console.log('📤 Uploading document:', file.name, 'to folder:', selectedPath || 'General');
 
       const res = await fetch('/api/documents/upload', {
         method: 'POST',
@@ -263,14 +205,22 @@ export function DocumentsView({
 
       if (res.ok) {
         const newDoc = await res.json();
-        setDocuments([newDoc, ...documents]);
+        console.log('✅ Document uploaded successfully:', newDoc.name);
+        
+        // Add the new document to the list immediately for instant feedback
+        setDocuments(prev => [newDoc, ...prev]);
         setShowUploadModal(false);
+        
+        // Reset the file input
+        event.target.value = '';
       } else {
-        alert('Failed to upload file');
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Upload failed:', errorData);
+        alert(`Failed to upload file: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload file');
+      alert('Failed to upload file. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -292,7 +242,7 @@ export function DocumentsView({
     const matchesPath = !selectedPath || doc.folder?.startsWith(selectedPath);
     const matchesSearch = !searchQuery || 
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.metadata?.description?.toLowerCase().includes(searchQuery.toLowerCase());
+                         doc.metadata?.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesPath && matchesSearch;
   });
 
@@ -404,20 +354,20 @@ export function DocumentsView({
             >
               <Upload className="w-4 h-4" />
               Upload
-            </button>
+          </button>
           </div>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search files..."
             className="w-full pl-9 pr-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+            />
         </div>
       </div>
 
@@ -425,7 +375,7 @@ export function DocumentsView({
         {/* Sidebar - Folder Tree */}
         <aside className="w-56 border-r border-neutral-200 overflow-y-auto p-3">
           {/* All Files option */}
-          <button
+                  <button
             onClick={() => setSelectedPath(null)}
             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm mb-2 transition-colors ${
               selectedPath === null
@@ -439,7 +389,7 @@ export function DocumentsView({
             <span className="px-1.5 py-0.5 text-xs bg-neutral-200 text-neutral-600 rounded-full">
               {documents.length}
             </span>
-          </button>
+                  </button>
 
           <div className="h-px bg-neutral-200 my-2" />
 
@@ -480,8 +430,13 @@ export function DocumentsView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {filteredDocuments.map((doc) => (
-                  <DocumentRow key={doc.id} document={doc} formatFileSize={formatFileSize} />
+              {filteredDocuments.map((doc) => (
+                  <DocumentRow 
+                    key={doc.id} 
+                    document={doc} 
+                    formatFileSize={formatFileSize}
+                    onDelete={(docId) => setDocuments(prev => prev.filter(d => d.id !== docId))}
+                  />
                 ))}
               </tbody>
             </table>
@@ -549,8 +504,17 @@ export function DocumentsView({
   );
 }
 
-function DocumentRow({ document, formatFileSize }: { document: Document; formatFileSize: (bytes: number) => string }) {
+function DocumentRow({ 
+  document, 
+  formatFileSize,
+  onDelete,
+}: { 
+  document: Document; 
+  formatFileSize: (bytes: number) => string;
+  onDelete: (docId: string) => void;
+}) {
   const [showMenu, setShowMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const getFileIcon = () => {
     const type = document.fileType?.toLowerCase();
@@ -569,14 +533,68 @@ function DocumentRow({ document, formatFileSize }: { document: Document; formatF
     return <File className="w-4 h-4 text-neutral-400" />;
   };
 
+  const handleDownload = () => {
+    // If fileUrl is a data URL, create a download link
+    const link = window.document.createElement('a');
+    link.href = document.fileUrl;
+    link.download = document.name || document.fileName;
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+    setShowMenu(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete "${document.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/documents/${document.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        onDelete(document.id);
+      } else {
+        alert('Failed to delete document');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete document');
+    } finally {
+      setDeleting(false);
+      setShowMenu(false);
+    }
+  };
+
+  const handleOpenFile = () => {
+    // For data URLs, open in new tab or download
+    if (document.fileUrl.startsWith('data:')) {
+      // Create blob from data URL and open in new tab
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`
+          <html>
+            <head><title>${document.name}</title></head>
+            <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f5f5;">
+              <iframe src="${document.fileUrl}" style="width:100%;height:100%;border:none;"></iframe>
+            </body>
+          </html>
+        `);
+      }
+    } else {
+      window.open(document.fileUrl, '_blank');
+    }
+  };
+
   return (
     <tr className="hover:bg-neutral-50 transition-colors group">
       <td className="px-4 py-3">
-        <a
-          href={document.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 hover:text-blue-600"
+        <button
+          onClick={handleOpenFile}
+          className="flex items-center gap-3 hover:text-blue-600 text-left"
         >
           {getFileIcon()}
           <div>
@@ -585,7 +603,7 @@ function DocumentRow({ document, formatFileSize }: { document: Document; formatF
             </p>
             <p className="text-xs text-neutral-500">{document.fileName}</p>
           </div>
-        </a>
+        </button>
       </td>
       <td className="px-4 py-3 text-sm text-neutral-500">
         {formatFileSize(document.fileSize)}
@@ -598,7 +616,7 @@ function DocumentRow({ document, formatFileSize }: { document: Document; formatF
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1">
-          {document.tags.slice(0, 2).map((tag) => {
+          {(document.tags || []).slice(0, 2).map((tag) => {
             const colors = getTagColor(tag);
             return (
               <span
@@ -609,7 +627,7 @@ function DocumentRow({ document, formatFileSize }: { document: Document; formatF
               </span>
             );
           })}
-          {document.tags.length > 2 && (
+          {(document.tags || []).length > 2 && (
             <span className="px-2 py-0.5 text-xs text-neutral-500">
               +{document.tags.length - 2}
             </span>
@@ -620,28 +638,39 @@ function DocumentRow({ document, formatFileSize }: { document: Document; formatF
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="p-1 text-neutral-400 hover:text-neutral-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          disabled={deleting}
         >
+          {deleting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
           <MoreVertical className="w-4 h-4" />
+          )}
         </button>
 
-        {showMenu && (
+      {showMenu && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
             <div className="absolute right-4 top-10 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 py-1 min-w-[140px]">
-              <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Download
-              </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
-                <Share2 className="w-4 h-4" />
-                Share
-              </button>
+              <button 
+                onClick={handleDownload}
+                className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+              >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
+          <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
+            <Share2 className="w-4 h-4" />
+            Share
+          </button>
               <div className="h-px bg-neutral-200 my-1" />
-              <button className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
+              <button 
+                onClick={handleDelete}
+                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+        </div>
           </>
         )}
       </td>

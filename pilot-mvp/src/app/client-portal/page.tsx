@@ -26,20 +26,7 @@ const MOCK_REQUESTS = [
   },
 ];
 
-const MOCK_SHARED = [
-  {
-    id: 'shared-1',
-    name: 'Plan Review Notes',
-    fileType: 'PDF',
-    fileUrl: '/file.svg',
-  },
-  {
-    id: 'shared-2',
-    name: 'Signed Engagement Letter',
-    fileType: 'PDF',
-    fileUrl: '/file.svg',
-  },
-];
+// No mock shared documents - will fetch real ones from API
 
 const getLocalRequests = (clientId: string) => {
   try {
@@ -320,13 +307,13 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
         const res = await fetch(`/api/documents?clientId=${clientId}&status=shared`);
         if (res.ok) {
           const data = await res.json();
-          setDocuments(data.length > 0 ? data : MOCK_SHARED);
+          setDocuments(Array.isArray(data) ? data : []);
         } else {
-          setDocuments(MOCK_SHARED);
+          setDocuments([]);
         }
       } catch (error) {
         console.error('Failed to fetch shared documents:', error);
-        setDocuments(MOCK_SHARED);
+        setDocuments([]);
       } finally {
         setLoading(false);
       }
@@ -358,18 +345,32 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {documents.map((doc) => (
-            <div key={doc.id} className="bg-white border border-neutral-200 rounded-lg p-4">
+            <div key={doc.id || doc._id} className="bg-white border border-neutral-200 rounded-lg p-4">
               <FileText className="w-8 h-8 text-neutral-400 mb-2" />
               <h3 className="font-medium text-neutral-900 mb-1">{doc.name}</h3>
-              <p className="text-xs text-neutral-500 mb-2">{doc.fileType}</p>
-              <a
-                href={doc.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <p className="text-xs text-neutral-500 mb-2">{doc.fileType?.toUpperCase() || 'FILE'}</p>
+              <button
+                onClick={() => {
+                  if (doc.fileUrl?.startsWith('data:')) {
+                    const newWindow = window.open();
+                    if (newWindow) {
+                      newWindow.document.write(`
+                        <html>
+                          <head><title>${doc.name}</title></head>
+                          <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f5f5;">
+                            <iframe src="${doc.fileUrl}" style="width:100%;height:100%;border:none;"></iframe>
+                          </body>
+                        </html>
+                      `);
+                    }
+                  } else {
+                    window.open(doc.fileUrl, '_blank');
+                  }
+                }}
                 className="text-sm text-blue-600 hover:underline"
               >
                 View Document
-              </a>
+              </button>
             </div>
           ))}
         </div>

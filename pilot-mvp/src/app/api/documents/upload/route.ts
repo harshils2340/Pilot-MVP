@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
 import connectToDB from '../../../lib/mongodb';
 import DocumentModel from '../../../lib/documents/schema';
 
@@ -13,70 +10,95 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const clientId = formData.get('clientId') as string;
     const consultantId = formData.get('consultantId') as string | null;
-    const workspace = formData.get('workspace') as string || 'general';
-    const uploadedBy = JSON.parse(formData.get('uploadedBy') as string);
-    const metadata = formData.get('metadata') ? JSON.parse(formData.get('metadata') as string) : {};
+    const folder = formData.get('folder') as string || 'General';
+    const workspace = formData.get('workspace') as string || folder.split('/')[0]?.toLowerCase() || 'general';
+    
+    let uploadedBy: any;
+    try {
+      uploadedBy = JSON.parse(formData.get('uploadedBy') as string || '{}');
+    } catch {
+      uploadedBy = {
+        userId: clientId,
+        userName: 'User',
+        userEmail: '',
+        isClient: true,
+      };
+    }
+    
+    let metadata: any = {};
+    try {
+      const metadataStr = formData.get('metadata') as string;
+      if (metadataStr) {
+        metadata = JSON.parse(metadataStr);
+      }
+    } catch {
+      metadata = {};
+    }
     
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
-    
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'documents');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
+
+    if (!clientId) {
+      return NextResponse.json({ error: 'Client ID is required' }, { status: 400 });
     }
+    
+    // Read file as base64 for storage in MongoDB (works on serverless)
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64Data = buffer.toString('base64');
+    const dataUrl = `data:${file.type};base64,${base64Data}`;
     
     // Generate unique filename
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${timestamp}-${sanitizedFileName}`;
-    const filePath = join(uploadsDir, fileName);
     
-    // Save file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
-    
-    // Parse metadata if provided
-    const parsedMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : (metadata || {});
+    // Get file extension for type
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'file';
     
     // Create document record with enhanced schema
     const document = await DocumentModel.create({
       name: file.name,
       fileName: fileName,
-      fileUrl: `/uploads/documents/${fileName}`,
-      fileType: file.type,
+      fileUrl: dataUrl, // Store as data URL for serverless compatibility
+      fileType: fileExtension,
       fileSize: file.size,
       clientId,
       consultantId: consultantId || undefined,
       workspace,
-      uploadedBy,
+      folder: folder,
+      uploadedBy: {
+        userId: uploadedBy.userId || clientId,
+        userName: uploadedBy.userName || 'User',
+        userEmail: uploadedBy.userEmail || '',
+        isClient: uploadedBy.isClient ?? true,
+      },
       metadata: {
-        ...parsedMetadata,
-        source: parsedMetadata.source || (uploadedBy.isClient ? 'client' : 'consultant'),
-        receivedVia: parsedMetadata.receivedVia || 'upload',
+        ...metadata,
+        source: metadata.source || (uploadedBy.isClient ? 'client' : 'consultant'),
+        receivedVia: metadata.receivedVia || 'upload',
       },
       status: 'draft',
-      tags: parsedMetadata.tags || [],
+      tags: metadata.tags || [],
       sharedWith: [],
       version: 1,
       currentVersion: 1,
       versions: [{
         version: 1,
         fileName: fileName,
-        fileUrl: `/uploads/documents/${fileName}`,
+        fileUrl: dataUrl,
         fileSize: file.size,
         uploadedBy: {
-          userId: uploadedBy.userId,
-          userName: uploadedBy.userName,
-          userEmail: uploadedBy.userEmail,
+          userId: uploadedBy.userId || clientId,
+          userName: uploadedBy.userName || 'User',
+          userEmail: uploadedBy.userEmail || '',
         },
         uploadedAt: new Date(),
         changeNotes: 'Initial upload',
       }],
       permissions: {
-        owner: uploadedBy.userId,
+        owner: uploadedBy.userId || clientId,
         viewers: [],
         editors: [],
         public: false,
@@ -87,9 +109,24 @@ export async function POST(request: NextRequest) {
       notifications: [],
     });
     
+    console.log(`✅ Document uploaded: ${file.name} for client ${clientId}`);
+    
     return NextResponse.json({
       id: document._id.toString(),
-      ...document.toObject(),
+      _id: document._id.toString(),
+      name: document.name,
+      fileName: document.fileName,
+      fileUrl: document.fileUrl,
+      fileType: document.fileType,
+      fileSize: document.fileSize,
+      clientId: document.clientId,
+      workspace: document.workspace,
+      folder: document.folder,
+      tags: document.tags,
+      status: document.status,
+      uploadedBy: document.uploadedBy,
+      createdAt: document.createdAt,
+      updatedAt: document.updatedAt,
     }, { status: 201 });
   } catch (error: any) {
     console.error('Failed to upload document:', error);

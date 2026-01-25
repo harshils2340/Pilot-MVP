@@ -11,6 +11,8 @@ interface Client {
   status: 'draft' | 'submitted' | 'approved' | 'action-required';
   lastActivity: string;
   completionRate: number;
+  pendingDocs?: number;
+  totalDocs?: number;
 }
 
 interface WorkspaceDashboardProps {
@@ -39,8 +41,30 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       try {
         const res = await fetch('/api/clients');
         if (res.ok) {
-          const data = await res.json();
-          setClients(data);
+          const clientsData = await res.json();
+          
+          // Fetch document counts for each client
+          const clientsWithDocs = await Promise.all(
+            clientsData.map(async (client: Client) => {
+              try {
+                const docsRes = await fetch(`/api/documents?clientId=${client._id}`);
+                if (docsRes.ok) {
+                  const docs = await docsRes.json();
+                  const pendingDocs = docs.filter((d: any) => d.status === 'draft' || d.status === 'pending-review').length;
+                  return {
+                    ...client,
+                    pendingDocs,
+                    totalDocs: docs.length,
+                  };
+                }
+              } catch {
+                // Ignore document fetch errors
+              }
+              return client;
+            })
+          );
+          
+          setClients(clientsWithDocs);
         }
       } catch (error) {
         console.error('Failed to fetch clients:', error);
@@ -473,8 +497,9 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             </div>
           ) : (
             filteredClients.map((client) => {
-              // Mock pending items - in real app, this would come from API
-              const pendingDocs = client.status === 'action-required' ? 2 : client.status === 'draft' ? 3 : 0;
+              // Use real document counts from API
+              const pendingDocs = client.pendingDocs ?? 0;
+              const totalDocs = client.totalDocs ?? 0;
               const pendingReview = client.status === 'submitted' ? 1 : 0;
               const hasPending = pendingDocs > 0 || pendingReview > 0;
               
