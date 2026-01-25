@@ -286,7 +286,7 @@ export default function App() {
 
         {/* Main Content - Clean Inbox */}
         <main className="flex-1 overflow-hidden">
-          <CleanInbox userId={userEmail || 'default'} />
+          <CleanInbox />
         </main>
       </div>
     );

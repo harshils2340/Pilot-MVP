@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { DocumentsView } from '../components/DocumentsView';
 import { ClientBilling } from '../components/ClientBilling';
@@ -38,7 +38,7 @@ const getLocalRequests = (clientId: string) => {
   }
 };
 
-export default function ClientPortalPage() {
+function ClientPortalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('documents');
@@ -380,3 +380,15 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
 }
 
 
+
+export default function ClientPortalPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-neutral-600">Loading...</div>
+      </div>
+    }>
+      <ClientPortalContent />
+    </Suspense>
+  );
+}

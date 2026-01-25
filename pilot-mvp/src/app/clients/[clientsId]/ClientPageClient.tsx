@@ -20,6 +20,10 @@ interface Client {
   status: 'draft' | 'submitted' | 'approved' | 'action-required';
   lastActivity: string;
   completionRate: number;
+  contactInfo?: {
+    email?: string;
+    name?: string;
+  };
 }
 
 interface ClientPageClientProps {

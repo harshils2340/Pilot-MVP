@@ -87,8 +87,10 @@ export async function odooMessageParse(
   }
 
   // Extract To, CC, Recipients
-  const toAddresses = message.to?.value?.map((v: any) => v.address).join(',') || '';
-  const ccAddresses = message.cc?.value?.map((v: any) => v.address).join(',') || '';
+  const toValue = Array.isArray(message.to) ? message.to : (message.to as any)?.value || message.to;
+  const ccValue = Array.isArray(message.cc) ? message.cc : (message.cc as any)?.value || message.cc;
+  const toAddresses = Array.isArray(toValue) ? toValue.map((v: any) => v.address || v).join(',') : (toValue?.address || toValue || '');
+  const ccAddresses = Array.isArray(ccValue) ? ccValue.map((v: any) => v.address || v).join(',') : (ccValue?.address || ccValue || '');
   const deliveredTo = message.headers.get('delivered-to') || '';
   
   msgDict.recipients = [deliveredTo, toAddresses, ccAddresses].filter(Boolean).join(',');
