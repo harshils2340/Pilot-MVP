@@ -14,6 +14,9 @@ import {
   Plus,
   Star,
   FileText,
+  ArrowLeft,
+  Download,
+  Settings,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -100,6 +103,9 @@ export function Leads() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [movingStage, setMovingStage] = useState<{ stage: PipelineStage; count: number } | null>(null);
   const [lastMovedLeadIds, setLastMovedLeadIds] = useState<Set<string>>(new Set());
+  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+  const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const fetchLeads = async () => {
     try {
@@ -268,6 +274,76 @@ export function Leads() {
     }
   };
 
+  const handleDragStart = (e: React.DragEvent, leadId: string) => {
+    setIsDragging(true);
+    setDraggedLeadId(leadId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', leadId);
+    // Add visual feedback to the dragged element
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Reset visual feedback
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+    setDraggedLeadId(null);
+    setDragOverStageId(null);
+    // Reset dragging flag after a short delay to allow drop to complete
+    setTimeout(() => setIsDragging(false), 100);
+  };
+
+  const handleCardClick = (e: React.MouseEvent, leadId: string) => {
+    // Don't navigate if we just finished dragging or if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('input[type="checkbox"]') ||
+      target.closest('[role="menuitem"]') ||
+      isDragging
+    ) {
+      return;
+    }
+    router.push(`/leads/${leadId}`);
+  };
+
+  const handleDragOver = (e: React.DragEvent, stageId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStageId(stageId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear drag over if we're leaving the column area
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    const currentTarget = e.currentTarget as HTMLElement;
+    if (!currentTarget.contains(relatedTarget)) {
+      setDragOverStageId(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, stage: PipelineStage) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const leadId = e.dataTransfer.getData('text/plain') || draggedLeadId;
+    if (!leadId) return;
+
+    setDragOverStageId(null);
+    setDraggedLeadId(null);
+
+    // Don't update if dropped in the same stage
+    const lead = leads.find((l) => l._id === leadId);
+    const currentStageId = lead?.stageId || stages[0]?._id;
+    if (currentStageId === stage._id) return;
+
+    // Update the lead's stage
+    await handleStageChange(leadId, stage._id, stage.name, stage.probability);
+  };
+
   const handleMoveSelectedToStage = async (stage: PipelineStage) => {
     const ids = Array.from(selectedLeadIds);
     if (ids.length === 0) return;
@@ -356,14 +432,92 @@ export function Leads() {
 
   const priorityStars = (p?: number) => Math.min(5, Math.round((p ?? 0) / 20));
 
+  const handleExportLeads = () => {
+    try {
+      // Create CSV content
+      const headers = ['Name', 'Email', 'Company', 'Phone', 'Stage', 'Status', 'Probability', 'Expected Revenue', 'Email Count', 'Created At'];
+      const rows = leads.map((lead) => [
+        lead.name || '',
+        lead.email || '',
+        lead.company || '',
+        lead.phone || '',
+        lead.stageName || lead.status || '',
+        lead.status || '',
+        lead.probability?.toString() || '0',
+        lead.expectedRevenue?.toString() || '0',
+        lead.emailCount?.toString() || '0',
+        lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '',
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `leads-export-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting leads:', error);
+      alert('Failed to export leads');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header – matches Workspace theme */}
       <div className="flex-shrink-0 bg-white px-8 py-6">
         <div className="flex items-center justify-between gap-4 mb-4">
-          <div>
-            <h1 className="text-neutral-900 mb-1">Leads</h1>
-            <p className="text-neutral-600">Pipeline · Permit-related opportunities</p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors border border-neutral-200"
+              title="Back to Dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Dashboard</span>
+            </button>
+            <div>
+              <h1 className="text-neutral-900 mb-1">Leads</h1>
+              <p className="text-neutral-600">Pipeline · Permit-related opportunities</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                // Open add lead dialog for the first stage
+                if (stages.length > 0) {
+                  setAddLeadStage(stages[0]);
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium"
+              title="Add New Lead"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Lead</span>
+            </button>
+            <button
+              onClick={handleExportLeads}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors text-sm font-medium"
+              title="Export Leads"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </button>
+            <button
+              onClick={() => router.push('/settings')}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors text-sm font-medium"
+              title="Pipeline Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -491,8 +645,15 @@ export function Leads() {
               return (
                 <div
                   key={stage._id}
-                  className="flex-shrink-0 flex flex-col rounded-xl border border-neutral-200 bg-neutral-50/80 overflow-hidden shadow-sm"
+                  className={`flex-shrink-0 flex flex-col rounded-xl border overflow-hidden shadow-sm transition-all ${
+                    dragOverStageId === stage._id
+                      ? 'border-emerald-500 bg-emerald-50/50 shadow-lg ring-2 ring-emerald-500/20'
+                      : 'border-neutral-200 bg-neutral-50/80'
+                  }`}
                   style={{ minWidth: COLUMN_MIN_W, width: COLUMN_MIN_W }}
+                  onDragOver={(e) => handleDragOver(e, stage._id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, stage)}
                 >
                   <div className="p-4 bg-white border-b border-neutral-200">
                     <div className="flex items-center justify-between mb-2">
@@ -531,9 +692,14 @@ export function Leads() {
                       return (
                         <div
                           key={lead._id}
-                          onClick={() => router.push(`/leads/${lead._id}`)}
-                          className={`bg-white rounded-lg border shadow-sm p-4 cursor-pointer hover:shadow-md hover:border-neutral-300 transition-all ${
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, lead._id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={(e) => handleCardClick(e, lead._id)}
+                          className={`bg-white rounded-lg border shadow-sm p-4 cursor-move hover:shadow-md hover:border-neutral-300 transition-all ${
                             isSelected(lead._id) ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-neutral-200'
+                          } ${
+                            draggedLeadId === lead._id ? 'opacity-50' : ''
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-2">
