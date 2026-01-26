@@ -106,6 +106,7 @@ export function Leads() {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const fetchLeads = async () => {
     try {
@@ -223,10 +224,14 @@ export function Leads() {
   };
 
   const selectAllVisible = () => {
+    setIsSelectionMode(true);
     setSelectedLeadIds(new Set(visibleLeads.map((l) => l._id)));
   };
 
-  const clearSelection = () => setSelectedLeadIds(new Set());
+  const clearSelection = () => {
+    setSelectedLeadIds(new Set());
+    setIsSelectionMode(false);
+  };
 
   const isSelected = (id: string) => selectedLeadIds.has(id);
 
@@ -589,7 +594,7 @@ export function Leads() {
             </div>
           )}
 
-          {totalLeads > 0 && selectedLeadIds.size === 0 && !loading && (
+          {totalLeads > 0 && !isSelectionMode && !loading && (
             <button
               type="button"
               onClick={selectAllVisible}
@@ -707,12 +712,14 @@ export function Leads() {
                               className="flex items-center gap-2 flex-1 min-w-0"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <Checkbox
-                                checked={isSelected(lead._id)}
-                                onCheckedChange={() => toggleSelect(lead._id)}
-                                aria-label={`Select ${lead.name}`}
-                                className="shrink-0"
-                              />
+                              {isSelectionMode && (
+                                <Checkbox
+                                  checked={isSelected(lead._id)}
+                                  onCheckedChange={() => toggleSelect(lead._id)}
+                                  aria-label={`Select ${lead.name}`}
+                                  className="shrink-0"
+                                />
+                              )}
                               <h3 className="font-semibold text-neutral-900 text-sm leading-tight truncate">
                                 {lead.name}
                               </h3>
