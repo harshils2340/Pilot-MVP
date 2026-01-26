@@ -6,6 +6,7 @@ import { PipelineStage } from '@/app/lib/crm/pipelineSchema';
 const serializeLead = (lead: any) => ({
   ...lead,
   _id: lead._id.toString(),
+  stageId: lead.stageId ? lead.stageId.toString() : lead.stageId,
   emails: lead.emails?.map((e: any) => ({ ...e, emailId: e.emailId?.toString?.() ?? e.emailId })) ?? [],
 });
 
@@ -74,8 +75,17 @@ export async function PATCH(
       }
     }
 
-    const lead = await Lead.findByIdAndUpdate(leadId, { $set: updateData }, { new: true, runValidators: true }).lean();
-    if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    // Use findByIdAndUpdate with $set to only update specified fields, preserving others
+    const lead = await Lead.findByIdAndUpdate(
+      leadId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
+    
+    if (!lead) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    }
+    
     return NextResponse.json({ success: true, lead: serializeLead(lead) }, { status: 200 });
   } catch (error: any) {
     console.error('Error updating lead:', error);

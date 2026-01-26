@@ -97,7 +97,7 @@ export function Leads() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChip, setFilterChip] = useState<string>('all');
-  const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE);
+  const [stageDisplayLimits, setStageDisplayLimits] = useState<Map<string, number>>(new Map());
   const [addLeadStage, setAddLeadStage] = useState<PipelineStage | null>(null);
   const [newLead, setNewLead] = useState({ name: '', email: '', company: '' });
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
@@ -115,9 +115,18 @@ export function Leads() {
       if (searchQuery) params.append('search', searchQuery);
       const res = await fetch(`/api/crm/leads?${params.toString()}`);
       const data = await res.json();
-      if (res.ok) setLeads(data.leads || []);
-      else setLeads([]);
-    } catch {
+      if (res.ok) {
+        // Ensure all leads have stageId serialized as string
+        const normalizedLeads = (data.leads || []).map((lead: any) => ({
+          ...lead,
+          stageId: lead.stageId ? String(lead.stageId) : lead.stageId,
+        }));
+        setLeads(normalizedLeads);
+      } else {
+        setLeads([]);
+      }
+    } catch (error) {
+      console.error('Error fetching leads:', error);
       setLeads([]);
     } finally {
       setLoading(false);
@@ -128,9 +137,18 @@ export function Leads() {
     try {
       const res = await fetch('/api/crm/pipeline/stages');
       const data = await res.json();
-      if (res.ok) setStages(data.stages || []);
-      else setStages([]);
-    } catch {
+      if (res.ok) {
+        // Ensure all stage IDs are strings
+        const normalizedStages = (data.stages || []).map((stage: any) => ({
+          ...stage,
+          _id: String(stage._id),
+        }));
+        setStages(normalizedStages);
+      } else {
+        setStages([]);
+      }
+    } catch (error) {
+      console.error('Error fetching stages:', error);
       setStages([]);
     }
   };
@@ -144,7 +162,7 @@ export function Leads() {
   }, [searchQuery]);
 
   useEffect(() => {
-    setDisplayLimit(PAGE_SIZE);
+    setStageDisplayLimits(new Map()); // Reset per-stage limits when search/filter changes
   }, [searchQuery, filterChip]);
 
   useEffect(() => {
@@ -153,8 +171,13 @@ export function Leads() {
   }, [searchQuery, filterChip]);
 
   const getLeadsByStage = (stageId: string) => {
+    const stageIdStr = String(stageId);
     return leads.filter(
-      (l) => l.stageId === stageId || (!l.stageId && stageId === stages[0]?._id)
+      (l) => {
+        const leadStageId = l.stageId ? String(l.stageId) : null;
+        const firstStageId = stages[0]?._id ? String(stages[0]._id) : null;
+        return leadStageId === stageIdStr || (!leadStageId && stageIdStr === firstStageId);
+      }
     );
   };
 
@@ -163,7 +186,10 @@ export function Leads() {
   };
 
   const filteredLeadsByStage = (stageId: string) => {
-    const stageLeads = getLeadsByStage(stageId);
+    const stageIdStr = String(stageId);
+    const stageLeads = getLeadsByStage(stageIdStr);
+    
+    // Apply search filter if needed
     const searchFiltered = !searchQuery.trim()
       ? stageLeads
       : stageLeads.filter((l) => {
@@ -174,8 +200,43 @@ export function Leads() {
             l.email?.toLowerCase().includes(q)
           );
         });
-    const visibleIds = new Set(visibleLeads.map((l) => l._id));
-    return searchFiltered.filter((l) => visibleIds.has(l._id));
+    
+    // Sort leads within this stage by most recently updated
+    const sortedStageLeads = [...searchFiltered].sort((a, b) => {
+      const da = new Date(a.updatedAt || a.lastEmailDate || a.createdAt || 0).getTime();
+      const db = new Date(b.updatedAt || b.lastEmailDate || b.createdAt || 0).getTime();
+      return db - da; // Most recent first
+    });
+    
+    // Get per-stage display limit (default to PAGE_SIZE if not set)
+    const stageLimit = stageDisplayLimits.get(stageIdStr) || PAGE_SIZE;
+    
+    // Get recently moved leads in this stage (always visible, regardless of pagination)
+    const recentlyMovedInThisStage = lastMovedLeadIds.size
+      ? sortedStageLeads.filter((l) => {
+          const leadStageId = l.stageId ? String(l.stageId) : null;
+          const firstStageId = stages[0]?._id ? String(stages[0]._id) : null;
+          const matchesStage = leadStageId === stageIdStr || (!leadStageId && stageIdStr === firstStageId);
+          return lastMovedLeadIds.has(l._id) && matchesStage;
+        })
+      : [];
+    
+    // Get paginated leads for this stage
+    const paginatedLeads = sortedStageLeads.slice(0, stageLimit);
+    
+    // Combine: paginated leads + recently moved (deduplicate)
+    const allVisible = [...paginatedLeads];
+    recentlyMovedInThisStage.forEach((l) => {
+      if (!allVisible.find((v) => v._id === l._id)) {
+        allVisible.push(l);
+      }
+    });
+    
+    return {
+      leads: allVisible,
+      total: sortedStageLeads.length,
+      hasMore: stageLimit < sortedStageLeads.length,
+    };
   };
 
   const visibleStages =
@@ -183,36 +244,70 @@ export function Leads() {
       ? stages.filter((s) => !s.isWon && !s.isLost)
       : stages;
 
-  const visibleStageIds = new Set(visibleStages.map((s) => s._id));
+  const visibleStageIds = new Set(visibleStages.map((s) => String(s._id)));
+  const allStageIds = new Set(stages.map((s) => String(s._id)));
   const leadsInVisibleStages = leads.filter((l) => {
-    const sid = l.stageId || stages[0]?._id;
-    return sid && visibleStageIds.has(sid);
+    const sid = l.stageId ? String(l.stageId) : (stages[0]?._id ? String(stages[0]._id) : null);
+    // If no stageId, assign to first stage (will be shown in first stage column)
+    if (!sid) {
+      // Leads without stageId should be shown in the first stage
+      return stages.length > 0;
+    }
+    // If filter is "all", show all leads (even if stageId doesn't match any stage - for data integrity)
+    if (filterChip === 'all') {
+      return true; // Show all leads when filter is "all"
+    }
+    // Otherwise, only show leads in visible stages
+    return visibleStageIds.has(sid);
   });
 
-  const stageSeqMap = new Map(visibleStages.map((s) => [s._id, s.sequence]));
-  const getLeadSeq = (l: Lead) => {
-    const sid = l.stageId || stages[0]?._id;
-    return stageSeqMap.get(sid) ?? 999;
+  // Helper function to load more leads for all stages that have more leads
+  const handleLoadMoreAllStages = () => {
+    setStageDisplayLimits((prev) => {
+      const newMap = new Map(prev);
+      visibleStages.forEach((stage) => {
+        const stageIdStr = String(stage._id);
+        // Get all leads for this stage (without pagination)
+        const allStageLeads = getLeadsByStage(stageIdStr);
+        const searchFiltered = !searchQuery.trim()
+          ? allStageLeads
+          : allStageLeads.filter((l) => {
+              const q = searchQuery.toLowerCase();
+              return (
+                l.name?.toLowerCase().includes(q) ||
+                l.company?.toLowerCase().includes(q) ||
+                l.email?.toLowerCase().includes(q)
+              );
+            });
+        const totalInStage = searchFiltered.length;
+        const currentLimit = newMap.get(stageIdStr) || PAGE_SIZE;
+        // Only increase limit if there are more leads to show
+        if (currentLimit < totalInStage) {
+          newMap.set(stageIdStr, currentLimit + PAGE_SIZE);
+        }
+      });
+      return newMap;
+    });
   };
 
-  const orderedLeads = [...leadsInVisibleStages].sort((a, b) => {
-    const sa = getLeadSeq(a);
-    const sb = getLeadSeq(b);
-    if (sa !== sb) return sa - sb;
-    const da = new Date(a.lastEmailDate || a.updatedAt || 0).getTime();
-    const db = new Date(b.lastEmailDate || b.updatedAt || 0).getTime();
-    return db - da;
+  // Check if any stage has more leads to load
+  const hasMoreInAnyStage = visibleStages.some((stage) => {
+    const stageIdStr = String(stage._id);
+    const allStageLeads = getLeadsByStage(stageIdStr);
+    const searchFiltered = !searchQuery.trim()
+      ? allStageLeads
+      : allStageLeads.filter((l) => {
+          const q = searchQuery.toLowerCase();
+          return (
+            l.name?.toLowerCase().includes(q) ||
+            l.company?.toLowerCase().includes(q) ||
+            l.email?.toLowerCase().includes(q)
+          );
+        });
+    const totalInStage = searchFiltered.length;
+    const stageLimit = stageDisplayLimits.get(stageIdStr) || PAGE_SIZE;
+    return stageLimit < totalInStage;
   });
-
-  const baseVisible = orderedLeads.slice(0, displayLimit);
-  const baseIds = new Set(baseVisible.map((l) => l._id));
-  const extraMoved = lastMovedLeadIds.size
-    ? orderedLeads.filter((l) => lastMovedLeadIds.has(l._id) && !baseIds.has(l._id))
-    : [];
-  const visibleLeads = extraMoved.length ? [...baseVisible, ...extraMoved] : baseVisible;
-  const totalLeads = leadsInVisibleStages.length;
-  const rangeEnd = Math.min(displayLimit, totalLeads);
-  const hasMore = displayLimit < totalLeads;
 
   const toggleSelect = (id: string) => {
     setSelectedLeadIds((prev) => {
@@ -225,7 +320,13 @@ export function Leads() {
 
   const selectAllVisible = () => {
     setIsSelectionMode(true);
-    setSelectedLeadIds(new Set(visibleLeads.map((l) => l._id)));
+    // Get all visible leads from all stages
+    const allVisibleLeads: Lead[] = [];
+    visibleStages.forEach((stage) => {
+      const stageData = filteredLeadsByStage(stage._id);
+      allVisibleLeads.push(...stageData.leads);
+    });
+    setSelectedLeadIds(new Set(allVisibleLeads.map((l) => l._id)));
   };
 
   const clearSelection = () => {
@@ -245,7 +346,15 @@ export function Leads() {
     setLeads((prev) =>
       prev.map((l) =>
         l._id === leadId
-          ? { ...l, stageId, stageName, probability, ...(status != null && { status }) }
+          ? { 
+              ...l, 
+              stageId, 
+              stageName, 
+              probability, 
+              ...(status != null && { status }),
+              // Update the updatedAt timestamp so it appears at the top when sorted
+              updatedAt: new Date().toISOString(),
+            }
           : l
       )
     );
@@ -258,16 +367,24 @@ export function Leads() {
     probability: number
   ) => {
     try {
+      // Ensure stageId is a string for consistency
+      const stageIdStr = String(stageId);
       const res = await fetch(`/api/crm/leads/${leadId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stageId, stageName, probability }),
+        body: JSON.stringify({ stageId: stageIdStr, stageName, probability }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const s = stages.find((x) => x._id === stageId);
+        const s = stages.find((x) => String(x._id) === stageIdStr);
         const status = s?.isWon ? 'converted' : s?.isLost ? 'lost' : undefined;
-        updateLeadStageLocal(leadId, stageId, stageName, probability, status);
+        // Update local state with string stageId immediately
+        updateLeadStageLocal(leadId, stageIdStr, stageName, probability, status);
+        // Mark this lead as recently moved so it appears immediately in its new stage
+        setLastMovedLeadIds((prev) => new Set(prev).add(leadId));
+        // Refresh leads from server to ensure consistency
+        await fetchLeads();
+        // Re-add the moved lead to tracking set after refresh (in case it was cleared)
         setLastMovedLeadIds((prev) => new Set(prev).add(leadId));
       } else {
         console.error('Stage update failed:', data);
@@ -342,11 +459,12 @@ export function Leads() {
 
     // Don't update if dropped in the same stage
     const lead = leads.find((l) => l._id === leadId);
-    const currentStageId = lead?.stageId || stages[0]?._id;
-    if (currentStageId === stage._id) return;
+    const currentStageId = lead?.stageId ? String(lead.stageId) : (stages[0]?._id ? String(stages[0]._id) : null);
+    const targetStageId = String(stage._id);
+    if (currentStageId === targetStageId) return;
 
     // Update the lead's stage
-    await handleStageChange(leadId, stage._id, stage.name, stage.probability);
+    await handleStageChange(leadId, targetStageId, stage.name, stage.probability);
   };
 
   const handleMoveSelectedToStage = async (stage: PipelineStage) => {
@@ -357,21 +475,26 @@ export function Leads() {
       let ok = 0;
       let fail = 0;
       const movedIds: string[] = [];
-      const { _id: stageId, name: stageName, probability } = stage;
+      const stageIdStr = String(stage._id);
+      const { name: stageName, probability } = stage;
       const status = stage.isWon ? 'converted' : stage.isLost ? 'lost' : undefined;
       for (const leadId of ids) {
         const res = await fetch(`/api/crm/leads/${leadId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stageId, stageName, probability }),
+          body: JSON.stringify({ stageId: stageIdStr, stageName, probability }),
         });
         if (res.ok) {
           ok++;
           movedIds.push(leadId);
-          updateLeadStageLocal(leadId, stageId, stageName, probability, status);
+          updateLeadStageLocal(leadId, stageIdStr, stageName, probability, status);
         } else fail++;
       }
-      if (movedIds.length) setLastMovedLeadIds((prev) => new Set([...prev, ...movedIds]));
+      if (movedIds.length) {
+        setLastMovedLeadIds((prev) => new Set([...prev, ...movedIds]));
+        // Refresh leads from server to ensure consistency
+        await fetchLeads();
+      }
       clearSelection();
       if (fail > 0) alert(`Moved ${ok} leads. ${fail} failed.`);
     } catch (e) {
@@ -594,7 +717,7 @@ export function Leads() {
             </div>
           )}
 
-          {totalLeads > 0 && !isSelectionMode && !loading && (
+          {leadsInVisibleStages.length > 0 && !isSelectionMode && !loading && (
             <button
               type="button"
               onClick={selectAllVisible}
@@ -628,7 +751,7 @@ export function Leads() {
           <div className="flex items-center justify-center h-48">
             <p className="text-neutral-500">No pipeline stages.</p>
           </div>
-        ) : totalLeads === 0 ? (
+        ) : leadsInVisibleStages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="w-12 h-12 text-neutral-300 mb-4" />
             <h3 className="text-lg font-medium text-neutral-900 mb-2">No leads yet</h3>
@@ -641,11 +764,14 @@ export function Leads() {
         ) : (
           <div className="flex gap-5 min-w-max pb-4">
             {visibleStages.map((stage) => {
-              const stageLeads = filteredLeadsByStage(stage._id);
+              const stageData = filteredLeadsByStage(stage._id);
+              const stageLeads = stageData.leads;
               const revenue = getStageRevenue(stage._id);
               const revDisplay =
                 revenue > 0 ? revenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '0';
               const totalInStage = getLeadsByStage(stage._id).length;
+              const stageIdStr = String(stage._id);
+              const stageLimit = stageDisplayLimits.get(stageIdStr) || PAGE_SIZE;
 
               return (
                 <div
@@ -835,6 +961,7 @@ export function Leads() {
                         </div>
                       );
                     })}
+                    
                   </div>
                 </div>
               );
@@ -843,31 +970,20 @@ export function Leads() {
         )}
       </div>
 
-      {/* Pagination footer – only when we have leads in visible stages */}
-      {!loading && totalLeads > 0 && (
-        <div className="flex-shrink-0 flex items-center justify-between gap-4 px-6 py-3 border-t border-neutral-200 bg-white">
-          <p className="text-sm text-neutral-600">
-            <span className="font-medium text-neutral-900">
-              {totalLeads === 0 ? '0' : `1–${rangeEnd}`} of {totalLeads}
-            </span>
-            <span className="text-neutral-500 ml-1">
-              lead{totalLeads !== 1 ? 's' : ''}
-            </span>
-          </p>
-          {hasMore ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDisplayLimit((prev) => prev + PAGE_SIZE)}
-              className="min-w-[100px]"
-            >
-              Load More
-            </Button>
-          ) : (
-            <span className="text-xs text-neutral-400">All leads displayed</span>
-          )}
+      {/* Common Load More button for all sections */}
+      {!loading && hasMoreInAnyStage && (
+        <div className="flex-shrink-0 flex items-center justify-center px-6 py-4 border-t border-neutral-200 bg-white">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadMoreAllStages}
+            className="min-w-[120px]"
+          >
+            Load More
+          </Button>
         </div>
       )}
+
 
       {/* Add lead dialog */}
       <Dialog open={!!addLeadStage} onOpenChange={(open) => !open && setAddLeadStage(null)}>

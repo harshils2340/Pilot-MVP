@@ -6,6 +6,7 @@ import { PipelineStage, initializeDefaultStages } from '@/app/lib/crm/pipelineSc
 const serializeLead = (lead: any) => ({
   ...lead,
   _id: lead._id.toString(),
+  stageId: lead.stageId ? lead.stageId.toString() : lead.stageId,
   emails: lead.emails?.map((e: any) => ({ ...e, emailId: e.emailId?.toString?.() ?? e.emailId })) ?? [],
 });
 
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const stageId = searchParams.get('stageId');
 
+    // Query for leads - include all leads with permitRelated not explicitly false
     const query: any = { permitRelated: { $ne: false } };
     if (status && status !== 'all') query.status = status;
     if (stageId) query.stageId = stageId;
@@ -37,9 +39,11 @@ export async function GET(request: NextRequest) {
       for (const lead of leads) {
         if (!lead.stageId) {
           await Lead.findByIdAndUpdate(lead._id, {
-            stageId: firstStage._id.toString(),
-            stageName: firstStage.name,
-            probability: firstStage.probability,
+            $set: {
+              stageId: firstStage._id.toString(),
+              stageName: firstStage.name,
+              probability: firstStage.probability,
+            },
           });
           (lead as any).stageId = firstStage._id.toString();
           (lead as any).stageName = firstStage.name;
