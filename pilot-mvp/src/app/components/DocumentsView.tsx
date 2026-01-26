@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { 
   FileText, Upload, Folder, FolderOpen, Search, MoreVertical, 
   Share2, Download, Trash2, Calendar, User, 
-  CheckCircle2, Plus, X, Loader2, Send, ChevronRight, ChevronDown, File
+  CheckCircle2, Plus, X, Loader2, Send, ChevronRight, ChevronDown, File, Eye
 } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 
@@ -107,6 +109,7 @@ export function DocumentsView({
   consultantName,
   viewMode = 'consultant' 
 }: DocumentsViewProps) {
+  const router = useRouter();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -116,6 +119,8 @@ export function DocumentsView({
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ name: string; email: string } | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
+  const lastDocumentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     fetchDocuments();
@@ -123,6 +128,17 @@ export function DocumentsView({
       fetchClientInfo();
     }
   }, [clientId, consultantId, viewMode]);
+
+  // Poll for new documents from clients (only for consultants)
+  useEffect(() => {
+    if (viewMode !== 'consultant' || !clientId) return;
+
+    const pollInterval = setInterval(() => {
+      fetchDocuments(true); // Silent fetch for polling
+    }, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [viewMode, clientId]);
 
   const fetchClientInfo = async () => {
     try {
@@ -148,9 +164,9 @@ export function DocumentsView({
     }
   };
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const params = new URLSearchParams({ clientId });
       if (consultantId) params.append('consultantId', consultantId);
 
@@ -158,17 +174,50 @@ export function DocumentsView({
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data?.documents || [];
+        
+        // Check for new documents from clients (only for consultants)
+        if (viewMode === 'consultant' && lastDocumentIdsRef.current.size > 0) {
+          const currentIds = new Set(list.map((d: Document) => d.id));
+          const newDocuments = list.filter((doc: Document) => {
+            const isNew = !lastDocumentIdsRef.current.has(doc.id);
+            const isFromClient = doc.uploadedBy?.isClient === true;
+            return isNew && isFromClient;
+          });
+
+          // Show notifications for new documents from clients
+          newDocuments.forEach((doc: Document) => {
+            const senderName = doc.uploadedBy?.userName || clientName || 'Client';
+            const documentName = doc.name;
+            const fileSize = formatFileSize(doc.fileSize);
+            const fileType = doc.fileType?.toUpperCase() || 'FILE';
+            
+            toast.success('New Document Received', {
+              description: `From: ${senderName} • ${documentName} (${fileType}, ${fileSize})`,
+              duration: 6000,
+              action: {
+                label: 'View',
+                onClick: () => handleViewDocument(doc),
+              },
+            });
+          });
+        }
+
+        // Update last known document IDs
+        lastDocumentIdsRef.current = new Set(list.map((d: Document) => d.id));
         setDocuments(list);
-        console.log(`📄 Loaded ${list.length} documents for client ${clientId}`);
+        
+        if (!silent) {
+          console.log(`📄 Loaded ${list.length} documents for client ${clientId}`);
+        }
       } else {
         console.error('Failed to fetch documents:', await res.text());
-        setDocuments([]);
+        if (!silent) setDocuments([]);
       }
     } catch (error) {
       console.error('Failed to fetch documents:', error);
-      setDocuments([]);
+      if (!silent) setDocuments([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -207,8 +256,15 @@ export function DocumentsView({
         const newDoc = await res.json();
         console.log('✅ Document uploaded successfully:', newDoc.name);
         
+        // Show success notification
+        toast.success('Document uploaded successfully', {
+          description: `"${newDoc.name}" has been uploaded to ${selectedPath || 'General'}`,
+          duration: 4000,
+        });
+        
         // Add the new document to the list immediately for instant feedback
         setDocuments(prev => [newDoc, ...prev]);
+        lastDocumentIdsRef.current.add(newDoc.id);
         setShowUploadModal(false);
         
         // Reset the file input
@@ -254,6 +310,14 @@ export function DocumentsView({
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleViewDocument = (doc: Document) => {
+    setViewingDocument(doc);
+  };
+
+  const handleCloseViewer = () => {
+    setViewingDocument(null);
   };
 
   // Recursive folder tree component
@@ -436,6 +500,7 @@ export function DocumentsView({
                     document={doc} 
                     formatFileSize={formatFileSize}
                     onDelete={(docId) => setDocuments(prev => prev.filter(d => d.id !== docId))}
+                    onView={handleViewDocument}
                   />
                 ))}
               </tbody>
@@ -443,6 +508,14 @@ export function DocumentsView({
           )}
         </main>
       </div>
+
+      {/* Document Viewer Modal */}
+      {viewingDocument && (
+        <DocumentViewer
+          document={viewingDocument}
+          onClose={handleCloseViewer}
+        />
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
@@ -508,10 +581,12 @@ function DocumentRow({
   document, 
   formatFileSize,
   onDelete,
+  onView,
 }: { 
   document: Document; 
   formatFileSize: (bytes: number) => string;
   onDelete: (docId: string) => void;
+  onView?: (doc: Document) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -570,22 +645,26 @@ function DocumentRow({
   };
 
   const handleOpenFile = () => {
-    // For data URLs, open in new tab or download
-    if (document.fileUrl.startsWith('data:')) {
-      // Create blob from data URL and open in new tab
-      const newWindow = window.open();
-      if (newWindow) {
-        newWindow.document.write(`
-          <html>
-            <head><title>${document.name}</title></head>
-            <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f5f5;">
-              <iframe src="${document.fileUrl}" style="width:100%;height:100%;border:none;"></iframe>
-            </body>
-          </html>
-        `);
-      }
+    // Use the enhanced viewer if available, otherwise fall back to opening in new window
+    if (onView) {
+      onView(document);
     } else {
-      window.open(document.fileUrl, '_blank');
+      // Fallback: open in new window
+      if (document.fileUrl.startsWith('data:')) {
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>${document.name}</title></head>
+              <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f5f5;">
+                <iframe src="${document.fileUrl}" style="width:100%;height:100%;border:none;"></iframe>
+              </body>
+            </html>
+          `);
+        }
+      } else {
+        window.open(document.fileUrl, '_blank');
+      }
     }
   };
 
@@ -651,29 +730,202 @@ function DocumentRow({
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
             <div className="absolute right-4 top-10 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 py-1 min-w-[140px]">
+              {onView && (
+                <button 
+                  onClick={() => {
+                    onView(document);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  View
+                </button>
+              )}
               <button 
                 onClick={handleDownload}
                 className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
               >
-            <Download className="w-4 h-4" />
-            Download
-          </button>
-          <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
-            <Share2 className="w-4 h-4" />
-            Share
-          </button>
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+              <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
+                <Share2 className="w-4 h-4" />
+                Share
+              </button>
               <div className="h-px bg-neutral-200 my-1" />
               <button 
                 onClick={handleDelete}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
-        </div>
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </div>
           </>
         )}
       </td>
     </tr>
+  );
+}
+
+// Enhanced Document Viewer Component
+function DocumentViewer({ 
+  document, 
+  onClose 
+}: { 
+  document: Document; 
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDownload = () => {
+    const link = window.document.createElement('a');
+    link.href = document.fileUrl;
+    link.download = document.name || document.fileName;
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+  };
+
+  const getFileViewer = () => {
+    const fileType = document.fileType?.toLowerCase();
+    const fileUrl = document.fileUrl;
+
+    // PDF viewer
+    if (fileType === 'pdf') {
+      return (
+        <iframe
+          src={fileUrl}
+          className="w-full h-full border-0"
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError('Failed to load PDF');
+            setLoading(false);
+          }}
+        />
+      );
+    }
+
+    // Image viewer
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileType || '')) {
+      return (
+        <div className="flex items-center justify-center h-full bg-neutral-50">
+          <img
+            src={fileUrl}
+            alt={document.name}
+            className="max-w-full max-h-full object-contain"
+            onLoad={() => setLoading(false)}
+            onError={() => {
+              setError('Failed to load image');
+              setLoading(false);
+            }}
+          />
+        </div>
+      );
+    }
+
+    // Text files
+    if (['txt', 'md', 'json', 'xml', 'csv', 'log'].includes(fileType || '')) {
+      return (
+        <iframe
+          src={fileUrl}
+          className="w-full h-full border-0"
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError('Failed to load file');
+            setLoading(false);
+          }}
+        />
+      );
+    }
+
+    // For other file types, show download option
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-neutral-50 p-8">
+        <FileText className="w-16 h-16 text-neutral-400 mb-4" />
+        <p className="text-lg font-medium text-neutral-900 mb-2">
+          {document.name}
+        </p>
+        <p className="text-sm text-neutral-500 mb-6">
+          This file type cannot be previewed. Please download to view.
+        </p>
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Download File
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 bg-neutral-900 text-white px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <FileText className="w-5 h-5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold truncate">{document.name}</h2>
+            <div className="flex items-center gap-4 text-sm text-neutral-400 mt-1">
+              <span>From: {document.uploadedBy?.userName || 'Unknown'}</span>
+              <span>•</span>
+              <span>{new Date(document.createdAt).toLocaleDateString()}</span>
+              <span>•</span>
+              <span>{document.fileType?.toUpperCase() || 'FILE'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownload}
+            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
+            title="Download"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Document Content */}
+      <div className="flex-1 relative overflow-hidden">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-neutral-50">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+              <p className="text-sm text-neutral-500">Loading document...</p>
+            </div>
+          </div>
+        )}
+        {error ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-neutral-50">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">{error}</p>
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors mx-auto"
+              >
+                <Download className="w-4 h-4" />
+                Download Instead
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full h-full">
+            {getFileViewer()}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

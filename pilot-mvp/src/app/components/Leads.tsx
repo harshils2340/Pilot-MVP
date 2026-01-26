@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   Mail,
   Phone,
@@ -517,7 +518,7 @@ export function Leads() {
 
   const handleAddLead = async () => {
     if (!addLeadStage || !newLead.name.trim() || !newLead.email.trim()) {
-      alert('Name and email are required');
+      toast.error('Name and email are required');
       return;
     }
     try {
@@ -533,10 +534,11 @@ export function Leads() {
       });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        alert(createData.error || 'Failed to create lead');
+        toast.error(createData.error || 'Failed to create lead');
         return;
       }
       const leadId = createData.lead?._id;
+      const createdLead = createData.lead;
       if (leadId) {
         await fetch(`/api/crm/leads/${leadId}`, {
           method: 'PATCH',
@@ -548,13 +550,34 @@ export function Leads() {
           }),
         });
       }
+      
+      // Show success notification with lead details
+      const leadName = createdLead?.name || newLead.name.trim();
+      const leadEmail = createdLead?.email || newLead.email.trim();
+      const leadCompany = createdLead?.company || newLead.company.trim();
+      
+      const leadDetails = [
+        `Name: ${leadName}`,
+        `Email: ${leadEmail}`,
+        leadCompany && `Company: ${leadCompany}`,
+        `Stage: ${addLeadStage.name}`,
+        `Source: ${createdLead?.source || 'manual'}`,
+      ]
+        .filter(Boolean)
+        .join(' • ');
+
+      toast.success('Lead added successfully', {
+        description: leadDetails,
+        duration: 6000,
+      });
+
       setAddLeadStage(null);
       setNewLead({ name: '', email: '', company: '' });
       await fetchLeads();
       if (leadId) router.push(`/leads/${leadId}`);
     } catch (e) {
       console.error('Error adding lead:', e);
-      alert('Failed to add lead');
+      toast.error('Failed to add lead');
     }
   };
 

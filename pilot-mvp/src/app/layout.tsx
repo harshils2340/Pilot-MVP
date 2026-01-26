@@ -5,6 +5,7 @@ import './styles/index.css';
 import './styles/fonts.css';
 import './styles/tailwind.css';
 import './styles/theme.css';
+import { Toaster } from './components/ui/sonner';
 
 export const metadata: Metadata = {
   icons: {
@@ -21,7 +22,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }
