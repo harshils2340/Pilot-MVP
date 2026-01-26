@@ -17,6 +17,7 @@ export function RequestDocumentModal({
   clientId,
   clientName,
   clientEmail,
+  consultantId,
   consultantName,
   onClose,
   onSuccess,
@@ -26,32 +27,40 @@ export function RequestDocumentModal({
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
+    setError(null);
 
     try {
-      const payload = {
-        id: `req-${Date.now()}`,
-        title,
-        description,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        expiresAt: dueDate ? new Date(dueDate).toISOString() : undefined,
-        clientId,
-      };
-      const existing = JSON.parse(localStorage.getItem('pilotDocumentRequests') || '[]');
-      existing.unshift(payload);
-      localStorage.setItem('pilotDocumentRequests', JSON.stringify(existing));
-    } catch (error) {
-      console.error('Failed to store request locally:', error);
-    }
-
-    setTimeout(() => {
-      setSubmitting(false);
+      const res = await fetch('/api/documents/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          clientName: clientName || undefined,
+          title: title.trim() || 'Document request',
+          description: description.trim() || undefined,
+          consultantId: consultantId || undefined,
+          consultantName: consultantName || undefined,
+          expiresAt: dueDate ? new Date(dueDate).toISOString() : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to create request');
+        setSubmitting(false);
+        return;
+      }
       onSuccess();
-    }, 400);
+    } catch (e) {
+      console.error('Failed to create document request:', e);
+      setError('Failed to create request');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -112,6 +121,12 @@ export function RequestDocumentModal({
               </select>
             </div>
           </div>
+
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
 
           <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-xs text-neutral-600">
             Request will be sent from {consultantName} with a secure upload link.
