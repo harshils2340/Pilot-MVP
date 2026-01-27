@@ -42,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-
 interface Lead {
   _id: string;
   name: string;
@@ -55,6 +54,7 @@ interface Lead {
   stageName?: string;
   probability?: number;
   expectedRevenue?: number;
+  expectedClosingDate?: string;
   activities?: Array<{
     _id?: string;
     type: 'email' | 'call' | 'task' | 'meeting';
@@ -94,9 +94,10 @@ const PAGE_SIZE = 10;
 interface LeadsProps {
   addLeadPrefill?: { name: string; email: string } | null;
   onClearAddLeadPrefill?: () => void;
+  onBackToDashboard?: () => void;
 }
 
-export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill }: LeadsProps = {}) {
+export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDashboard }: LeadsProps = {}) {
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
@@ -436,8 +437,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill }: LeadsPro
     setTimeout(() => setIsDragging(false), 100);
   };
 
-  const handleCardClick = (e: React.MouseEvent, _leadId: string) => {
-    // Don't navigate if we just finished dragging or if clicking on interactive elements
+  const handleCardClick = (e: React.MouseEvent, leadId: string) => {
     const target = e.target as HTMLElement;
     if (
       target.closest('button') ||
@@ -447,7 +447,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill }: LeadsPro
     ) {
       return;
     }
-    // No dedicated /leads/[id] page; lead detail could be added later (e.g. modal). Stay on Kanban.
+    router.push(`/leads/${leadId}`);
   };
 
   const handleDragOver = (e: React.DragEvent, stageId: string) => {
@@ -646,7 +646,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill }: LeadsPro
         <div className="flex items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/')}
+              onClick={() => (onBackToDashboard ? onBackToDashboard() : router.push('/'))}
               className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors border border-neutral-200"
               title="Back to Dashboard"
             >
@@ -849,11 +849,8 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill }: LeadsPro
 
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[220px]">
                     {stageLeads.map((lead) => {
-                      const tags = lead.tags?.length
-                        ? lead.tags
-                        : lead.stageName
-                          ? [lead.stageName]
-                          : [lead.status];
+                      // Only show custom tags, not stage name (since leads are already grouped by stage)
+                      const tags = lead.tags?.length ? lead.tags : [];
                       const stars = priorityStars(lead.probability);
                       const nextActivity = lead.activities?.find((a) => a.status === 'planned');
                       const hasCall = lead.activities?.some((a) => a.type === 'call');

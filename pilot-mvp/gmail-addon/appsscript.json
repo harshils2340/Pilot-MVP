@@ -1,0 +1,28 @@
+{
+  "timeZone": "America/New_York",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/gmail.addons.current.message.readonly",
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "gmail": {
+    "name": "Pilot MVP",
+    "logoUrl": "https://www.gstatic.com/images/icons/material/system/1x/description_black_24dp.png",
+    "contextualTriggers": [
+      {
+        "unconditional": {},
+        "onTriggerFunction": "onGmailMessage"
+      }
+    ],
+    "openLinkUrlPrefixes": [
+      "https://pilot-mvp.vercel.app/"
+    ],
+    "composeTrigger": {
+      "selectActions": [],
+      "draftAccess": "NONE"
+    }
+  }
+}

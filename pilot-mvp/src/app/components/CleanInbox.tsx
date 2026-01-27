@@ -16,6 +16,9 @@ import {
   RefreshCw,
   ChevronRight,
   Inbox,
+  ExternalLink,
+  Settings,
+  Download,
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -50,6 +53,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showGmailAddonInfo, setShowGmailAddonInfo] = useState(true);
 
   useEffect(() => {
     fetchNotifications();
@@ -63,7 +67,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       const [docsRes, leadsRes, emailsRes, clientsRes, permitsRes, requestsRes] = await Promise.all([
         fetch('/api/documents?sortBy=createdAt'),
         fetch('/api/crm/leads'),
-        fetch('/api/emails?status=unread&limit=20'),
+        fetch('/api/emails/for-notifications'),
         fetch('/api/clients'),
         fetch('/api/permits/management'),
         fetch('/api/documents/requests?status=pending'),
@@ -184,17 +188,17 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
           },
         }));
 
-      // Email notifications (unread emails)
+      // Email notifications (from any client or about any lead; from /api/emails/for-notifications)
       const emailNotifications = ((emailsData && emailsData.emails) || [])
-        .slice(0, 10)
+        .slice(0, 30)
         .map((email: any) => ({
           id: `email-${email._id}`,
           type: 'email' as const,
           title: 'New Email Received',
-          message: `From ${email.from?.name || email.from?.email}: ${email.subject}`,
+          message: `From ${email.from?.name || email.from?.email || 'Unknown'}: ${email.subject || '(No subject)'}`,
           timestamp: new Date(email.receivedAt),
           read: email.status === 'read',
-          priority: email.priority || 'medium' as const,
+          priority: (email.priority || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
           actionUrl: email.clientId ? `/clients/${email.clientId}` : undefined,
           metadata: {
             senderName: email.from?.name,
@@ -202,10 +206,13 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
             subject: email.subject,
             emailId: email._id,
             clientName: email.clientName,
+            clientId: email.clientId,
+            leadId: email.leadId,
+            leadName: email.leadName,
           },
         }));
 
-      allNotifications.push(...recentDocs, ...recentLeads, ...emailNotifications);
+      allNotifications.push(...recentLeads, ...emailNotifications);
       
       // Sort by timestamp (newest first)
       allNotifications.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -227,10 +234,12 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       notif.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notif.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notif.metadata?.senderName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      notif.metadata?.senderEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notif.metadata?.documentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notif.metadata?.leadName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notif.metadata?.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      notif.metadata?.permitName?.toLowerCase().includes(searchQuery.toLowerCase());
+      notif.metadata?.permitName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (typeof notif.metadata?.subject === 'string' && notif.metadata.subject.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return matchesFilter && matchesSearch;
   });
@@ -365,6 +374,60 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
           </div>
         </div>
 
+        {/* Gmail Add-on Installation Banner */}
+        {showGmailAddonInfo && (
+          <div className="mb-4 p-4 bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Mail className="w-5 h-5 text-sky-600" />
+                  <h3 className="text-sm font-semibold text-neutral-900">Gmail Add-on Available</h3>
+                </div>
+                <p className="text-xs text-neutral-600 mb-3 leading-relaxed">
+                  Install the Pilot MVP Gmail add-on to view client and lead information directly in Gmail. 
+                  When you open an email, the add-on will automatically show details about the sender if they're a client or lead.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://script.google.com/home', '_blank')}
+                    className="text-xs border-sky-300 text-sky-700 hover:bg-sky-100"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                    Open Google Apps Script
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const instructions = `1. Go to https://script.google.com
+2. Create a new project
+3. Copy the code from pilot-mvp/gmail-addon/Code.gs
+4. Copy the manifest from pilot-mvp/gmail-addon/appsscript.json
+5. Deploy as "Add-on" → "Test deployment"
+6. The add-on will appear in Gmail when you open emails`;
+                      navigator.clipboard.writeText(instructions);
+                      toast.success('Installation instructions copied to clipboard');
+                    }}
+                    className="text-xs border-neutral-300 text-neutral-700 hover:bg-neutral-100"
+                  >
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    Copy Setup Instructions
+                  </Button>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGmailAddonInfo(false)}
+                className="text-neutral-400 hover:text-neutral-600 shrink-0"
+                title="Dismiss"
+              >
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -435,7 +498,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
                 (index > 0 && filteredNotifications[index - 1].timestamp.toDateString() !== notification.timestamp.toDateString());
               const m = notification.metadata;
               const showSender = m?.senderName && (notification.type !== 'lead' || m.senderName !== m.leadName);
-              const showLead = m?.leadName && notification.type === 'lead';
+              const showLead = m?.leadName && (notification.type === 'lead' || (notification.type === 'email' && m.leadId));
               const showDoc = m?.documentName && notification.type === 'document';
               const showClient = m?.clientName && notification.type === 'email' && m.clientName !== m.senderName;
 

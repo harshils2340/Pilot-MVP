@@ -66,6 +66,9 @@ export default function App() {
           setUserName(storedName);
         }
       }
+      // Restore view from URL (e.g. /?view=leads when returning from lead detail)
+      const view = params.get('view');
+      if (view === 'leads') setCurrentView('leads');
     }
   }, []);
 
@@ -425,6 +428,7 @@ export default function App() {
             <Leads
               addLeadPrefill={addLeadPrefill}
               onClearAddLeadPrefill={() => setAddLeadPrefill(null)}
+              onBackToDashboard={() => setCurrentView('dashboard')}
             />
           )}
         </main>
