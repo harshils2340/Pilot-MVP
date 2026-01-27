@@ -2,6 +2,10 @@
 
 Add-on for Gmail that shows **client and lead information** in an information pane when viewing emails, and lets you create permits, clients, and add email senders as Leads.
 
+## 🚀 Quick Start
+
+**For complete setup instructions, see [SETUP.md](./SETUP.md)** - it has step-by-step instructions with screenshots and troubleshooting.
+
 ## Features
 
 - **Client & Lead Information Pane**: When you open an email in Gmail, the add-on automatically looks up the sender's email address and displays their client or lead information (if they exist in Pilot). Shows details like:
@@ -12,12 +16,15 @@ Add-on for Gmail that shows **client and lead information** in an information pa
 - **Create Permit** / **Create Client**: Quick intake forms for permits and clients (uses `/api/gmail/intake` when configured).
 - **Open Pilot Dashboard** / **Link to existing** / **Mark as processed**: Links and actions to Pilot and Gmail.
 
-## Setup
+## Quick Setup (Summary)
 
 1. Open [Google Apps Script](https://script.google.com), create a new project.
 2. Copy the contents of `Code.gs` (replace default code) and `appsscript.json` (replace default manifest).
-3. Set the Gmail add-on trigger: deploy as **Add-on** → **Test deployment** (or **Deploy** for your domain).
-4. Ensure the Pilot app is deployed and reachable at `https://pilot-mvp.vercel.app` (or update the base URL in `Code.gs` and `appsscript.json`).
+3. Deploy as **Add-on** → **New deployment** → **Test deployment** (or **Deploy** for your domain).
+4. Install the add-on in Gmail (it will appear in the sidebar when you open emails).
+5. Ensure the Pilot app is deployed and reachable at `https://pilot-mvp.vercel.app` (or update the base URL in `Code.gs` and `appsscript.json`).
+
+**📖 For detailed step-by-step instructions, see [SETUP.md](./SETUP.md)**
 
 ## How It Works
 

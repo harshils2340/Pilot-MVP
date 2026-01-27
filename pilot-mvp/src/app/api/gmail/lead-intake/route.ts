@@ -6,7 +6,7 @@ import { PipelineStage, initializeDefaultStages } from '@/app/lib/crm/pipelineSc
 /**
  * POST /api/gmail/lead-intake
  * Create a lead from Gmail add-on (email sender → Leads).
- * Body: { name, email, company?, notes?, messageId?, subject? }
+ * Body: { name, email, company?, phone?, notes?, messageId?, subject? }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     const name = (body.name || '').trim();
     const email = (body.email || '').trim();
     const company = (body.company || '').trim() || undefined;
+    const phone = (body.phone || '').trim() || undefined;
     const notes = (body.notes || '').trim() || undefined;
     const messageId = body.messageId;
     const subject = body.subject;
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       name,
       email: email.toLowerCase(),
       company,
+      phone,
       notes: notes || (subject ? `From email: ${subject}` : undefined),
       source: 'email',
       status: 'new',

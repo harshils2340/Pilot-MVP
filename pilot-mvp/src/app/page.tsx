@@ -16,6 +16,7 @@ import { PermitDetailView } from './components/PermitDetailView';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { Leads } from './components/Leads';
 import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, Bell, Database, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 type ClientScreen = 'discovery' | 'plan' | 'permit-detail';
 type AuthScreen = 'signin' | 'signup';
@@ -297,7 +298,46 @@ export default function App() {
 
         {/* Main Content - Clean Inbox */}
         <main className="flex-1 overflow-hidden">
-          <CleanInbox />
+          <CleanInbox 
+            onAddLeadFromEmail={async (name: string, email: string) => {
+              if (!email) {
+                toast.error('Email is required to add a lead');
+                return;
+              }
+              try {
+                const response = await fetch('/api/gmail/lead-intake', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: name || 'Unknown',
+                    email: email || '',
+                    source: 'email',
+                  }),
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                  toast.success('Lead added successfully', {
+                    description: `${data.lead.name} has been added to Leads`,
+                    duration: 3000,
+                  });
+                  // Switch to Leads view to show the new lead
+                  setCurrentView('leads');
+                  // Optionally set prefill for future use
+                  setAddLeadPrefill({ name: data.lead.name, email: data.lead.email });
+                } else {
+                  toast.error('Failed to add lead', {
+                    description: data.error || 'Please try again',
+                    duration: 3000,
+                  });
+                }
+              } catch (error) {
+                toast.error('Error adding lead', {
+                  description: 'Please check your connection and try again',
+                  duration: 3000,
+                });
+              }
+            }}
+          />
         </main>
       </div>
     );

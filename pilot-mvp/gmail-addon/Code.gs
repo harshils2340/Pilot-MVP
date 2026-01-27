@@ -9,39 +9,89 @@
  * Triggered when Gmail message is opened - shows sidebar
  */
 function onGmailMessage(e) {
-  const messageId = e.gmail.messageId;
-  const accessToken = e.gmail.accessToken;
-  
-  // Get message details
-  const message = GmailApp.getMessageById(messageId);
-  const subject = message.getSubject();
-  const from = message.getFrom();
-  const body = message.getPlainBody();
-  const date = message.getDate();
-  
-  // Parse email using enhanced Odoo-style logic
-  const parsedData = parseEmailContent(subject, body, from);
-  
-  // Lookup client/lead information by email
-  const clientLeadInfo = lookupClientOrLead(parsedData.fromEmail);
-  
-  // Build main card with client/lead info pane first
-  const card = CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader()
-      .setTitle('Pilot MVP')
-      .setSubtitle('Client & Lead Information'));
-  
-  // Add client/lead information pane (if found)
-  if (clientLeadInfo && clientLeadInfo.found) {
-    card.addSection(createClientLeadInfoSection(clientLeadInfo, parsedData.fromEmail));
+  try {
+    const messageId = e.gmail.messageId;
+    const accessToken = e.gmail.accessToken;
+    
+    if (!messageId) {
+      // Return a basic card if messageId is missing
+      return [CardService.newCardBuilder()
+        .setHeader(CardService.newCardHeader()
+          .setTitle('Pilot MVP')
+          .setSubtitle('Error'))
+        .addSection(CardService.newCardSection()
+          .addWidget(CardService.newTextParagraph()
+            .setText('Unable to load email. Please try opening the email again.')))
+        .build()];
+    }
+    
+    // Get message details
+    let message;
+    try {
+      message = GmailApp.getMessageById(messageId);
+    } catch (error) {
+      console.error('Error getting message:', error);
+      return [CardService.newCardBuilder()
+        .setHeader(CardService.newCardHeader()
+          .setTitle('Pilot MVP')
+          .setSubtitle('Error'))
+        .addSection(CardService.newCardSection()
+          .addWidget(CardService.newTextParagraph()
+            .setText('Unable to access email. Please check permissions.')))
+        .build()];
+    }
+    
+    const subject = message.getSubject() || '';
+    const from = message.getFrom() || '';
+    const body = message.getPlainBody() || '';
+    const date = message.getDate();
+    
+    // Parse email using enhanced Odoo-style logic
+    const parsedData = parseEmailContent(subject, body, from);
+    
+    // Lookup client/lead information by email (non-blocking - don't fail if lookup fails)
+    let clientLeadInfo = null;
+    if (parsedData.fromEmail) {
+      try {
+        clientLeadInfo = lookupClientOrLead(parsedData.fromEmail);
+      } catch (error) {
+        console.error('Error in lookup:', error);
+        // Continue without lookup info
+      }
+    }
+    
+    // Build main card with client/lead info pane first
+    const card = CardService.newCardBuilder()
+      .setHeader(CardService.newCardHeader()
+        .setTitle('Pilot MVP')
+        .setSubtitle('Client & Lead Information'));
+    
+    // Add client/lead information pane (if found)
+    if (clientLeadInfo && clientLeadInfo.found) {
+      card.addSection(createClientLeadInfoSection(clientLeadInfo, parsedData.fromEmail));
+    }
+    
+    // Add "Add to Leads" form first (prominent)
+    card.addSection(createAddToLeadsForm(parsedData, messageId, subject, body, from));
+    
+    // Add parsed data and other intake forms
+    card.addSection(createParsedDataSection(parsedData))
+      .addSection(createQuickIntakeSection(parsedData, messageId, subject, body, from))
+      .addSection(createActionsSection(parsedData, messageId));
+    
+    return [card.build()];
+  } catch (error) {
+    console.error('Error in onGmailMessage:', error);
+    // Return error card instead of failing completely
+    return [CardService.newCardBuilder()
+      .setHeader(CardService.newCardHeader()
+        .setTitle('Pilot MVP')
+        .setSubtitle('Error'))
+      .addSection(CardService.newCardSection()
+        .addWidget(CardService.newTextParagraph()
+          .setText('An error occurred. Please refresh and try again.')))
+      .build()];
   }
-  
-  // Add parsed data and intake forms
-  card.addSection(createParsedDataSection(parsedData))
-    .addSection(createQuickIntakeSection(parsedData, messageId, subject, body, from))
-    .addSection(createActionsSection(parsedData, messageId));
-  
-  return [card.build()];
 }
 
 /**
@@ -54,18 +104,31 @@ function lookupClientOrLead(email) {
     const apiUrl = 'https://pilot-mvp.vercel.app/api/gmail/lookup?email=' + encodeURIComponent(email);
     const response = UrlFetchApp.fetch(apiUrl, {
       method: 'get',
-      muteHttpExceptions: true
+      muteHttpExceptions: true,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
     
-    if (response.getResponseCode() === 200) {
-      const result = JSON.parse(response.getContentText());
-      return result;
+    const responseCode = response.getResponseCode();
+    if (responseCode === 200) {
+      try {
+        const result = JSON.parse(response.getContentText());
+        return result;
+      } catch (parseError) {
+        console.error('Error parsing lookup response:', parseError);
+        return null;
+      }
+    } else {
+      // Non-200 response - log but don't fail
+      console.log('Lookup returned status:', responseCode);
+      return null;
     }
   } catch (error) {
     console.error('Error looking up client/lead:', error);
+    // Return null on error - don't break the add-on
+    return null;
   }
-  
-  return null;
 }
 
 /**
@@ -203,6 +266,60 @@ function createClientLeadInfoSection(info, email) {
 }
 
 /**
+ * Create prominent "Add to Leads" form section
+ * Similar to invoice form - clean, editable fields with pre-filled data
+ */
+function createAddToLeadsForm(parsedData, messageId, subject, body, from) {
+  const section = CardService.newCardSection()
+    .setHeader('**New Lead**');
+  
+  // Name field (pre-filled from email sender)
+  section.addWidget(CardService.newTextInput()
+    .setFieldName('leadName')
+    .setTitle('Name')
+    .setValue(parsedData.clientName || parsedData.businessName || '')
+    .setHint('Lead name from email sender'));
+  
+  // Email field (pre-filled, required)
+  section.addWidget(CardService.newTextInput()
+    .setFieldName('leadEmail')
+    .setTitle('Email *')
+    .setValue(parsedData.fromEmail || '')
+    .setHint('Email address (required)'));
+  
+  // Company field (optional, pre-filled if available)
+  section.addWidget(CardService.newTextInput()
+    .setFieldName('leadCompany')
+    .setTitle('Company')
+    .setValue(parsedData.businessName || '')
+    .setHint('Company or business name (optional)'));
+  
+  // Phone field (optional)
+  section.addWidget(CardService.newTextInput()
+    .setFieldName('leadPhone')
+    .setTitle('Phone')
+    .setValue('')
+    .setHint('Phone number (optional)'));
+  
+  // Notes field (optional, pre-filled with email subject)
+  section.addWidget(CardService.newTextInput()
+    .setFieldName('leadNotes')
+    .setTitle('Notes')
+    .setValue(subject ? 'From email: ' + subject : '')
+    .setHint('Additional notes or context (optional)'));
+  
+  // "Add to Leads" button (prominent, at bottom)
+  section.addWidget(CardService.newTextButton()
+    .setText('Add to Leads')
+    .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
+    .setOnClickAction(CardService.newAction()
+      .setFunctionName('handleAddToLeads')
+      .setParameters({ messageId: messageId, subject: subject || '' })));
+  
+  return section;
+}
+
+/**
  * Open client or lead in Pilot dashboard
  */
 function openInPilot(e) {
@@ -328,37 +445,11 @@ function createQuickIntakeSection(parsedData, messageId, subject, body, from) {
     .setHint('e.g., San Francisco, CA'));
   
   section.addWidget(CardService.newTextButton()
-    .setText('ðŸ‘¤ Create Client')
+    .setText('Create Client')
     .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
     .setOnClickAction(CardService.newAction()
       .setFunctionName('handleCreateClient')
       .setParameters({ messageId: messageId })));
-  
-  // Add to Leads
-  section.addWidget(CardService.newDivider());
-  section.addWidget(CardService.newTextParagraph()
-    .setText('Add sender to Leads'));
-  section.addWidget(CardService.newTextInput()
-    .setFieldName('leadName')
-    .setTitle('Lead Name')
-    .setValue(parsedData.clientName || parsedData.businessName || '')
-    .setHint('From email sender'));
-  section.addWidget(CardService.newTextInput()
-    .setFieldName('leadEmail')
-    .setTitle('Lead Email *')
-    .setValue(parsedData.fromEmail || '')
-    .setHint('From email sender'));
-  section.addWidget(CardService.newTextInput()
-    .setFieldName('leadCompany')
-    .setTitle('Company')
-    .setValue(parsedData.businessName || '')
-    .setHint('Optional'));
-  section.addWidget(CardService.newTextButton()
-    .setText('Add to Leads')
-    .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
-    .setOnClickAction(CardService.newAction()
-      .setFunctionName('handleAddToLeads')
-      .setParameters({ messageId: messageId, subject: subject || '' })));
   
   return section;
 }
@@ -648,34 +739,42 @@ function handleCreateClient(e) {
 
 /**
  * Add email sender to Pilot Leads (Gmail add-on)
+ * Handles form submission from the "Add to Leads" form
  */
 function handleAddToLeads(e) {
   const formInputs = e.formInputs;
   const messageId = e.parameters.messageId || '';
   const subject = (e.parameters.subject || '').substring(0, 200);
-  const name = (formInputs.leadName && formInputs.leadName[0]) ? String(formInputs.leadName[0]).trim() : '';
-  const email = (formInputs.leadEmail && formInputs.leadEmail[0]) ? String(formInputs.leadEmail[0]).trim() : '';
-  const company = (formInputs.leadCompany && formInputs.leadCompany[0]) ? String(formInputs.leadCompany[0]).trim() : '';
+  
+  // Extract form values (using optional chaining for consistency)
+  const name = (formInputs.leadName?.[0] || '').trim();
+  const email = (formInputs.leadEmail?.[0] || '').trim();
+  const company = (formInputs.leadCompany?.[0] || '').trim();
+  const phone = (formInputs.leadPhone?.[0] || '').trim();
+  const notes = (formInputs.leadNotes?.[0] || '').trim();
 
+  // Validation
   if (!email) {
     return CardService.newActionResponseBuilder()
       .setNotification(CardService.newNotification()
-        .setText('Lead email is required'))
+        .setText('Email is required'))
       .build();
   }
   if (!name) {
     return CardService.newActionResponseBuilder()
       .setNotification(CardService.newNotification()
-        .setText('Lead name is required'))
+        .setText('Name is required'))
       .build();
   }
 
+  // Prepare payload
   const apiUrl = 'https://pilot-mvp.vercel.app/api/gmail/lead-intake';
   const payload = {
     name: name,
     email: email,
     company: company || undefined,
-    notes: subject ? 'From email: ' + subject : undefined,
+    phone: phone || undefined,
+    notes: notes || (subject ? 'From email: ' + subject : undefined),
     messageId: messageId || undefined,
     subject: subject || undefined
   };
@@ -687,9 +786,29 @@ function handleAddToLeads(e) {
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
-    const result = JSON.parse(response.getContentText());
+    
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+    
+    if (responseCode !== 200) {
+      // Try to parse error response
+      try {
+        const errorResult = JSON.parse(responseText);
+        return CardService.newActionResponseBuilder()
+          .setNotification(CardService.newNotification()
+            .setText('Error: ' + (errorResult.error || 'Failed to add lead')))
+          .build();
+      } catch (parseError) {
+        return CardService.newActionResponseBuilder()
+          .setNotification(CardService.newNotification()
+            .setText('Error: HTTP ' + responseCode + ' - ' + responseText.substring(0, 100)))
+          .build();
+      }
+    }
+    
+    const result = JSON.parse(responseText);
 
-    if (result.success) {
+    if (result.success && result.lead) {
       return CardService.newActionResponseBuilder()
         .setNotification(CardService.newNotification()
           .setText('Lead added: ' + result.lead.name + ' -> ' + (result.lead.stageName || 'New')))
@@ -700,7 +819,7 @@ function handleAddToLeads(e) {
     } else {
       return CardService.newActionResponseBuilder()
         .setNotification(CardService.newNotification()
-          .setText((result.error || 'Failed to add lead')))
+          .setText('Error: ' + (result.error || 'Failed to add lead')))
         .build();
     }
   } catch (error) {
