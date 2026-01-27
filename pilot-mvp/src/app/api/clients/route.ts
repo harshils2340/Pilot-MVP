@@ -10,10 +10,19 @@ const serializeClient = (client: any) => ({
   _id: client._id.toString(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectToDB();
-    const clients = await ClientModel.find().lean(); // lean() returns plain JS objects
+    const url = new URL(request.url);
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    
+    let queryBuilder = ClientModel.find();
+    if (limit && limit > 0) {
+      queryBuilder = queryBuilder.limit(limit);
+    }
+    
+    const clients = await queryBuilder.lean(); // lean() returns plain JS objects
     const clientsWithStringId = clients.map(serializeClient);
     return NextResponse.json(clientsWithStringId, { status: 200 });
   } catch (err: any) {

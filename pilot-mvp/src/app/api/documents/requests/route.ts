@@ -12,10 +12,16 @@ export async function GET(request: NextRequest) {
     const query: Record<string, unknown> = {};
     if (clientId) query.clientId = clientId;
     if (status) query.status = status;
+    
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
 
-    const requests = await DocumentRequest.find(query)
-      .sort({ requestedAt: -1 })
-      .lean();
+    let queryBuilder = DocumentRequest.find(query).sort({ requestedAt: -1 });
+    if (limit && limit > 0) {
+      queryBuilder = queryBuilder.limit(limit);
+    }
+    
+    const requests = await queryBuilder.lean();
 
     return NextResponse.json(
       requests.map((r: any) => ({

@@ -7,9 +7,11 @@ export async function GET(request: Request) {
   try {
     await connectToDB();
     
-    // Get clientId from query params
+    // Get clientId and limit from query params
     const url = new URL(request.url);
     const clientId = url.searchParams.get('clientId');
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
     
     // Build query - if clientId is provided, filter by it
     const query: any = {};
@@ -21,7 +23,11 @@ export async function GET(request: Request) {
     }
     
     // Try to fetch from PermitManagement collection first
-    let permitManagementDocs = await PermitManagement.find(query).sort({ order: 1, createdAt: -1 }).lean();
+    let queryBuilder = PermitManagement.find(query).sort({ order: 1, createdAt: -1 });
+    if (limit && limit > 0) {
+      queryBuilder = queryBuilder.limit(limit);
+    }
+    let permitManagementDocs = await queryBuilder.lean();
     console.log(`📋 Found ${permitManagementDocs.length} PermitManagement entries`);
     
     // If clientId is provided but no PermitManagement entries found, return empty array

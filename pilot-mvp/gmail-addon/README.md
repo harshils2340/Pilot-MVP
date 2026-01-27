@@ -1,10 +1,12 @@
 # Pilot MVP – Gmail Add-on
 
-Add-on for Gmail that shows **client and lead information** in an information pane when viewing emails, and lets you create permits, clients, and add email senders as Leads.
+Add-on for Gmail that automatically shows a **"New Lead" information panel** when you open any email, allowing you to quickly add the email sender as a lead with all their information.
 
 ## 🚀 Quick Start
 
-**For complete setup instructions, see [SETUP.md](./SETUP.md)** - it has step-by-step instructions with screenshots and troubleshooting.
+**For step-by-step installation, see [YOUR_WORK_STEPS.md](./YOUR_WORK_STEPS.md)** - this is the guide you need to follow on your system.
+
+**For detailed setup instructions, see [SETUP.md](./SETUP.md)** - comprehensive guide with troubleshooting.
 
 ## Features
 

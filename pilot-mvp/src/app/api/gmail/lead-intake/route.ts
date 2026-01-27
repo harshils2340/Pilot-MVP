@@ -4,6 +4,20 @@ import { Lead } from '@/app/lib/crm/leadSchema';
 import { PipelineStage, initializeDefaultStages } from '@/app/lib/crm/pipelineSchema';
 
 /**
+ * OPTIONS handler for CORS preflight requests
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
+/**
  * POST /api/gmail/lead-intake
  * Create a lead from Gmail add-on (email sender → Leads).
  * Body: { name, email, company?, phone?, notes?, messageId?, subject? }
@@ -67,22 +81,38 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       lead: {
         _id: leadId,
         name: newLead.name,
         email: newLead.email,
         company: newLead.company,
+        phone: newLead.phone,
+        notes: newLead.notes,
         stageName: firstStage?.name || 'New',
         source: 'email',
       },
     });
+
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    return response;
   } catch (error: any) {
     console.error('Gmail lead-intake error:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { success: false, error: error.message || 'Failed to create lead' },
       { status: 500 }
     );
+    
+    // Add CORS headers to error response
+    errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+    errorResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    return errorResponse;
   }
 }

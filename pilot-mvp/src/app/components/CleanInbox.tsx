@@ -19,8 +19,17 @@ import {
   ExternalLink,
   Settings,
   Download,
+  X,
+  Save,
 } from 'lucide-react';
 import { Button } from './ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from './ui/sheet';
 
 interface Notification {
   id: string;
@@ -54,66 +63,102 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showGmailAddonInfo, setShowGmailAddonInfo] = useState(true);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [panelFormData, setPanelFormData] = useState<{
+    name: string;
+    email: string;
+    company: string;
+    phone: string;
+    notes: string;
+  }>({
+    name: '',
+    email: '',
+    company: '',
+    phone: '',
+    notes: '',
+  });
 
   useEffect(() => {
+    // Initial load - show loading state immediately
+    setLoading(true);
+    // Fetch immediately
     fetchNotifications();
-    // Poll for new notifications every 10 seconds
-    const interval = setInterval(fetchNotifications, 10000);
+    // Poll for new notifications every 20 seconds (reduced frequency for better performance)
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 20000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchNotifications = async () => {
     try {
+      // Optimize: Fetch only recent data with limits and parallel requests
+      // Use smaller limits to reduce data transfer and processing time
       const [docsRes, leadsRes, emailsRes, clientsRes, permitsRes, requestsRes] = await Promise.all([
-        fetch('/api/documents?sortBy=createdAt'),
-        fetch('/api/crm/leads'),
-        fetch('/api/emails/for-notifications'),
-        fetch('/api/clients'),
-        fetch('/api/permits/management'),
-        fetch('/api/documents/requests?status=pending'),
+        fetch('/api/documents?sortBy=createdAt&limit=30'), // Limit to 30 most recent (filtered to 20 client docs)
+        fetch('/api/crm/leads?limit=15'), // Limit to 15 most recent leads (filtered to 10 recent)
+        fetch('/api/emails/for-notifications'), // Already optimized endpoint (limited to 30)
+        fetch('/api/clients?limit=100'), // Limit clients for name mapping (only IDs needed)
+        fetch('/api/permits/management?limit=50'), // Limit permits (only for client mapping)
+        fetch('/api/documents/requests?status=pending&limit=30'), // Limit pending requests
       ]);
 
-      const docs = docsRes.ok ? await docsRes.json() : [];
-      const leadsData = leadsRes.ok ? await leadsRes.json() : { leads: [] };
-      const emailsData = emailsRes.ok ? await emailsRes.json() : { emails: [] };
-      const clientsRaw = clientsRes.ok ? await clientsRes.json() : null;
+      // Parse responses in parallel
+      const [docs, leadsData, emailsData, clientsRaw, permitsList, pendingRaw] = await Promise.all([
+        docsRes.ok ? docsRes.json() : Promise.resolve([]),
+        leadsRes.ok ? leadsRes.json() : Promise.resolve({ leads: [] }),
+        emailsRes.ok ? emailsRes.json() : Promise.resolve({ emails: [] }),
+        clientsRes.ok ? clientsRes.json() : Promise.resolve(null),
+        permitsRes.ok ? permitsRes.json() : Promise.resolve([]),
+        requestsRes.ok ? requestsRes.json() : Promise.resolve(null),
+      ]);
+
       const clientsList = Array.isArray(clientsRaw) ? clientsRaw : (clientsRaw?.clients ?? []);
-      const permitsList = permitsRes.ok ? await permitsRes.json() : [];
-      const pendingRaw = requestsRes.ok ? await requestsRes.json() : null;
       const pendingRequests = Array.isArray(pendingRaw) ? pendingRaw : [];
 
+      // Optimize: Build maps more efficiently
       const clientNameMap: Record<string, string> = {};
-      (clientsList || []).forEach((c: any) => {
+      for (const c of clientsList || []) {
         const id = c._id ?? c.id;
-        if (id) clientNameMap[String(id)] = c.businessName || c.contactInfo?.name || 'Client';
-      });
+        if (id) {
+          clientNameMap[String(id)] = c.businessName || c.contactInfo?.name || 'Client';
+        }
+      }
 
       const permitsByClient: Record<string, { name: string; permitId?: string }[]> = {};
-      (permitsList || []).forEach((p: any) => {
+      for (const p of permitsList || []) {
         const cid = p.clientId;
-        if (!cid) return;
-        if (!permitsByClient[cid]) permitsByClient[cid] = [];
-        permitsByClient[cid].push({ name: p.name || 'Permit', permitId: p.permitId });
-      });
+        if (cid) {
+          if (!permitsByClient[cid]) permitsByClient[cid] = [];
+          permitsByClient[cid].push({ name: p.name || 'Permit', permitId: p.permitId });
+        }
+      }
 
       const pendingByClient: Record<string, any[]> = {};
-      (pendingRequests || []).forEach((r: any) => {
+      for (const r of pendingRequests || []) {
         const cid = r.clientId;
-        if (!pendingByClient[cid]) pendingByClient[cid] = [];
-        pendingByClient[cid].push(r);
-      });
+        if (cid) {
+          if (!pendingByClient[cid]) pendingByClient[cid] = [];
+          pendingByClient[cid].push(r);
+        }
+      }
 
       const allNotifications: Notification[] = [];
 
+      // Optimize: Filter and limit documents early
+      const now = Date.now();
+      const fourteenDaysAgo = now - (14 * 24 * 60 * 60 * 1000);
       const clientDocs = (docs || [])
         .filter((doc: any) => {
-          const docDate = new Date(doc.createdAt);
-          const daysAgo = (Date.now() - docDate.getTime()) / (1000 * 60 * 60 * 24);
-          return doc.uploadedBy?.isClient && daysAgo <= 14;
+          if (!doc.uploadedBy?.isClient) return false;
+          const docDate = new Date(doc.createdAt).getTime();
+          return docDate >= fourteenDaysAgo;
         })
         .slice(0, 20);
 
       const fulfilledClients = new Set<string>();
+      const fulfillPromises: Promise<void>[] = [];
+      
       for (const doc of clientDocs) {
         const clientName = clientNameMap[doc.clientId] || doc.uploadedBy?.userName || 'Client';
         const permitName = doc.metadata?.permitName ?? permitsByClient[doc.clientId]?.[0]?.name ?? null;
@@ -122,13 +167,14 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
 
         if (shouldFulfill) {
           fulfilledClients.add(doc.clientId);
-          try {
-            await fetch('/api/documents/requests/fulfill', {
+          // Fire and forget - don't wait for fulfill API calls
+          fulfillPromises.push(
+            fetch('/api/documents/requests/fulfill', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ clientId: doc.clientId, documentId: doc.id }),
-            });
-          } catch (_) {}
+            }).catch(() => {}) // Silently fail
+          );
         }
 
         const title = hadPending
@@ -163,12 +209,15 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
         });
       }
 
-      // Lead notifications (recently created or updated)
+      // Don't wait for fulfill API calls - let them run in background
+      Promise.all(fulfillPromises).catch(() => {});
+
+      // Lead notifications (recently created or updated) - already limited by API
+      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
       const recentLeads = ((leadsData && leadsData.leads) || [])
         .filter((lead: any) => {
-          const leadDate = new Date(lead.updatedAt || lead.createdAt);
-          const daysAgo = (Date.now() - leadDate.getTime()) / (1000 * 60 * 60 * 24);
-          return daysAgo <= 7;
+          const leadDate = new Date(lead.updatedAt || lead.createdAt).getTime();
+          return leadDate >= sevenDaysAgo;
         })
         .slice(0, 10)
         .map((lead: any) => ({
@@ -214,12 +263,17 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
 
       allNotifications.push(...recentLeads, ...emailNotifications);
       
-      // Sort by timestamp (newest first)
+      // Sort by timestamp (newest first) - use efficient sort
       allNotifications.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
       
-      setNotifications(allNotifications);
+      // Limit total notifications to improve performance
+      const limitedNotifications = allNotifications.slice(0, 50);
+      
+      setNotifications(limitedNotifications);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
+      // Set empty array on error to prevent infinite loading
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -259,8 +313,113 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
 
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
-    if (notification.actionUrl) {
-      router.push(notification.actionUrl);
+    
+    // Extract data from notification metadata
+    const m = notification.metadata || {};
+    setPanelFormData({
+      name: m.senderName || m.leadName || notification.message.split('"')[1] || '',
+      email: m.senderEmail || m.email || '',
+      company: m.company || m.clientName || '',
+      phone: m.phone || '',
+      notes: notification.message || '',
+    });
+    
+    setSelectedNotification(notification);
+  };
+
+  const handleClosePanel = () => {
+    setSelectedNotification(null);
+    setPanelFormData({
+      name: '',
+      email: '',
+      company: '',
+      phone: '',
+      notes: '',
+    });
+  };
+
+  const handleSaveChanges = () => {
+    if (!selectedNotification) return;
+    
+    // Update notification metadata with form data
+    const updatedNotifications = notifications.map(n => {
+      if (n.id === selectedNotification.id) {
+        return {
+          ...n,
+          metadata: {
+            ...n.metadata,
+            senderName: panelFormData.name,
+            senderEmail: panelFormData.email,
+            company: panelFormData.company,
+            phone: panelFormData.phone,
+          },
+          message: panelFormData.notes || n.message,
+        };
+      }
+      return n;
+    });
+    
+    setNotifications(updatedNotifications);
+    toast.success('Changes saved successfully');
+  };
+
+  const handleAddToLead = async () => {
+    if (!panelFormData.email) {
+      toast.error('Email is required to add a lead');
+      return;
+    }
+    
+    if (!panelFormData.name) {
+      toast.error('Name is required to add a lead');
+      return;
+    }
+
+    try {
+      // Always use direct API call to ensure all form data is sent
+      const response = await fetch('/api/gmail/lead-intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: panelFormData.name.trim(),
+          email: panelFormData.email.trim(),
+          company: panelFormData.company.trim() || undefined,
+          phone: panelFormData.phone.trim() || undefined,
+          notes: panelFormData.notes.trim() || undefined,
+          source: 'email',
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        toast.success('Lead added successfully', {
+          description: `${data.lead.name} has been added to Leads${data.lead.company ? ` (${data.lead.company})` : ''}`,
+          duration: 4000,
+        });
+        
+        // Also call the handler if provided (for navigation)
+        if (onAddLeadFromEmail) {
+          onAddLeadFromEmail(panelFormData.name, panelFormData.email);
+        }
+        
+        handleClosePanel();
+        
+        // Refresh notifications to show the new lead notification
+        setTimeout(() => {
+          fetchNotifications();
+        }, 500);
+      } else {
+        toast.error('Failed to add lead', {
+          description: data.error || 'Please try again',
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Error adding lead:', error);
+      toast.error('Error adding lead', {
+        description: 'Please check your connection and try again',
+        duration: 3000,
+      });
     }
   };
 
@@ -631,6 +790,120 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
           </div>
         )}
       </div>
+
+      {/* Notification Detail Panel */}
+      <Sheet open={!!selectedNotification} onOpenChange={(open) => !open && handleClosePanel()}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
+          {selectedNotification && (
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-neutral-200">
+                <h2 className="text-lg font-semibold text-emerald-600 mb-1">
+                  {selectedNotification.title}
+                </h2>
+                <p className="text-sm text-neutral-500">
+                  {selectedNotification.message}
+                </p>
+              </div>
+
+              {/* Form Content */}
+              <div className="flex-1 overflow-y-auto px-6 py-6">
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      value={panelFormData.name}
+                      onChange={(e) => setPanelFormData({ ...panelFormData, name: e.target.value })}
+                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      placeholder="Enter name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={panelFormData.email}
+                      onChange={(e) => setPanelFormData({ ...panelFormData, email: e.target.value })}
+                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      placeholder="Enter email"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                      Company
+                    </label>
+                    <input
+                      type="text"
+                      value={panelFormData.company}
+                      onChange={(e) => setPanelFormData({ ...panelFormData, company: e.target.value })}
+                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      placeholder="Enter company"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={panelFormData.phone}
+                      onChange={(e) => setPanelFormData({ ...panelFormData, phone: e.target.value })}
+                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                      Note
+                    </label>
+                    <textarea
+                      value={panelFormData.notes}
+                      onChange={(e) => setPanelFormData({ ...panelFormData, notes: e.target.value })}
+                      rows={3}
+                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors resize-none"
+                      placeholder="Enter notes or additional information"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Footer */}
+              <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50/50">
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={handleClosePanel}
+                    className="px-4 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleSaveChanges}
+                    className="px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={handleAddToLead}
+                    disabled={!panelFormData.name || !panelFormData.email}
+                    className="px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add to Lead
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

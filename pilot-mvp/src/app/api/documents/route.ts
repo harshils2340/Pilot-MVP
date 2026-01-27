@@ -39,9 +39,16 @@ export async function GET(request: Request) {
       sortQuery = { name: 1 };
     }
     
-    const documents = await DocumentModel.find(query)
-      .sort(sortQuery)
-      .lean();
+    // Support limit parameter for performance
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    
+    let queryBuilder = DocumentModel.find(query).sort(sortQuery);
+    if (limit && limit > 0) {
+      queryBuilder = queryBuilder.limit(limit);
+    }
+    
+    const documents = await queryBuilder.lean();
     
     return NextResponse.json(documents.map(doc => ({
       id: doc._id.toString(),

@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
     const stageId = searchParams.get('stageId');
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
 
     // Query for leads - include all leads with permitRelated not explicitly false
     const query: any = { permitRelated: { $ne: false } };
@@ -32,7 +34,12 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const leads = await Lead.find(query).sort({ lastEmailDate: -1, createdAt: -1 }).lean();
+    let queryBuilder = Lead.find(query).sort({ lastEmailDate: -1, createdAt: -1 });
+    if (limit && limit > 0) {
+      queryBuilder = queryBuilder.limit(limit);
+    }
+    
+    const leads = await queryBuilder.lean();
 
     const firstStage = await PipelineStage.findOne().sort({ sequence: 1 }).lean();
     if (firstStage) {
