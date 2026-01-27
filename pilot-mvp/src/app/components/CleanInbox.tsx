@@ -40,7 +40,11 @@ interface Notification {
 
 type FilterType = 'all' | 'unread' | 'document' | 'lead' | 'permit' | 'email' | 'deadline';
 
-export function CleanInbox() {
+interface CleanInboxProps {
+  onAddLeadFromEmail?: (name: string, email: string) => void;
+}
+
+export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
@@ -191,7 +195,7 @@ export function CleanInbox() {
           timestamp: new Date(email.receivedAt),
           read: email.status === 'read',
           priority: email.priority || 'medium' as const,
-          actionUrl: `/clients/${email.clientId || ''}`,
+          actionUrl: email.clientId ? `/clients/${email.clientId}` : undefined,
           metadata: {
             senderName: email.from?.name,
             senderEmail: email.from?.email,
@@ -518,6 +522,22 @@ export function CleanInbox() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            {notification.type === 'email' && onAddLeadFromEmail && notification.metadata?.senderEmail && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const m = notification.metadata;
+                                  onAddLeadFromEmail(
+                                    m?.senderName || m?.senderEmail || 'Unknown',
+                                    m?.senderEmail || ''
+                                  );
+                                }}
+                                className="p-2 text-violet-500 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors"
+                                title="Add as lead"
+                              >
+                                <UserPlus className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

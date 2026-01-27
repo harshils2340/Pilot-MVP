@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -91,7 +91,12 @@ const TAG_COLORS = [
 const COLUMN_MIN_W = 280;
 const PAGE_SIZE = 10;
 
-export function Leads() {
+interface LeadsProps {
+  addLeadPrefill?: { name: string; email: string } | null;
+  onClearAddLeadPrefill?: () => void;
+}
+
+export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill }: LeadsProps = {}) {
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
@@ -108,6 +113,7 @@ export function Leads() {
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const sourceFromEmailRef = useRef(false);
 
   const fetchLeads = async () => {
     try {
@@ -170,6 +176,17 @@ export function Leads() {
     setSelectedLeadIds(new Set());
     setLastMovedLeadIds(new Set());
   }, [searchQuery, filterChip]);
+
+  useEffect(() => {
+    if (!addLeadPrefill || stages.length === 0 || !onClearAddLeadPrefill) return;
+    setAddLeadStage(stages[0]);
+    setNewLead({
+      name: addLeadPrefill.name.trim() || 'Unknown',
+      email: addLeadPrefill.email.trim() || '',
+      company: '',
+    });
+    onClearAddLeadPrefill();
+  }, [addLeadPrefill, stages, onClearAddLeadPrefill]);
 
   const getLeadsByStage = (stageId: string) => {
     const stageIdStr = String(stageId);
@@ -419,7 +436,7 @@ export function Leads() {
     setTimeout(() => setIsDragging(false), 100);
   };
 
-  const handleCardClick = (e: React.MouseEvent, leadId: string) => {
+  const handleCardClick = (e: React.MouseEvent, _leadId: string) => {
     // Don't navigate if we just finished dragging or if clicking on interactive elements
     const target = e.target as HTMLElement;
     if (
@@ -430,7 +447,7 @@ export function Leads() {
     ) {
       return;
     }
-    router.push(`/leads/${leadId}`);
+    // No dedicated /leads/[id] page; lead detail could be added later (e.g. modal). Stay on Kanban.
   };
 
   const handleDragOver = (e: React.DragEvent, stageId: string) => {
@@ -529,7 +546,7 @@ export function Leads() {
           name: newLead.name.trim(),
           email: newLead.email.trim(),
           company: newLead.company.trim() || undefined,
-          source: 'manual',
+          source: sourceFromEmailRef.current ? 'email' : 'manual',
         }),
       });
       const createData = await createRes.json();
@@ -571,10 +588,11 @@ export function Leads() {
         duration: 6000,
       });
 
+      sourceFromEmailRef.current = false;
       setAddLeadStage(null);
       setNewLead({ name: '', email: '', company: '' });
       await fetchLeads();
-      if (leadId) router.push(`/leads/${leadId}`);
+      // Stay on Leads view; no /leads/[id] route. New lead appears in Kanban.
     } catch (e) {
       console.error('Error adding lead:', e);
       toast.error('Failed to add lead');
@@ -643,13 +661,11 @@ export function Leads() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                // Open add lead dialog for the first stage
-                if (stages.length > 0) {
-                  setAddLeadStage(stages[0]);
-                }
+                if (stages.length > 0) setAddLeadStage(stages[0]);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium"
-              title="Add New Lead"
+              disabled={stages.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-900"
+              title={stages.length > 0 ? 'Add New Lead' : 'Load pipeline stages first'}
             >
               <Plus className="w-4 h-4" />
               <span>Add Lead</span>
@@ -1009,7 +1025,7 @@ export function Leads() {
 
 
       {/* Add lead dialog */}
-      <Dialog open={!!addLeadStage} onOpenChange={(open) => !open && setAddLeadStage(null)}>
+      <Dialog open={!!addLeadStage} onOpenChange={(open) => { if (!open) { sourceFromEmailRef.current = false; setAddLeadStage(null); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add lead</DialogTitle>

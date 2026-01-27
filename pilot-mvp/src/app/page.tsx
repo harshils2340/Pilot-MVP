@@ -34,6 +34,7 @@ export default function App() {
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [addLeadPrefill, setAddLeadPrefill] = useState<{ name: string; email: string } | null>(null);
 
   // Load auth state from localStorage and URL params on mount
   useEffect(() => {
@@ -420,7 +421,12 @@ export default function App() {
               onOpenInbox={() => setCurrentView('inbox')}
             />
           )}
-          {isLeads && <Leads />}
+          {isLeads && (
+            <Leads
+              addLeadPrefill={addLeadPrefill}
+              onClearAddLeadPrefill={() => setAddLeadPrefill(null)}
+            />
+          )}
         </main>
       </div>
     );
