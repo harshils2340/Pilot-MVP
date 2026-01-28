@@ -215,10 +215,10 @@ export default function PermitManagementPage() {
         <div className="bg-white border-b border-neutral-200 px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-semibold text-neutral-900">
+              <h2 className="text-2xl font-semibold text-foreground">
                 Permit Management
               </h2>
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-muted-foreground">
                 Manage all available permits in the system
               </p>
             </div>

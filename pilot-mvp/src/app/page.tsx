@@ -152,7 +152,7 @@ export default function App() {
   // Show loading state during hydration
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+      <div className="min-h-screen bg-page-bg flex items-center justify-center">
         <div className="text-neutral-600">Loading...</div>
       </div>
     );
@@ -170,10 +170,10 @@ export default function App() {
   // Show Permit Management view
   if (currentView === 'permit-management') {
     return (
-      <div className="flex h-screen bg-neutral-50">
+      <div className="flex h-screen bg-page-bg">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-          <div className="px-6 py-5 border-b border-neutral-200">
+        <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+          <div className="px-6 py-5 border-b border-surface-border">
             <div className="flex items-center gap-3">
               <img 
                 src="/file.svg" 
@@ -181,17 +181,17 @@ export default function App() {
                 className="h-8 w-8"
               />
               <div>
-                <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
-                <p className="text-neutral-500 text-xs">Compliance Platform</p>
+                <h1 className="font-semibold text-foreground text-lg">Pilot</h1>
+                <p className="text-muted-foreground text-xs">Compliance Platform</p>
               </div>
             </div>
           </div>
 
           {/* Back to Dashboard */}
-          <div className="p-4 border-b border-neutral-200">
+          <div className="p-4 border-b border-surface-border">
             <button
               onClick={handleBackToDashboard}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Dashboard</span>
@@ -200,14 +200,14 @@ export default function App() {
 
           <div className="flex-1"></div>
 
-          <div className="p-4 border-t border-neutral-200">
+          <div className="p-4 border-t border-surface-border">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
                 {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
-                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
+                <p className="text-sm font-medium text-foreground">{userName || 'User'}</p>
+                <p className="text-xs text-muted-foreground">{userEmail || 'user@example.com'}</p>
               </div>
             </div>
           </div>
@@ -224,10 +224,10 @@ export default function App() {
   // Show Permit Inbox view
   if (currentView === 'inbox') {
     return (
-      <div className="flex h-screen bg-neutral-50">
+      <div className="flex h-screen bg-page-bg">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-          <div className="px-6 py-5 border-b border-neutral-200">
+        <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+          <div className="px-6 py-5 border-b border-surface-border">
             <div className="flex items-center gap-3">
               <img 
                 src="/file.svg" 
@@ -235,8 +235,8 @@ export default function App() {
                 className="h-8 w-8"
               />
               <div>
-                <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
-                <p className="text-neutral-500 text-xs">Permit Management</p>
+                <h1 className="font-semibold text-foreground text-lg">Pilot</h1>
+                <p className="text-muted-foreground text-xs">Permit Management</p>
               </div>
             </div>
           </div>
@@ -245,21 +245,21 @@ export default function App() {
           <nav className="flex-1 p-4 space-y-1">
             <button
               onClick={() => setCurrentView('dashboard')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <Users className="w-5 h-5" />
               <span className="text-sm">Clients</span>
             </button>
             <button
               onClick={() => setCurrentView('leads')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <UserPlus className="w-5 h-5" />
               <span className="text-sm">Leads</span>
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-neutral-900 text-white transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground transition-colors"
             >
               <Bell className="w-5 h-5" />
               <div className="flex items-center justify-between flex-1">
@@ -269,28 +269,28 @@ export default function App() {
             </button>
             <button
               onClick={() => router.push('/permit-management')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <Database className="w-5 h-5" />
               <span className="text-sm">Permit Database</span>
             </button>
             <button
               onClick={() => router.push('/settings')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <Settings className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
           </nav>
 
-          <div className="p-4 border-t border-neutral-200">
+          <div className="p-4 border-t border-surface-border">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
                 {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
-                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
+                <p className="text-sm font-medium text-foreground">{userName || 'User'}</p>
+                <p className="text-xs text-muted-foreground">{userEmail || 'user@example.com'}</p>
               </div>
             </div>
           </div>
@@ -346,7 +346,7 @@ export default function App() {
   // Show client onboarding if triggered
   if (showClientOnboarding) {
     return (
-      <div className="flex h-screen bg-neutral-50">
+      <div className="flex h-screen bg-page-bg">
         <ClientOnboarding
           onComplete={(clientData) => {
             // Client created successfully
@@ -372,10 +372,10 @@ export default function App() {
     const isDashboard = currentView === 'dashboard';
     const isLeads = currentView === 'leads';
     return (
-      <div className="flex h-screen bg-neutral-50">
+      <div className="flex h-screen bg-page-bg">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-          <div className="px-6 py-5 border-b border-neutral-200">
+        <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+          <div className="px-6 py-5 border-b border-surface-border">
             <div className="flex items-center gap-3">
               <img 
                 src="/file.svg" 
@@ -383,8 +383,8 @@ export default function App() {
                 className="h-8 w-8"
               />
               <div>
-                <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
-                <p className="text-neutral-500 text-xs">Permit Management</p>
+                <h1 className="font-semibold text-foreground text-lg">Pilot</h1>
+                <p className="text-muted-foreground text-xs">Permit Management</p>
               </div>
             </div>
           </div>
@@ -394,7 +394,7 @@ export default function App() {
             <button
               onClick={() => setCurrentView('dashboard')}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                isDashboard ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                isDashboard ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
               <Users className="w-5 h-5" />
@@ -403,7 +403,7 @@ export default function App() {
             <button
               onClick={() => setCurrentView('leads')}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                isLeads ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                isLeads ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
               }`}
             >
               <UserPlus className="w-5 h-5" />
@@ -411,7 +411,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <Bell className="w-5 h-5" />
               <div className="flex items-center justify-between flex-1">
@@ -421,33 +421,33 @@ export default function App() {
             </button>
             <button
               onClick={() => router.push('/permit-management')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <Database className="w-5 h-5" />
               <span className="text-sm">Permit Database</span>
             </button>
             <button
               onClick={() => router.push('/settings')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
               <Settings className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
           </nav>
 
-          <div className="p-4 border-t border-neutral-200">
+          <div className="p-4 border-t border-surface-border">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
                 {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
-                <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
+                <p className="text-sm font-medium text-foreground">{userName || 'User'}</p>
+                <p className="text-xs text-muted-foreground">{userEmail || 'user@example.com'}</p>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="w-full px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+              className="w-full px-3 py-2 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
             >
               Sign out
             </button>
@@ -478,10 +478,10 @@ export default function App() {
 
   // Show client workspace with tabs
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-page-bg">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-        <div className="px-6 py-5 border-b border-neutral-200">
+      <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+        <div className="px-6 py-5 border-b border-surface-border">
           <div className="flex items-center gap-3">
             <img 
               src="/file.svg" 
@@ -489,17 +489,17 @@ export default function App() {
               className="h-8 w-8"
             />
             <div>
-              <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
-              <p className="text-neutral-500 text-xs">Compliance Platform</p>
+              <h1 className="font-semibold text-foreground text-lg">Pilot</h1>
+              <p className="text-muted-foreground text-xs">Compliance Platform</p>
             </div>
           </div>
         </div>
 
         {/* Back to Dashboard */}
-        <div className="p-4 border-b border-neutral-200">
+        <div className="p-4 border-b border-surface-border">
           <button
             onClick={handleBackToDashboard}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Clients</span>
@@ -508,8 +508,8 @@ export default function App() {
 
         {/* Client Name Display */}
         <div className="px-4 pt-4 pb-2">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Current Client</p>
-          <p className="text-sm font-medium text-neutral-900">{selectedClient}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Client</p>
+          <p className="text-sm font-medium text-foreground">{selectedClient}</p>
         </div>
 
         {/* Navigation Tabs */}
@@ -522,8 +522,8 @@ export default function App() {
                 onClick={() => setCurrentScreen(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
                   currentScreen === item.id
-                    ? 'bg-neutral-900 text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent'
                 }`}
               >
                 <Icon className="w-5 h-5" />
@@ -533,19 +533,19 @@ export default function App() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-neutral-200">
+        <div className="p-4 border-t border-surface-border">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
               {userName ? userName.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-neutral-900">{userName || 'User'}</p>
-              <p className="text-xs text-neutral-500">{userEmail || 'user@example.com'}</p>
+              <p className="text-sm font-medium text-foreground">{userName || 'User'}</p>
+              <p className="text-xs text-muted-foreground">{userEmail || 'user@example.com'}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+            className="w-full px-3 py-2 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Sign out
           </button>

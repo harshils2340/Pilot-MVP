@@ -15,7 +15,12 @@ import {
   Clock,
   Users,
   Database,
+  Palette,
+  Circle,
+  Moon,
+  Droplets,
 } from 'lucide-react';
+import { useTheme, type Theme } from '../components/ThemeProvider';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 import {
@@ -47,8 +52,15 @@ interface SettingsState {
   };
 }
 
+const themeOptions: { id: Theme; label: string; icon: React.ElementType; desc: string }[] = [
+  { id: 'default', label: 'Default', icon: Circle, desc: 'Light, neutral palette' },
+  { id: 'black', label: 'Black', icon: Moon, desc: 'Dark background, high contrast' },
+  { id: 'blue', label: 'Blue', icon: Droplets, desc: 'Light with blue accents' },
+];
+
 export default function SettingsPage() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [settings, setSettings] = useState<SettingsState>({
@@ -127,14 +139,14 @@ export default function SettingsPage() {
     description: string;
     children: React.ReactNode;
   }) => (
-    <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-surface border border-surface-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start gap-4 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
-          <Icon className="w-5 h-5 text-neutral-700" />
+        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+          <Icon className="w-5 h-5 text-foreground" />
         </div>
         <div className="flex-1">
-          <h2 className="text-base font-semibold text-neutral-900 mb-1">{title}</h2>
-          <p className="text-xs text-neutral-500">{description}</p>
+          <h2 className="text-base font-semibold text-foreground mb-1">{title}</h2>
+          <p className="text-xs text-muted-foreground">{description}</p>
         </div>
       </div>
       <div className="space-y-4">{children}</div>
@@ -150,33 +162,33 @@ export default function SettingsPage() {
     description?: string;
     children: React.ReactNode;
   }) => (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-neutral-100 last:border-0">
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0">
       <div className="flex-1">
-        <Label className="text-sm font-medium text-neutral-900 mb-0.5">{label}</Label>
-        {description && <p className="text-xs text-neutral-500 mt-1">{description}</p>}
+        <Label className="text-sm font-medium text-foreground mb-0.5">{label}</Label>
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
       </div>
       <div className="flex-shrink-0">{children}</div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-page-bg">
       {/* Header */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-10">
+      <div className="bg-surface border-b border-surface-border sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push('/')}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors border border-neutral-200"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors border border-surface-border"
                 title="Back to Dashboard"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Dashboard</span>
               </button>
               <div>
-                <h1 className="text-2xl font-semibold text-neutral-900">Settings</h1>
-                <p className="text-sm text-neutral-600 mt-1">
+                <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   Configure your workspace preferences and notifications.
                 </p>
               </div>
@@ -184,7 +196,7 @@ export default function SettingsPage() {
             <Button
               onClick={handleSave}
               disabled={!hasChanges || isSaving}
-              className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800"
+              className="flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90"
             >
               <Save className="w-4 h-4" />
               {isSaving ? 'Saving...' : 'Save Changes'}
@@ -196,6 +208,37 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="max-w-4xl mx-auto px-8 py-8">
         <div className="space-y-6">
+          {/* Theme / Appearance Section */}
+          <SettingCard
+            icon={Palette}
+            title="Theme"
+            description="Choose a color theme for the app. Changes apply immediately."
+          >
+            <div className="flex flex-wrap gap-3">
+              {themeOptions.map((opt) => {
+                const Icon = opt.icon;
+                const active = theme === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => setTheme(opt.id)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
+                      active
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:border-surface-border bg-muted/50 text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">{opt.label}</div>
+                      <div className="text-xs opacity-70">{opt.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </SettingCard>
+
           {/* Notifications Section */}
           <SettingCard
             icon={Bell}
@@ -373,21 +416,21 @@ export default function SettingsPage() {
           </SettingCard>
 
           {/* Additional Info Section */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <div className="bg-secondary border border-border rounded-xl p-6">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Database className="w-4 h-4 text-blue-600" />
+              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                <Database className="w-4 h-4 text-foreground" />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-blue-900 mb-1">Pipeline Management</h3>
-                <p className="text-xs text-blue-700 mb-3">
+                <h3 className="text-sm font-semibold text-foreground mb-1">Pipeline Management</h3>
+                <p className="text-xs text-muted-foreground mb-3">
                   Manage your CRM pipeline stages and lead workflows from the Leads page.
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push('/')}
-                  className="text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => router.push('/?view=leads')}
+                  className="text-xs border-border text-foreground hover:bg-accent"
                 >
                   Go to Leads
                 </Button>

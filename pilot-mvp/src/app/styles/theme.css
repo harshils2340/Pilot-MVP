@@ -1,6 +1,8 @@
 @custom-variant dark (&:is(.dark *));
 
-:root {
+/* Layout-level theme tokens (page background, surfaces, borders) */
+:root,
+html.theme-default {
   --font-size: 16px;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
@@ -39,6 +41,87 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --page-bg: #fafafa;
+  --surface: #ffffff;
+  --surface-border: #e5e5e5;
+  --text-primary: oklch(0.145 0 0);
+  --text-muted: #737373;
+}
+
+/* Black (dark) theme */
+html.theme-black {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #141414;
+  --card-foreground: #fafafa;
+  --popover: #141414;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #0a0a0a;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #262626;
+  --accent-foreground: #fafafa;
+  --destructive: #7f1d1d;
+  --destructive-foreground: #fecaca;
+  --border: #262626;
+  --input: #262626;
+  --input-background: #171717;
+  --switch-background: #404040;
+  --ring: #525252;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #fafafa;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #262626;
+  --sidebar-ring: #525252;
+  --page-bg: #0a0a0a;
+  --surface: #141414;
+  --surface-border: #262626;
+  --text-primary: #fafafa;
+  --text-muted: #a3a3a3;
+}
+
+/* Blue theme */
+html.theme-blue {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --secondary: #eff6ff;
+  --secondary-foreground: #1d4ed8;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #dbeafe;
+  --accent-foreground: #1d4ed8;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #bfdbfe;
+  --input: transparent;
+  --input-background: #f1f5f9;
+  --switch-background: #93c5fd;
+  --ring: #3b82f6;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #1d4ed8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eff6ff;
+  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-border: #bfdbfe;
+  --sidebar-ring: #3b82f6;
+  --page-bg: #eff6ff;
+  --surface: #ffffff;
+  --surface-border: #bfdbfe;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
 }
 
 .dark {
@@ -117,6 +200,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-page-bg: var(--page-bg);
+  --color-surface: var(--surface);
+  --color-surface-border: var(--surface-border);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
 }
 
 @layer base {

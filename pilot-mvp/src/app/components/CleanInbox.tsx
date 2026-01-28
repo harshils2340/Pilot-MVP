@@ -19,8 +19,15 @@ import {
   ExternalLink,
   Settings,
   Download,
-  X,
   Save,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Copy,
+  BookOpen,
+  PlayCircle,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -62,7 +69,9 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showGmailAddonInfo, setShowGmailAddonInfo] = useState(true);
+  const [gmailAddonCardExpanded, setGmailAddonCardExpanded] = useState(true);
+  const [gmailAddonExpanded, setGmailAddonExpanded] = useState(false);
+  const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [panelFormData, setPanelFormData] = useState<{
     name: string;
@@ -533,59 +542,213 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
           </div>
         </div>
 
-        {/* Gmail Add-on Installation Banner */}
-        {showGmailAddonInfo && (
-          <div className="mb-4 p-4 bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-xl">
+        {/* Enhanced Gmail Add-on Section */}
+        <div className="mb-6 bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className={`p-5 bg-neutral-50 ${gmailAddonCardExpanded ? 'border-b border-neutral-200' : ''}`}>
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Mail className="w-5 h-5 text-sky-600" />
-                  <h3 className="text-sm font-semibold text-neutral-900">Gmail Add-on Available</h3>
+              <div className="flex items-start gap-3 flex-1">
+                <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-5 h-5 text-neutral-700" />
                 </div>
-                <p className="text-xs text-neutral-600 mb-3 leading-relaxed">
-                  Install the Pilot MVP Gmail add-on to view client and lead information directly in Gmail. 
-                  When you open an email, the add-on will automatically show details about the sender if they're a client or lead.
-                </p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://script.google.com/home', '_blank')}
-                    className="text-xs border-sky-300 text-sky-700 hover:bg-sky-100"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                    Open Google Apps Script
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const instructions = `1. Go to https://script.google.com
-2. Create a new project
-3. Copy the code from pilot-mvp/gmail-addon/Code.gs
-4. Copy the manifest from pilot-mvp/gmail-addon/appsscript.json
-5. Deploy as "Add-on" → "Test deployment"
-6. The add-on will appear in Gmail when you open emails`;
-                      navigator.clipboard.writeText(instructions);
-                      toast.success('Installation instructions copied to clipboard');
-                    }}
-                    className="text-xs border-neutral-300 text-neutral-700 hover:bg-neutral-100"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1.5" />
-                    Copy Setup Instructions
-                  </Button>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-base font-semibold text-neutral-900">Gmail Add-on</h3>
+                    <span className="px-2 py-0.5 bg-neutral-200 rounded-full text-xs font-medium text-neutral-700">
+                      Available
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 leading-relaxed">
+                    Add leads directly from Gmail. View client information instantly when opening emails.
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowGmailAddonInfo(false)}
-                className="text-neutral-400 hover:text-neutral-600 shrink-0"
-                title="Dismiss"
+                onClick={() => setGmailAddonCardExpanded(!gmailAddonCardExpanded)}
+                className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors shrink-0 text-neutral-500 hover:text-neutral-700"
+                title={gmailAddonCardExpanded ? 'Collapse' : 'Expand'}
               >
-                <ChevronRight className="w-4 h-4 rotate-90" />
+                {gmailAddonCardExpanded ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
-        )}
+
+          {gmailAddonCardExpanded && (
+            <>
+            {/* Quick Actions */}
+            <div className="p-5 bg-white border-b border-neutral-200">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Button
+                  onClick={() => window.open('https://script.google.com/home', '_blank')}
+                  variant="outline"
+                  className="border-neutral-200 hover:bg-neutral-50 text-neutral-700 h-auto py-3 flex flex-col items-center gap-2"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  <span className="text-sm font-medium">Open Apps Script</span>
+                  <span className="text-xs text-neutral-500">Start Setup</span>
+                </Button>
+                <Button
+                  onClick={() => {
+                    const instructions = `Gmail Add-on Setup Instructions:
+
+1. Go to https://script.google.com
+2. Click "+ New Project"
+3. Copy Code.gs from pilot-mvp/gmail-addon/Code.gs
+4. Enable appsscript.json (Project Settings → Show appsscript.json)
+5. Copy appsscript.json from pilot-mvp/gmail-addon/appsscript.json
+6. Click Deploy → New deployment → Add-on
+7. Authorize permissions
+8. Open Gmail and check the sidebar when viewing emails`;
+                    navigator.clipboard.writeText(instructions);
+                    toast.success('Setup instructions copied!', {
+                      description: 'Paste them in a text editor for reference',
+                    });
+                    setCopiedStep(null);
+                  }}
+                  variant="outline"
+                  className="border-neutral-200 hover:bg-neutral-50 text-neutral-700 h-auto py-3 flex flex-col items-center gap-2"
+                >
+                  <Copy className="w-5 h-5" />
+                  <span className="text-sm font-medium">Copy Instructions</span>
+                  <span className="text-xs text-neutral-500">Quick Reference</span>
+                </Button>
+                <Button
+                  onClick={() => window.open('https://mail.google.com', '_blank')}
+                  className="bg-neutral-900 hover:bg-neutral-800 text-white h-auto py-3 flex flex-col items-center gap-2"
+                >
+                  <Mail className="w-5 h-5" />
+                  <span className="text-sm font-medium">Open Gmail</span>
+                  <span className="text-xs text-neutral-300">Test Add-on</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Expandable Details */}
+            <div className="bg-white">
+              <button
+                onClick={() => setGmailAddonExpanded(!gmailAddonExpanded)}
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-neutral-50 transition-colors border-t border-neutral-200"
+              >
+                <span className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-neutral-500" />
+                  {gmailAddonExpanded ? 'Hide' : 'Show'} Setup Guide
+                </span>
+                {gmailAddonExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-neutral-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-neutral-500" />
+                )}
+              </button>
+
+              {gmailAddonExpanded && (
+                <div className="px-5 pb-5 space-y-4 border-t border-neutral-200 pt-4">
+                  {/* Features List */}
+                  <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
+                    <h4 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-neutral-600" />
+                      What You Can Do
+                    </h4>
+                    <ul className="space-y-2 text-sm text-neutral-700">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <span>View client/lead info automatically when opening emails</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <span>Add leads directly from Gmail with pre-filled information</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <span>Quick access to Pilot dashboard from Gmail sidebar</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <span>No need to switch between Gmail and Pilot</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Step-by-Step Guide */}
+                  <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
+                    <h4 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+                      <PlayCircle className="w-4 h-4 text-neutral-600" />
+                      Quick Setup Steps
+                    </h4>
+                    <ol className="space-y-3">
+                      {[
+                        { step: 1, text: 'Go to Google Apps Script and create a new project' },
+                        { step: 2, text: 'Copy Code.gs content from pilot-mvp/gmail-addon/Code.gs' },
+                        { step: 3, text: 'Enable appsscript.json in Project Settings' },
+                        { step: 4, text: 'Copy appsscript.json content from pilot-mvp/gmail-addon/appsscript.json' },
+                        { step: 5, text: 'Deploy → New deployment → Select "Add-on"' },
+                        { step: 6, text: 'Authorize permissions and complete deployment' },
+                        { step: 7, text: 'Open Gmail and check the sidebar when viewing emails' },
+                      ].map(({ step, text }) => (
+                        <li key={step} className="flex items-start gap-3 text-sm">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold">
+                            {step}
+                          </div>
+                          <div className="flex-1 pt-0.5">
+                            <span className="text-neutral-700">{text}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(text);
+                                setCopiedStep(step);
+                                toast.success(`Step ${step} copied!`);
+                                setTimeout(() => setCopiedStep(null), 2000);
+                              }}
+                              className="ml-2 text-neutral-600 hover:text-neutral-900 text-xs inline-flex items-center gap-1"
+                            >
+                              <Copy className="w-3 h-3" />
+                              {copiedStep === step ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  {/* Help Section */}
+                  <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-neutral-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-neutral-900 mb-1">Need Help?</h4>
+                        <p className="text-xs text-neutral-600 mb-2">
+                          Check the detailed setup guide in <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-xs text-neutral-700">pilot-mvp/gmail-addon/YOUR_WORK_STEPS.md</code>
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const helpText = `For detailed setup instructions, see:
+pilot-mvp/gmail-addon/YOUR_WORK_STEPS.md
+
+Common Issues:
+- Add-on not appearing: Wait 2-3 minutes after deployment
+- Permission errors: Check OAuth consent screen settings
+- API errors: Verify the API is deployed and accessible`;
+                            navigator.clipboard.writeText(helpText);
+                            toast.success('Help text copied!');
+                          }}
+                          className="text-xs border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                        >
+                          <Copy className="w-3 h-3 mr-1.5" />
+                          Copy Troubleshooting Tips
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            </>
+          )}
+        </div>
 
         {/* Search */}
         <div className="relative mb-4">

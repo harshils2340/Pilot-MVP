@@ -6,6 +6,7 @@ import './styles/fonts.css';
 import './styles/tailwind.css';
 import './styles/theme.css';
 import { Toaster } from './components/ui/sonner';
+import { ThemeProvider } from './components/ThemeProvider';
 
 export const metadata: Metadata = {
   icons: {
@@ -20,11 +21,26 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const themeScript = `
+(function() {
+  var html = document.documentElement;
+  html.classList.remove('theme-default', 'theme-black', 'theme-blue');
+  var t = localStorage.getItem('pilot-theme');
+  var c = 'theme-default';
+  if (t === 'black') c = 'theme-black';
+  else if (t === 'blue') c = 'theme-blue';
+  html.classList.add(c);
+})();
+`;
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        {children}
-        <Toaster />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
