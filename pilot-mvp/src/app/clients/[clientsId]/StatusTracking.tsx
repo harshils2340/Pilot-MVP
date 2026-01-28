@@ -1,7 +1,8 @@
 'use client';
 
-import { GripVertical, MoreVertical, Plus, Filter, Search } from 'lucide-react';
+import { GripVertical, MoreVertical, Plus, Filter, Search, FileCheck } from 'lucide-react';
 import { useState } from 'react';
+import { ReviewPermitModal } from '@/app/components/ReviewPermitModal';
 
 interface Permit {
   id: string;
@@ -46,6 +47,8 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [reviewingPermitId, setReviewingPermitId] = useState<string | null>(null);
+  const [reviewingPermitName, setReviewingPermitName] = useState<string>('');
 
   const columns = [
     { id: 'draft' as const, label: 'Draft', color: 'bg-neutral-100' },
@@ -297,9 +300,20 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                           </div>
                         </div>
 
-                        <div className="mt-3 pt-3 border-t border-neutral-100">
+                        <div className="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between">
                           <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700">
                             <GripVertical className="w-3 h-3" /> Drag to move
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReviewingPermitId(permit.id);
+                              setReviewingPermitName(permit.name);
+                            }}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            title="Review permit"
+                          >
+                            <FileCheck className="w-3 h-3" /> Review
                           </button>
                         </div>
                       </div>
@@ -318,6 +332,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
               <div className="col-span-1">Priority</div>
               <div className="col-span-1">Assignee</div>
               <div className="col-span-1">Due Date</div>
+              <div className="col-span-1">Actions</div>
             </div>
 
             {mockPermits.map((permit) => (
@@ -356,11 +371,37 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                   <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium">{permit.assignee}</div>
                 </div>
                 <div className="col-span-1 flex items-center text-neutral-600 text-sm">{permit.dueDate}</div>
+                <div className="col-span-1 flex items-center justify-end">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReviewingPermitId(permit.id);
+                      setReviewingPermitName(permit.name);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                    title="Review permit"
+                  >
+                    <FileCheck className="w-3.5 h-3.5" /> Review
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Review Permit Modal */}
+      {reviewingPermitId && (
+        <ReviewPermitModal
+          permitId={reviewingPermitId}
+          permitName={reviewingPermitName}
+          isOpen={!!reviewingPermitId}
+          onClose={() => {
+            setReviewingPermitId(null);
+            setReviewingPermitName('');
+          }}
+        />
+      )}
     </div>
   );
 }

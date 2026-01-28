@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Trash2, X, Eye, Phone, Mail, Globe, MapPin, Info, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Trash2, X, Eye, Phone, Mail, Globe, MapPin, Info, FileText, AlertCircle, Loader2, FileCheck } from 'lucide-react';
+import { ReviewPermitModal } from './ReviewPermitModal';
 
 export interface PermitData {
   id: string;
@@ -253,6 +254,8 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [deletingPermitId, setDeletingPermitId] = useState<string | null>(null);
   const [viewingPermit, setViewingPermit] = useState<PermitData | null>(null);
+  const [reviewingPermitId, setReviewingPermitId] = useState<string | null>(null);
+  const [reviewingPermitName, setReviewingPermitName] = useState<string>('');
 
   // Fetch permits from API on mount
   useEffect(() => {
@@ -714,6 +717,16 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
+                          onClick={() => {
+                            setReviewingPermitId(permit.id);
+                            setReviewingPermitName(permit.name);
+                          }}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Review permit"
+                        >
+                          <FileCheck className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => setViewingPermit(permit)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="View details"
@@ -1173,6 +1186,19 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Review Permit Modal */}
+      {reviewingPermitId && (
+        <ReviewPermitModal
+          permitId={reviewingPermitId}
+          permitName={reviewingPermitName}
+          isOpen={!!reviewingPermitId}
+          onClose={() => {
+            setReviewingPermitId(null);
+            setReviewingPermitName('');
+          }}
+        />
       )}
     </div>
   );

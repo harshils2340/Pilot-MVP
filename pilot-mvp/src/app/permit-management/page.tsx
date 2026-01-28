@@ -10,7 +10,9 @@ import {
   Eye,
   Pencil,
   Trash2,
+  FileCheck,
 } from 'lucide-react';
+import { ReviewPermitModal } from '@/app/components/ReviewPermitModal';
 
 interface Permit {
   _id: string;
@@ -62,6 +64,8 @@ export default function PermitManagementPage() {
   const [selectedAuthorities, setSelectedAuthorities] = useState<string[]>([]);
   const [userName, setUserName] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
+  const [reviewingPermitId, setReviewingPermitId] = useState<string | null>(null);
+  const [reviewingPermitName, setReviewingPermitName] = useState<string>('');
 
   // Get user info from localStorage (set after Google OAuth)
   useEffect(() => {
@@ -391,6 +395,15 @@ export default function PermitManagementPage() {
                       <div className="col-span-1 text-sm">{p.fees || 'N/A'}</div>
 
                   <div className="col-span-1 flex justify-end gap-2">
+                        <FileCheck
+                          className="w-4 h-4 text-green-600 cursor-pointer hover:text-green-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewingPermitId(p._id);
+                            setReviewingPermitName(p.name);
+                          }}
+                          title="Review permit"
+                        />
                         <Eye className="w-4 h-4 text-neutral-500 cursor-pointer hover:text-neutral-700" />
                         <Pencil 
                           className={`w-4 h-4 cursor-pointer transition-colors ${
@@ -573,6 +586,19 @@ export default function PermitManagementPage() {
           )}
         </div>
       </main>
+
+      {/* Review Permit Modal */}
+      {reviewingPermitId && (
+        <ReviewPermitModal
+          permitId={reviewingPermitId}
+          permitName={reviewingPermitName}
+          isOpen={!!reviewingPermitId}
+          onClose={() => {
+            setReviewingPermitId(null);
+            setReviewingPermitName('');
+          }}
+        />
+      )}
     </div>
   );
 }
