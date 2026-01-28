@@ -112,9 +112,9 @@ export function ReviewPermitModal({
 
         {loading && (
           <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="w-12 h-12 animate-spin text-neutral-600 mb-4" />
-            <p className="text-neutral-600 font-medium">Reviewing permit...</p>
-            <p className="text-sm text-neutral-500 mt-2">
+            <Loader2 className="w-12 h-12 animate-spin text-muted-foreground mb-4" />
+            <p className="text-foreground font-medium">Reviewing permit...</p>
+            <p className="text-sm text-muted-foreground mt-2">
               Checking required fields, completeness, and validation rules
             </p>
           </div>
@@ -193,7 +193,7 @@ export function ReviewPermitModal({
                   {reviewResult.errors.map((err, index) => (
                     <div
                       key={index}
-                      className="bg-white border border-red-200 rounded-lg p-4"
+                      className="bg-surface border border-red-200 rounded-lg p-4"
                     >
                       <div className="flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -204,9 +204,9 @@ export function ReviewPermitModal({
                             </span>
                             <span className="text-xs text-red-600">Error</span>
                           </div>
-                          <p className="font-medium text-neutral-900 mb-1">{err.message}</p>
+                          <p className="font-medium text-foreground mb-1">{err.message}</p>
                           {err.suggestion && (
-                            <p className="text-sm text-neutral-600">{err.suggestion}</p>
+                            <p className="text-sm text-muted-foreground">{err.suggestion}</p>
                           )}
                         </div>
                       </div>
@@ -273,17 +273,17 @@ export function ReviewPermitModal({
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button
                 onClick={onClose}
-                className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
               >
                 Close
               </button>
               {reviewResult && (
                 <button
                   onClick={handleReview}
-                  className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
                 >
                   Review Again
                 </button>

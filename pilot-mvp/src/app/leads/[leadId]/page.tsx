@@ -122,7 +122,7 @@ export default function LeadDetailPage() {
 
   if (!leadId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-page-bg">
         <p className="text-neutral-500">Invalid lead.</p>
       </div>
     );
@@ -130,7 +130,7 @@ export default function LeadDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-page-bg">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
           <p className="mt-3 text-sm text-neutral-500">Loading lead…</p>
@@ -141,7 +141,7 @@ export default function LeadDetailPage() {
 
   if (error || !lead) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-neutral-50 px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-page-bg px-4">
         <p className="text-neutral-600">{error || 'Lead not found.'}</p>
         <button
           onClick={() => router.push('/?view=leads')}

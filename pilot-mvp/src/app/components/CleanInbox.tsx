@@ -446,7 +446,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'deadline':
         return <Clock className={`${classes} text-rose-600`} />;
       default:
-        return <Bell className={`${classes} text-neutral-500`} />;
+        return <Bell className={`${classes} text-muted-foreground`} />;
     }
   };
 
@@ -463,7 +463,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'deadline':
         return 'bg-rose-100';
       default:
-        return 'bg-neutral-100';
+        return 'bg-muted';
     }
   };
 
@@ -476,7 +476,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'medium':
         return 'border-l-sky-500 bg-sky-50/50';
       default:
-        return 'border-l-neutral-300 bg-white';
+        return 'border-l-border bg-surface';
     }
   };
 
@@ -499,19 +499,19 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-neutral-50/80">
+    <div className="h-full flex flex-col bg-page-bg">
       {/* Header */}
-      <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b border-neutral-200/80 shadow-sm px-6 py-5">
+      <div className="flex-shrink-0 bg-surface/95 backdrop-blur-sm border-b border-border shadow-sm px-6 py-5">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center">
-              <Bell className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+              <Bell className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-neutral-900 tracking-tight">Notifications</h1>
-              <p className="text-sm text-neutral-500 mt-0.5">
+              <h1 className="text-xl font-semibold text-foreground tracking-tight">Notifications</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 {unreadCount > 0 ? (
-                  <span className="font-medium text-neutral-700">{unreadCount} unread</span>
+                  <span className="font-medium text-foreground">{unreadCount} unread</span>
                 ) : (
                   <span className="text-emerald-600">All caught up!</span>
                 )}
@@ -524,7 +524,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
                 variant="outline"
                 size="sm"
                 onClick={markAllAsRead}
-                className="flex items-center gap-2 border-neutral-200 hover:bg-neutral-50"
+                className="flex items-center gap-2 border-border hover:bg-accent text-foreground"
               >
                 <CheckCheck className="w-4 h-4" />
                 Mark all read
@@ -534,7 +534,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
               variant="outline"
               size="sm"
               onClick={fetchNotifications}
-              className="flex items-center gap-2 border-neutral-200 hover:bg-neutral-50"
+              className="flex items-center gap-2 border-border hover:bg-accent text-foreground"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
@@ -543,29 +543,29 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
         </div>
 
         {/* Enhanced Gmail Add-on Section */}
-        <div className="mb-6 bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="mb-6 bg-surface border border-border rounded-xl shadow-sm overflow-hidden">
           {/* Header */}
-          <div className={`p-5 bg-neutral-50 ${gmailAddonCardExpanded ? 'border-b border-neutral-200' : ''}`}>
+          <div className={`p-5 bg-muted/50 ${gmailAddonCardExpanded ? 'border-b border-border' : ''}`}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1">
-                <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-5 h-5 text-neutral-700" />
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-5 h-5 text-foreground" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-base font-semibold text-neutral-900">Gmail Add-on</h3>
-                    <span className="px-2 py-0.5 bg-neutral-200 rounded-full text-xs font-medium text-neutral-700">
+                    <h3 className="text-base font-semibold text-foreground">Gmail Add-on</h3>
+                    <span className="px-2 py-0.5 bg-muted rounded-full text-xs font-medium text-muted-foreground">
                       Available
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-500 leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
                     Add leads directly from Gmail. View client information instantly when opening emails.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setGmailAddonCardExpanded(!gmailAddonCardExpanded)}
-                className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors shrink-0 text-neutral-500 hover:text-neutral-700"
+                className="p-1.5 hover:bg-accent rounded-lg transition-colors shrink-0 text-muted-foreground hover:text-foreground"
                 title={gmailAddonCardExpanded ? 'Collapse' : 'Expand'}
               >
                 {gmailAddonCardExpanded ? (
@@ -580,16 +580,16 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
           {gmailAddonCardExpanded && (
             <>
             {/* Quick Actions */}
-            <div className="p-5 bg-white border-b border-neutral-200">
+            <div className="p-5 bg-surface border-b border-border">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Button
                   onClick={() => window.open('https://script.google.com/home', '_blank')}
                   variant="outline"
-                  className="border-neutral-200 hover:bg-neutral-50 text-neutral-700 h-auto py-3 flex flex-col items-center gap-2"
+                  className="border-border hover:bg-accent text-foreground h-auto py-3 flex flex-col items-center gap-2"
                 >
                   <ExternalLink className="w-5 h-5" />
                   <span className="text-sm font-medium">Open Apps Script</span>
-                  <span className="text-xs text-neutral-500">Start Setup</span>
+                  <span className="text-xs text-muted-foreground">Start Setup</span>
                 </Button>
                 <Button
                   onClick={() => {
@@ -610,72 +610,72 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
                     setCopiedStep(null);
                   }}
                   variant="outline"
-                  className="border-neutral-200 hover:bg-neutral-50 text-neutral-700 h-auto py-3 flex flex-col items-center gap-2"
+                  className="border-border hover:bg-accent text-foreground h-auto py-3 flex flex-col items-center gap-2"
                 >
                   <Copy className="w-5 h-5" />
                   <span className="text-sm font-medium">Copy Instructions</span>
-                  <span className="text-xs text-neutral-500">Quick Reference</span>
+                  <span className="text-xs text-muted-foreground">Quick Reference</span>
                 </Button>
                 <Button
                   onClick={() => window.open('https://mail.google.com', '_blank')}
-                  className="bg-neutral-900 hover:bg-neutral-800 text-white h-auto py-3 flex flex-col items-center gap-2"
+                  className="bg-primary hover:opacity-90 text-primary-foreground h-auto py-3 flex flex-col items-center gap-2"
                 >
                   <Mail className="w-5 h-5" />
                   <span className="text-sm font-medium">Open Gmail</span>
-                  <span className="text-xs text-neutral-300">Test Add-on</span>
+                  <span className="text-xs text-primary-foreground/80">Test Add-on</span>
                 </Button>
               </div>
             </div>
 
             {/* Expandable Details */}
-            <div className="bg-white">
+            <div className="bg-surface">
               <button
                 onClick={() => setGmailAddonExpanded(!gmailAddonExpanded)}
-                className="w-full px-5 py-3 flex items-center justify-between hover:bg-neutral-50 transition-colors border-t border-neutral-200"
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-accent transition-colors border-t border-border"
               >
-                <span className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-neutral-500" />
+                <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-muted-foreground" />
                   {gmailAddonExpanded ? 'Hide' : 'Show'} Setup Guide
                 </span>
                 {gmailAddonExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-neutral-500" />
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-neutral-500" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 )}
               </button>
 
               {gmailAddonExpanded && (
-                <div className="px-5 pb-5 space-y-4 border-t border-neutral-200 pt-4">
+                <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
                   {/* Features List */}
-                  <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
-                    <h4 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-neutral-600" />
+                  <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-muted-foreground" />
                       What You Can Do
                     </h4>
-                    <ul className="space-y-2 text-sm text-neutral-700">
+                    <ul className="space-y-2 text-sm text-foreground">
                       <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                         <span>View client/lead info automatically when opening emails</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                         <span>Add leads directly from Gmail with pre-filled information</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                         <span>Quick access to Pilot dashboard from Gmail sidebar</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-neutral-600 mt-0.5 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                         <span>No need to switch between Gmail and Pilot</span>
                       </li>
                     </ul>
                   </div>
 
                   {/* Step-by-Step Guide */}
-                  <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
-                    <h4 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
-                      <PlayCircle className="w-4 h-4 text-neutral-600" />
+                  <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <PlayCircle className="w-4 h-4 text-muted-foreground" />
                       Quick Setup Steps
                     </h4>
                     <ol className="space-y-3">
@@ -689,11 +689,11 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
                         { step: 7, text: 'Open Gmail and check the sidebar when viewing emails' },
                       ].map(({ step, text }) => (
                         <li key={step} className="flex items-start gap-3 text-sm">
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-bold">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
                             {step}
                           </div>
                           <div className="flex-1 pt-0.5">
-                            <span className="text-neutral-700">{text}</span>
+                            <span className="text-foreground">{text}</span>
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(text);
@@ -701,7 +701,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
                                 toast.success(`Step ${step} copied!`);
                                 setTimeout(() => setCopiedStep(null), 2000);
                               }}
-                              className="ml-2 text-neutral-600 hover:text-neutral-900 text-xs inline-flex items-center gap-1"
+                              className="ml-2 text-muted-foreground hover:text-foreground text-xs inline-flex items-center gap-1"
                             >
                               <Copy className="w-3 h-3" />
                               {copiedStep === step ? 'Copied!' : 'Copy'}
@@ -713,13 +713,13 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
                   </div>
 
                   {/* Help Section */}
-                  <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
+                  <div className="bg-muted/50 border border-border rounded-lg p-4">
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-neutral-600 shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-neutral-900 mb-1">Need Help?</h4>
-                        <p className="text-xs text-neutral-600 mb-2">
-                          Check the detailed setup guide in <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-xs text-neutral-700">pilot-mvp/gmail-addon/YOUR_WORK_STEPS.md</code>
+                        <h4 className="text-sm font-semibold text-foreground mb-1">Need Help?</h4>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Check the detailed setup guide in <code className="bg-muted px-1.5 py-0.5 rounded text-xs text-foreground">pilot-mvp/gmail-addon/YOUR_WORK_STEPS.md</code>
                         </p>
                         <Button
                           variant="outline"
@@ -735,7 +735,7 @@ Common Issues:
                             navigator.clipboard.writeText(helpText);
                             toast.success('Help text copied!');
                           }}
-                          className="text-xs border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                          className="text-xs border-border text-foreground hover:bg-accent"
                         >
                           <Copy className="w-3 h-3 mr-1.5" />
                           Copy Troubleshooting Tips
@@ -752,13 +752,13 @@ Common Issues:
 
         {/* Search */}
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by sender, subject, or keyword..."
-            className="w-full pl-10 pr-4 py-2.5 bg-neutral-50/80 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 bg-muted/50 border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-border transition-colors text-foreground"
           />
         </div>
 
@@ -773,14 +773,14 @@ Common Issues:
                 onClick={() => setFilter(filterType)}
                 className={`px-3.5 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
                   isActive
-                    ? 'bg-neutral-900 text-white shadow-sm'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
                 <span>{filterType.charAt(0).toUpperCase() + filterType.slice(1)}</span>
                 {count > 0 && (
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-lg ${
-                    isActive ? 'bg-white/20' : 'bg-neutral-200/80 text-neutral-600'
+                    isActive ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground'
                   }`}>
                     {count}
                   </span>
@@ -792,22 +792,22 @@ Common Issues:
       </div>
 
       {/* Notifications List */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-page-bg">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-10 h-10 border-2 border-neutral-200 border-t-neutral-900 rounded-full animate-spin mb-4" />
-            <p className="text-sm font-medium text-neutral-600">Loading notifications...</p>
-            <p className="text-xs text-neutral-400 mt-1">Checking documents, leads, and emails</p>
+            <div className="w-10 h-10 border-2 border-border border-t-primary rounded-full animate-spin mb-4" />
+            <p className="text-sm font-medium text-muted-foreground">Loading notifications...</p>
+            <p className="text-xs text-muted-foreground mt-1">Checking documents, leads, and emails</p>
           </div>
         ) : filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
-            <div className="w-16 h-16 rounded-2xl bg-neutral-100 flex items-center justify-center mb-4">
-              <Inbox className="w-8 h-8 text-neutral-400" />
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+              <Inbox className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-base font-semibold text-neutral-800 mb-1">
+            <p className="text-base font-semibold text-foreground mb-1">
               {searchQuery ? 'No matches' : 'All caught up'}
             </p>
-            <p className="text-sm text-neutral-500 text-center max-w-[280px]">
+            <p className="text-sm text-muted-foreground text-center max-w-[280px]">
               {searchQuery ? 'Try a different search term or clear filters.' : "You have no new notifications. We'll alert you when something arrives."}
             </p>
           </div>
@@ -827,23 +827,23 @@ Common Issues:
               return (
                 <div key={notification.id} className="group">
                   {showDateDivider && (
-                    <div className="sticky top-0 z-10 flex items-center gap-3 py-3 px-1 bg-neutral-50/95 backdrop-blur-sm">
-                      <div className="h-px flex-1 bg-neutral-200" />
-                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
+                    <div className="sticky top-0 z-10 flex items-center gap-3 py-3 px-1 bg-page-bg/95 backdrop-blur-sm">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                         {isToday ? 'Today' : isYesterday ? 'Yesterday' : notification.timestamp.toLocaleDateString('en-US', { 
                           month: 'short', 
                           day: 'numeric',
                           year: notification.timestamp.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
                         })}
                       </span>
-                      <div className="h-px flex-1 bg-neutral-200" />
+                      <div className="h-px flex-1 bg-border" />
                     </div>
                   )}
                   <div
                     onClick={() => handleNotificationClick(notification)}
                     className={`relative border-l-4 rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${
                       notification.read 
-                        ? 'bg-white border-neutral-200 shadow-sm' 
+                        ? 'bg-surface border-border shadow-sm' 
                         : `${getPriorityColor(notification.priority)} border-l-4 shadow-sm`
                     }`}
                   >
@@ -855,20 +855,20 @@ Common Issues:
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1.5">
-                              <h3 className={`text-sm font-semibold ${notification.read ? 'text-neutral-600' : 'text-neutral-900'}`}>
+                              <h3 className={`text-sm font-semibold ${notification.read ? 'text-muted-foreground' : 'text-foreground'}`}>
                                 {notification.title}
                               </h3>
                               {!notification.read && (
                                 <span className="w-2 h-2 bg-sky-500 rounded-full flex-shrink-0 ring-2 ring-sky-100" />
                               )}
                             </div>
-                            <p className="text-sm text-neutral-600 mb-2 line-clamp-2 leading-relaxed">
+                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
                               {notification.message}
                             </p>
                             {(showSender || showLead || showDoc || showClient) && (
-                              <div className="flex items-center gap-3 text-xs text-neutral-500 mb-2 flex-wrap">
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2 flex-wrap">
                                 {showSender && (
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-100">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted">
                                     <UserPlus className="w-3 h-3 flex-shrink-0" />
                                     <span className="truncate max-w-[140px]">{m.senderName}</span>
                                   </span>
@@ -892,7 +892,7 @@ Common Issues:
                                 )}
                               </div>
                             )}
-                            <div className="flex items-center gap-3 text-xs text-neutral-400">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span>{formatTimeAgo(notification.timestamp)}</span>
                               {notification.priority === 'urgent' && (
                                 <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-lg font-semibold">
@@ -928,7 +928,7 @@ Common Issues:
                                 e.stopPropagation();
                                 markAsRead(notification.id);
                               }}
-                              className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
                               title={notification.read ? 'Mark unread' : 'Mark read'}
                             >
                               {notification.read ? (
@@ -938,7 +938,7 @@ Common Issues:
                               )}
                             </button>
                             {notification.actionUrl && (
-                              <span className="p-1.5 text-neutral-400 rounded-lg" aria-hidden>
+                              <span className="p-1.5 text-muted-foreground rounded-lg" aria-hidden>
                                 <ChevronRight className="w-4 h-4" />
                               </span>
                             )}
@@ -960,11 +960,11 @@ Common Issues:
           {selectedNotification && (
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="px-6 py-5 border-b border-neutral-200">
+              <div className="px-6 py-5 border-b border-border">
                 <h2 className="text-lg font-semibold text-emerald-600 mb-1">
                   {selectedNotification.title}
                 </h2>
-                <p className="text-sm text-neutral-500">
+                <p className="text-sm text-muted-foreground">
                   {selectedNotification.message}
                 </p>
               </div>
@@ -973,66 +973,66 @@ Common Issues:
               <div className="flex-1 overflow-y-auto px-6 py-6">
                 <div className="space-y-5">
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                    <label className="text-sm font-medium text-foreground mb-2 block">
                       Name
                     </label>
                     <input
                       type="text"
                       value={panelFormData.name}
                       onChange={(e) => setPanelFormData({ ...panelFormData, name: e.target.value })}
-                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      className="w-full px-0 py-2 border-0 border-b border-border bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                       placeholder="Enter name"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                    <label className="text-sm font-medium text-foreground mb-2 block">
                       Email
                     </label>
                     <input
                       type="email"
                       value={panelFormData.email}
                       onChange={(e) => setPanelFormData({ ...panelFormData, email: e.target.value })}
-                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      className="w-full px-0 py-2 border-0 border-b border-border bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                       placeholder="Enter email"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                    <label className="text-sm font-medium text-foreground mb-2 block">
                       Company
                     </label>
                     <input
                       type="text"
                       value={panelFormData.company}
                       onChange={(e) => setPanelFormData({ ...panelFormData, company: e.target.value })}
-                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      className="w-full px-0 py-2 border-0 border-b border-border bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                       placeholder="Enter company"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                    <label className="text-sm font-medium text-foreground mb-2 block">
                       Phone
                     </label>
                     <input
                       type="tel"
                       value={panelFormData.phone}
                       onChange={(e) => setPanelFormData({ ...panelFormData, phone: e.target.value })}
-                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+                      className="w-full px-0 py-2 border-0 border-b border-border bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                       placeholder="Enter phone number"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-neutral-700 mb-2 block">
+                    <label className="text-sm font-medium text-foreground mb-2 block">
                       Note
                     </label>
                     <textarea
                       value={panelFormData.notes}
                       onChange={(e) => setPanelFormData({ ...panelFormData, notes: e.target.value })}
                       rows={3}
-                      className="w-full px-0 py-2 border-0 border-b border-neutral-300 bg-transparent text-sm focus:outline-none focus:border-neutral-900 transition-colors resize-none"
+                      className="w-full px-0 py-2 border-0 border-b border-border bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors resize-none"
                       placeholder="Enter notes or additional information"
                     />
                   </div>
@@ -1040,11 +1040,11 @@ Common Issues:
               </div>
 
               {/* Action Buttons Footer */}
-              <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50/50">
+              <div className="px-6 py-4 border-t border-border bg-muted/50">
                 <div className="flex items-center justify-end gap-3">
                   <button
                     onClick={handleClosePanel}
-                    className="px-4 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Close
                   </button>

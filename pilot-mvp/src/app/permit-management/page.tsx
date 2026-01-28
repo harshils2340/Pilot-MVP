@@ -178,18 +178,18 @@ export default function PermitManagementPage() {
   };
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-page-bg">
       {/* ================= Sidebar ================= */}
-      <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-        <div className="px-6 py-5 border-b border-neutral-200">
-          <h1 className="text-lg font-semibold text-neutral-900">Pilot</h1>
-          <p className="text-xs text-neutral-500">Compliance Platform</p>
+      <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+        <div className="px-6 py-5 border-b border-surface-border">
+          <h1 className="text-lg font-semibold text-foreground">Pilot</h1>
+          <p className="text-xs text-muted-foreground">Compliance Platform</p>
         </div>
 
-        <div className="p-4 border-b border-neutral-200">
+        <div className="p-4 border-b border-surface-border">
           <button 
             onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-sm text-neutral-600 hover:bg-neutral-100 px-3 py-2 rounded-lg w-full"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:bg-accent px-3 py-2 rounded-lg w-full transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
@@ -198,13 +198,13 @@ export default function PermitManagementPage() {
 
         <div className="flex-1" />
 
-        <div className="p-4 border-t border-neutral-200 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
+        <div className="p-4 border-t border-surface-border flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
             {userName ? userName.charAt(0).toUpperCase() : userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
           </div>
           <div>
-            <p className="text-sm font-medium">{userName || userEmail || 'User'}</p>
-            <p className="text-xs text-neutral-500">Consultant</p>
+            <p className="text-sm font-medium text-foreground">{userName || userEmail || 'User'}</p>
+            <p className="text-xs text-muted-foreground">Consultant</p>
           </div>
         </div>
       </aside>
@@ -212,7 +212,7 @@ export default function PermitManagementPage() {
       {/* ================= Main Content ================= */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b border-neutral-200 px-8 py-6">
+        <div className="bg-surface border-b border-surface-border px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-semibold text-foreground">
@@ -225,7 +225,7 @@ export default function PermitManagementPage() {
 
             <button 
               onClick={() => router.push('/new-permit')}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add New Permit
@@ -235,12 +235,12 @@ export default function PermitManagementPage() {
           {/* Search & Filters */}
           <div className="flex gap-3 mt-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search permits by name, description, authority, or category…"
-                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
 
@@ -248,14 +248,14 @@ export default function PermitManagementPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm transition-colors ${
                 showFilters || activeFilterCount > 0
-                  ? 'bg-neutral-900 text-white border-neutral-900'
-                  : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-surface text-foreground border-border hover:bg-accent'
               }`}
             >
               <Filter className="w-4 h-4" />
               Filters
               {activeFilterCount > 0 && (
-                <span className="bg-white text-neutral-900 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full font-medium">
                   {activeFilterCount}
                 </span>
               )}
@@ -263,7 +263,7 @@ export default function PermitManagementPage() {
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
-                className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Clear all
               </button>
@@ -272,7 +272,7 @@ export default function PermitManagementPage() {
 
           {/* Filter Panel */}
           {showFilters && (
-            <div className="mt-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
               <div className="grid grid-cols-3 gap-6">
                 {/* Category Filter */}
                 <div>
@@ -284,9 +284,9 @@ export default function PermitManagementPage() {
                           type="checkbox"
                           checked={selectedCategories.includes(category)}
                           onChange={() => toggleFilter(selectedCategories, setSelectedCategories, category)}
-                          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                        />
-                        <span className="text-sm text-neutral-700">{category}</span>
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
+                      />
+                      <span className="text-sm text-foreground">{category}</span>
                       </label>
                     ))}
                   </div>
@@ -294,7 +294,7 @@ export default function PermitManagementPage() {
 
                 {/* Complexity Filter */}
                 <div>
-                  <p className="text-sm font-medium text-neutral-700 mb-2">Complexity</p>
+                  <p className="text-sm font-medium text-foreground mb-2">Complexity</p>
                   <div className="space-y-2">
                     {complexities.map((complexity) => (
                       <label key={complexity} className="flex items-center gap-2 cursor-pointer">
@@ -302,9 +302,9 @@ export default function PermitManagementPage() {
                           type="checkbox"
                           checked={selectedComplexities.includes(complexity)}
                           onChange={() => toggleFilter(selectedComplexities, setSelectedComplexities, complexity)}
-                          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                         />
-                        <span className="text-sm text-neutral-700">{complexity}</span>
+                        <span className="text-sm text-foreground">{complexity}</span>
                       </label>
                     ))}
                   </div>
@@ -312,7 +312,7 @@ export default function PermitManagementPage() {
 
                 {/* Authority Filter */}
                 <div>
-                  <p className="text-sm font-medium text-neutral-700 mb-2">Issuing Authority</p>
+                  <p className="text-sm font-medium text-foreground mb-2">Issuing Authority</p>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {authorities.map((authority) => (
                       <label key={authority} className="flex items-center gap-2 cursor-pointer">
@@ -320,9 +320,9 @@ export default function PermitManagementPage() {
                           type="checkbox"
                           checked={selectedAuthorities.includes(authority)}
                           onChange={() => toggleFilter(selectedAuthorities, setSelectedAuthorities, authority)}
-                          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                         />
-                        <span className="text-sm text-neutral-700">{authority}</span>
+                        <span className="text-sm text-foreground">{authority}</span>
                       </label>
                     ))}
                   </div>
@@ -331,7 +331,7 @@ export default function PermitManagementPage() {
             </div>
           )}
 
-          <p className="text-sm text-neutral-500 mt-3">
+          <p className="text-sm text-muted-foreground mt-3">
             Showing {filteredPermits.length} of {permits.length} permits
           </p>
         </div>
@@ -339,10 +339,10 @@ export default function PermitManagementPage() {
         {/* Table */}
         <div className="flex-1 overflow-auto p-8">
           {loading ? (
-            <p className="text-sm text-neutral-500">Loading permits...</p>
+            <p className="text-sm text-muted-foreground">Loading permits...</p>
           ) : (
-            <div className="bg-white border rounded-lg overflow-hidden">
-              <div className="grid grid-cols-12 px-6 py-3 bg-neutral-50 text-xs font-medium text-neutral-500">
+            <div className="bg-surface border border-border rounded-lg overflow-hidden">
+              <div className="grid grid-cols-12 px-6 py-3 bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground">
                 <div className="col-span-3">Permit Name</div>
                 <div className="col-span-2">Category</div>
                 <div className="col-span-3">Authority</div>
@@ -363,17 +363,17 @@ export default function PermitManagementPage() {
                   <div key={uniqueKey}>
                     <div className="grid grid-cols-12 px-6 py-4 border-t hover:bg-neutral-50">
                   <div className="col-span-3">
-                    <p className="font-medium text-neutral-900">{p.name}</p>
-                        <p className="text-xs text-neutral-500">{p.description || 'No description available'}</p>
+                    <p className="font-medium text-foreground">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.description || 'No description available'}</p>
                   </div>
 
                   <div className="col-span-2">
-                    <span className="px-2 py-1 text-xs bg-neutral-100 rounded-full">
+                    <span className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded-full">
                           {p.category || 'N/A'}
                     </span>
                   </div>
 
-                  <div className="col-span-3 text-sm text-neutral-600">
+                  <div className="col-span-3 text-sm text-muted-foreground">
                         {p.authority || 'N/A'}
                   </div>
 
@@ -404,10 +404,10 @@ export default function PermitManagementPage() {
                           }}
                           title="Review permit"
                         />
-                        <Eye className="w-4 h-4 text-neutral-500 cursor-pointer hover:text-neutral-700" />
+                        <Eye className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-foreground" />
                         <Pencil 
                           className={`w-4 h-4 cursor-pointer transition-colors ${
-                            isExpanded ? 'text-blue-600' : 'text-neutral-500 hover:text-neutral-700'
+                            isExpanded ? 'text-blue-600' : 'text-muted-foreground hover:text-foreground'
                           }`}
                           onClick={() => togglePermitDetails(p._id)}
                         />
@@ -421,8 +421,8 @@ export default function PermitManagementPage() {
                         {/* Check if permit has any details at all */}
                         {(!details.permitTitle && !details.prerequisites && !details.contactInfo && !details.expandedDetails?.buttonLinks?.length && !details.fullText && !details.lastVerified && !details.applyUrl && !details.moreInfoUrl) ? (
                           <div className="text-center py-8">
-                            <p className="text-sm text-neutral-500">No detailed information available for this permit.</p>
-                            <p className="text-xs text-neutral-400 mt-2">This permit may not have been fully extracted or may not have additional details on the source website.</p>
+                            <p className="text-sm text-muted-foreground">No detailed information available for this permit.</p>
+                            <p className="text-xs text-muted-foreground mt-2">This permit may not have been fully extracted or may not have additional details on the source website.</p>
                           </div>
                         ) : (
                           <>
@@ -437,8 +437,8 @@ export default function PermitManagementPage() {
                                 )}
                                 
                                 <div>
-                                  <h4 className="text-sm font-semibold text-neutral-900 mb-2">Description</h4>
-                                  <p className="text-sm text-neutral-600">{details.description || 'No description available'}</p>
+                                  <h4 className="text-sm font-semibold text-foreground mb-2">Description</h4>
+                                  <p className="text-sm text-muted-foreground">{details.description || 'No description available'}</p>
                                 </div>
                               
                                 {details.prerequisites && (
@@ -450,8 +450,8 @@ export default function PermitManagementPage() {
                                 
                                 {details.contactInfo && (
                                   <div>
-                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Contact Information</h4>
-                                    <div className="text-sm text-neutral-600 space-y-1">
+                                    <h4 className="text-sm font-semibold text-foreground mb-2">Contact Information</h4>
+                                    <div className="text-sm text-muted-foreground space-y-1">
                                       {details.contactInfo.municipality && (
                                         <p>
                                           Municipality: {details.contactInfo.municipalityUrl ? (
@@ -503,7 +503,7 @@ export default function PermitManagementPage() {
                                 {/* All Links from expandedDetails */}
                                 {details.expandedDetails?.buttonLinks && details.expandedDetails.buttonLinks.length > 0 && (
                                   <div>
-                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">All Links</h4>
+                                    <h4 className="text-sm font-semibold text-foreground mb-2">All Links</h4>
                                     <div className="space-y-2">
                                       {details.expandedDetails.buttonLinks.map((link, idx) => (
                                         <a 
@@ -552,7 +552,7 @@ export default function PermitManagementPage() {
                                 {/* Images */}
                                 {details.expandedDetails?.images && details.expandedDetails.images.length > 0 && (
                                   <div>
-                                    <h4 className="text-sm font-semibold text-neutral-900 mb-2">Images</h4>
+                                    <h4 className="text-sm font-semibold text-foreground mb-2">Images</h4>
                                     <div className="space-y-2">
                                       {details.expandedDetails.images.map((img, idx) => (
                                         <div key={idx} className="flex items-center gap-2">
@@ -568,9 +568,9 @@ export default function PermitManagementPage() {
                             
                             {/* Full Text Content (if available) */}
                             {details.fullText && (
-                              <div className="mt-4 pt-4 border-t border-neutral-200">
-                                <h4 className="text-sm font-semibold text-neutral-900 mb-2">Full Text Content</h4>
-                                <div className="text-xs text-neutral-600 bg-white p-3 rounded border max-h-40 overflow-y-auto">
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <h4 className="text-sm font-semibold text-foreground mb-2">Full Text Content</h4>
+                                <div className="text-xs text-muted-foreground bg-surface p-3 rounded border border-border max-h-40 overflow-y-auto">
                                   <pre className="whitespace-pre-wrap font-sans">{details.fullText}</pre>
                                 </div>
                               </div>

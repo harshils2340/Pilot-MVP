@@ -17,32 +17,32 @@ export function SignUp({ onSignUp, onSwitchToSignIn }: SignUpProps) {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-page-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-2">
             <img src="/file.svg" alt="Pilot" className="h-10 w-10" />
-            <h1 className="text-2xl font-semibold text-neutral-900">Pilot</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Pilot</h1>
           </div>
-          <p className="text-neutral-600">Compliance Platform for Consultants</p>
+          <p className="text-muted-foreground">Compliance Platform for Consultants</p>
         </div>
 
         {/* Sign Up Form */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-8">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Create your account</h2>
-          <p className="text-sm text-neutral-600 mb-6">
+        <div className="bg-surface rounded-lg border border-border p-8">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Create your account</h2>
+          <p className="text-sm text-muted-foreground mb-6">
             Connect your Google account to get started
           </p>
 
             <button
             onClick={handleGoogleSignUp}
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white border-2 border-neutral-300 text-neutral-900 py-2.5 rounded-lg hover:bg-neutral-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 bg-surface border-2 border-border text-foreground py-2.5 rounded-lg hover:bg-accent transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
             {isLoading ? (
               <>
-                <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                 <span>Connecting...</span>
               </>
             ) : (
@@ -59,11 +59,11 @@ export function SignUp({ onSignUp, onSwitchToSignIn }: SignUpProps) {
             </button>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-neutral-600">
+            <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
               <button
                 onClick={onSwitchToSignIn}
-                className="text-neutral-900 font-medium hover:underline"
+                className="text-foreground font-medium hover:underline"
               >
                 Sign in
               </button>
@@ -72,7 +72,7 @@ export function SignUp({ onSignUp, onSwitchToSignIn }: SignUpProps) {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-neutral-500 mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-6">
           © 2026 Pilot. Built for compliance professionals.
         </p>
       </div>

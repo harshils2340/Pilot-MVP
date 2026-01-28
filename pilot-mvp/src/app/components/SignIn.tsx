@@ -47,21 +47,21 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-page-bg flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-2">
             <img src="/file.svg" alt="Pilot" className="h-12 w-12" />
-            <h1 className="text-3xl font-semibold text-neutral-900">Pilot</h1>
+            <h1 className="text-3xl font-semibold text-foreground">Pilot</h1>
           </div>
-          <p className="text-neutral-600 text-lg">Compliance Platform for Consultants</p>
+          <p className="text-muted-foreground text-lg">Compliance Platform for Consultants</p>
         </div>
 
         {/* Sign In Form */}
-        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-10">
-          <h2 className="text-2xl font-semibold text-neutral-900 mb-2">Sign in to your account</h2>
-          <p className="text-sm text-neutral-600 mb-8">
+        <div className="bg-surface rounded-lg border border-border shadow-sm p-10">
+          <h2 className="text-2xl font-semibold text-foreground mb-2">Sign in to your account</h2>
+          <p className="text-sm text-muted-foreground mb-8">
             Enter your credentials to access Pilot
           </p>
 
@@ -69,11 +69,11 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
           <form onSubmit={handleEmailSignIn} className="space-y-5 mb-6">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   id="email"
                   type="email"
@@ -81,7 +81,7 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                 />
               </div>
             </div>
@@ -123,7 +123,7 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-neutral-900 text-white py-3 rounded-lg hover:bg-neutral-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-primary text-primary-foreground py-3 rounded-lg hover:opacity-90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -139,10 +139,10 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-200"></div>
+              <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-neutral-500">Or continue with</span>
+              <span className="px-4 bg-surface text-muted-foreground">Or continue with</span>
             </div>
           </div>
 
@@ -162,11 +162,11 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
           </button>
 
           <div className="mt-8 text-center">
-            <p className="text-sm text-neutral-600">
+            <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
               <button
                 onClick={onSwitchToSignUp}
-                className="text-neutral-900 font-medium hover:underline"
+                className="text-foreground font-medium hover:underline"
               >
                 Sign up
               </button>
@@ -175,7 +175,7 @@ export function SignIn({ onSignIn, onSwitchToSignUp }: SignInProps) {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-neutral-500 mt-8">
+        <p className="text-center text-sm text-muted-foreground mt-8">
           © 2026 Pilot. Built for compliance professionals.
         </p>
       </div>

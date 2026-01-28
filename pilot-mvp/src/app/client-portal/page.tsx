@@ -81,7 +81,7 @@ function ClientPortalContent() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-neutral-900 mb-2">Access Denied</h1>
+          <h1 className="text-2xl font-semibold text-foreground mb-2">Access Denied</h1>
           <p className="text-neutral-600">Please use the invitation link provided by your consultant.</p>
         </div>
       </div>
@@ -89,10 +89,10 @@ function ClientPortalContent() {
   }
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-page-bg">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-        <div className="px-6 py-5 border-b border-neutral-200">
+      <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+        <div className="px-6 py-5 border-b border-surface-border">
           <div className="flex items-center gap-3">
             <img 
               src="/file.svg" 
@@ -100,16 +100,16 @@ function ClientPortalContent() {
               className="h-8 w-8"
             />
             <div>
-              <h1 className="font-semibold text-neutral-900 text-lg">Pilot</h1>
-              <p className="text-neutral-500 text-xs">Client Portal</p>
+              <h1 className="font-semibold text-foreground text-lg">Pilot</h1>
+              <p className="text-muted-foreground text-xs">Client Portal</p>
             </div>
           </div>
         </div>
 
         {/* Client Info */}
         <div className="px-4 pt-4 pb-2">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Your Account</p>
-          <p className="text-sm font-medium text-neutral-900 bg-blue-50 px-2 py-1 rounded">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Your Account</p>
+          <p className="text-sm font-medium text-foreground bg-primary/10 px-2 py-1 rounded">
             {clientName}
           </p>
         </div>
@@ -120,8 +120,8 @@ function ClientPortalContent() {
             onClick={() => setActiveTab('documents')}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
               activeTab === 'documents'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:bg-neutral-100'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
             }`}
           >
             <FileText className="w-5 h-5" />
@@ -131,8 +131,8 @@ function ClientPortalContent() {
             onClick={() => setActiveTab('requests')}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
               activeTab === 'requests'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:bg-neutral-100'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
             }`}
           >
             <Inbox className="w-5 h-5" />
@@ -142,8 +142,8 @@ function ClientPortalContent() {
             onClick={() => setActiveTab('shared')}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
               activeTab === 'shared'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:bg-neutral-100'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
             }`}
           >
             <Upload className="w-5 h-5" />
@@ -153,8 +153,8 @@ function ClientPortalContent() {
             onClick={() => setActiveTab('billing')}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
               activeTab === 'billing'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:bg-neutral-100'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
             }`}
           >
             <DollarSign className="w-5 h-5" />
@@ -231,7 +231,7 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-neutral-900 mb-2">Document Requests</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-2">Document Requests</h1>
         <p className="text-neutral-600">Requests from your consultant</p>
       </div>
 
@@ -263,7 +263,7 @@ function DocumentRequestCard({ request }: { request: any }) {
     <div className="bg-white border border-neutral-200 rounded-lg p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-neutral-900 mb-1">{request.title}</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-1">{request.title}</h3>
           <p className="text-sm text-neutral-600">{request.description}</p>
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -333,7 +333,7 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-neutral-900 mb-2">Shared Documents</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-2">Shared Documents</h1>
         <p className="text-neutral-600">Documents shared with you by your consultant</p>
       </div>
 
@@ -347,7 +347,7 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
           {documents.map((doc) => (
             <div key={doc.id || doc._id} className="bg-white border border-neutral-200 rounded-lg p-4">
               <FileText className="w-8 h-8 text-neutral-400 mb-2" />
-              <h3 className="font-medium text-neutral-900 mb-1">{doc.name}</h3>
+              <h3 className="font-medium text-foreground mb-1">{doc.name}</h3>
               <p className="text-xs text-neutral-500 mb-2">{doc.fileType?.toUpperCase() || 'FILE'}</p>
               <button
                 onClick={() => {

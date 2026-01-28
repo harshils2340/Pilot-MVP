@@ -157,13 +157,13 @@ export function LeadDetailView({
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-page-bg">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Back Button */}
         <div className="mb-6">
           <Button
             variant="ghost"
-            className="text-neutral-600 hover:text-neutral-900 -ml-2"
+            className="text-muted-foreground hover:text-foreground -ml-2"
             onClick={onBack}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -172,9 +172,9 @@ export function LeadDetailView({
         </div>
 
         {/* Main Card */}
-        <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
           {/* Header */}
-          <div className="border-b border-neutral-200 px-6 py-5 bg-white">
+          <div className="border-b border-border px-6 py-5 bg-surface">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-semibold text-neutral-900 truncate mb-2">{lead.name}</h1>
@@ -252,7 +252,7 @@ export function LeadDetailView({
                   </span>
                 )}
                 {lead.source && (
-                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-700 text-sm">
+                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-muted text-muted-foreground text-sm">
                     Source: {lead.source}
                   </span>
                 )}
@@ -346,7 +346,7 @@ export function LeadDetailView({
                   {lead.activities.slice(0, 10).map((act, idx) => (
                     <li
                       key={idx}
-                      className="flex items-start gap-2 text-sm rounded-lg bg-neutral-50 p-3 border border-neutral-100"
+                      className="flex items-start gap-2 text-sm rounded-lg bg-muted/50 p-3 border border-border"
                     >
                       <FileText className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
                       <div>
@@ -377,7 +377,7 @@ export function LeadDetailView({
                   <span className="text-sm">Loading emails…</span>
                 </div>
               ) : emails.length === 0 ? (
-                <p className="text-sm text-neutral-500 py-6 rounded-lg bg-neutral-50 border border-neutral-100 px-4">
+                <p className="text-sm text-muted-foreground py-6 rounded-lg bg-muted/50 border border-border px-4">
                   No emails found for this lead.
                 </p>
               ) : (
@@ -397,7 +397,7 @@ export function LeadDetailView({
                               <CollapsibleTrigger asChild>
                                 <button
                                   type="button"
-                                  className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-neutral-50 transition-colors"
+                                  className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-accent transition-colors"
                                   aria-expanded={expandedEmailIds.has(email._id)}
                                   title={expandedEmailIds.has(email._id) ? 'Retract email' : 'Expand email'}
                                 >
@@ -430,7 +430,7 @@ export function LeadDetailView({
                                 </button>
                               </CollapsibleTrigger>
                               <CollapsibleContent>
-                                <div className="border-t border-neutral-100 px-3 py-3 bg-neutral-50/50">
+                                <div className="border-t border-border px-3 py-3 bg-muted/50">
                                   {email.htmlBody ? (
                                     <div
                                       className="prose prose-sm max-w-none text-neutral-700 text-sm email-body"

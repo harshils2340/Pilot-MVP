@@ -92,7 +92,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       case 'action-required':
         return <AlertCircle className="w-4 h-4 text-amber-600" />;
       case 'draft':
-        return <FileText className="w-4 h-4 text-neutral-400" />;
+        return <FileText className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -118,7 +118,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       case 'action-required':
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'draft':
-        return 'bg-neutral-50 text-neutral-600 border-neutral-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -322,17 +322,17 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white px-8 py-6">
+      <div className="bg-surface px-8 py-6 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-neutral-900 mb-1">Workspace</h1>
-            <p className="text-neutral-600">Manage clients and their regulatory compliance</p>
+            <h1 className="text-foreground mb-1">Workspace</h1>
+            <p className="text-muted-foreground">Manage clients and their regulatory compliance</p>
           </div>
           <div className="flex items-center gap-2">
             {!multiSelectMode && filteredClients.length > 0 && (
               <button
                 onClick={handleSelectAll}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
               >
                 <span>Select All</span>
               </button>
@@ -344,7 +344,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                     setSelectedClients(new Set());
                     setMultiSelectMode(false);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
                 >
                   <CheckSquare className="w-4 h-4" />
                   Deselect All
@@ -361,7 +361,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             )}
             <button
               onClick={onStartPermit}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add Client
@@ -372,27 +372,27 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
         {/* Search and Filters */}
         <div className="flex gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search clients, jurisdictions, or permit types..."
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
               showFilters || activeFilterCount > 0
-                ? 'bg-neutral-900 text-white border-neutral-900'
-                : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-surface text-foreground border-border hover:bg-accent'
             }`}
           >
             <Filter className="w-4 h-4" />
             Filter
             {activeFilterCount > 0 && (
-              <span className="bg-white text-neutral-900 text-xs px-1.5 py-0.5 rounded-full font-medium">
+              <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full font-medium">
                 {activeFilterCount}
               </span>
             )}
@@ -400,7 +400,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
           {activeFilterCount > 0 && (
             <button
               onClick={clearAllFilters}
-              className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Clear all
             </button>
@@ -409,11 +409,11 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
         {/* Filter Panel */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
             <div className="grid grid-cols-2 gap-6">
               {/* Status Filter */}
               <div>
-                <p className="text-sm font-medium text-neutral-700 mb-2">Status</p>
+                <p className="text-sm font-medium text-foreground mb-2">Status</p>
                 <div className="space-y-2">
                   {statuses.map((status) => (
                     <label key={status} className="flex items-center gap-2 cursor-pointer">
@@ -421,9 +421,9 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                         type="checkbox"
                         checked={selectedStatuses.includes(status)}
                         onChange={() => toggleFilter(selectedStatuses, setSelectedStatuses, status)}
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700 capitalize">
+                      <span className="text-sm text-foreground capitalize">
                         {status === 'action-required' ? 'Action Required' : status}
                       </span>
                     </label>
@@ -433,7 +433,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
               {/* Jurisdiction Filter */}
               <div>
-                <p className="text-sm font-medium text-neutral-700 mb-2">Jurisdiction</p>
+                <p className="text-sm font-medium text-foreground mb-2">Jurisdiction</p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {jurisdictions.map((jurisdiction) => (
                     <label key={jurisdiction} className="flex items-center gap-2 cursor-pointer">
@@ -441,9 +441,9 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                         type="checkbox"
                         checked={selectedJurisdictions.includes(jurisdiction)}
                         onChange={() => toggleFilter(selectedJurisdictions, setSelectedJurisdictions, jurisdiction)}
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700">{jurisdiction}</span>
+                      <span className="text-sm text-foreground">{jurisdiction}</span>
                     </label>
                   ))}
                 </div>
@@ -454,28 +454,28 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
         {/* Results Count */}
         {filteredClients.length !== clients.length && (
-          <p className="text-sm text-neutral-500 mt-3">
+          <p className="text-sm text-muted-foreground mt-3">
             Showing {filteredClients.length} of {clients.length} clients
           </p>
         )}
       </div>
 
       {/* Client List */}
-      <div className="flex-1 overflow-auto px-8 pb-8">
-        <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
+      <div className="flex-1 overflow-auto px-8 pb-8 bg-page-bg">
+        <div className="bg-surface rounded-lg border border-border overflow-hidden">
           {/* Table Header */}
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-neutral-50 border-b border-neutral-200 text-sm font-medium text-neutral-600">
+          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 border-b border-border text-sm font-medium text-muted-foreground">
             {multiSelectMode && (
               <div className="col-span-1">
                 <button
                   onClick={handleSelectAll}
-                  className="flex items-center justify-center p-1 hover:bg-neutral-200 rounded transition-colors"
+                  className="flex items-center justify-center p-1 hover:bg-accent rounded transition-colors"
                   title={selectedClients.size === filteredClients.length ? 'Deselect All' : 'Select All'}
                 >
                   {selectedClients.size === filteredClients.length && filteredClients.length > 0 ? (
-                    <CheckSquare className="w-4 h-4 text-neutral-900" />
+                    <CheckSquare className="w-4 h-4 text-foreground" />
                   ) : (
-                    <Square className="w-4 h-4 text-neutral-400" />
+                    <Square className="w-4 h-4 text-muted-foreground" />
                   )}
                 </button>
               </div>
@@ -490,9 +490,9 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
           {/* Table Rows */}
           {loading ? (
-            <div className="p-8 text-center text-neutral-600">Loading clients...</div>
+            <div className="p-8 text-center text-muted-foreground">Loading clients...</div>
           ) : filteredClients.length === 0 ? (
-            <div className="p-8 text-center text-neutral-600">
+            <div className="p-8 text-center text-muted-foreground">
               {clients.length === 0 ? 'No clients found' : 'No clients match your search or filters'}
             </div>
           ) : (
@@ -506,8 +506,8 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
               return (
               <div
                 key={client._id}
-                className={`grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${
-                  multiSelectMode && selectedClients.has(client._id) ? 'bg-blue-50 border-blue-200' : ''
+                className={`grid grid-cols-12 gap-4 px-6 py-4 border-b border-border hover:bg-accent/50 transition-colors ${
+                  multiSelectMode && selectedClients.has(client._id) ? 'bg-primary/10 border-primary/30' : ''
                 } ${!multiSelectMode ? 'cursor-pointer' : ''}`}
               >
               {multiSelectMode && (
@@ -517,12 +517,12 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                       e.stopPropagation();
                       handleToggleSelectClient(client._id);
                     }}
-                    className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                    className="p-1 hover:bg-accent rounded transition-colors"
                   >
                     {selectedClients.has(client._id) ? (
-                      <CheckSquare className="w-4 h-4 text-blue-600" />
+                      <CheckSquare className="w-4 h-4 text-primary" />
                     ) : (
-                      <Square className="w-4 h-4 text-neutral-400" />
+                      <Square className="w-4 h-4 text-muted-foreground" />
                     )}
                   </button>
                 </div>
@@ -535,8 +535,8 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                   }
                 }}
               >
-                <p className="font-medium text-neutral-900">{client.businessName}</p>
-                <p className="text-xs text-neutral-500 mt-0.5">{client.jurisdiction}</p>
+                <p className="font-medium text-foreground">{client.businessName}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{client.jurisdiction}</p>
               </div>
               <div 
                 className="col-span-2 flex items-center"
@@ -591,11 +591,11 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                     )}
                   </div>
                 ) : (
-                  <span className="text-xs text-neutral-400">—</span>
+                  <span className="text-xs text-muted-foreground">—</span>
                 )}
               </div>
               <div 
-                className="col-span-1 flex items-center text-neutral-500 text-xs"
+                className="col-span-1 flex items-center text-muted-foreground text-xs"
                 onClick={() => {
                   if (!multiSelectMode) {
                     handleClientClick(client);
@@ -607,16 +607,16 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
               <div className="col-span-1 flex items-center justify-end relative">
                 <button
                   onClick={(e) => handleMenuClick(e, client._id)}
-                  className="p-1 hover:bg-neutral-100 rounded transition-colors"
+                  className="p-1 hover:bg-accent rounded transition-colors"
                 >
-                  <MoreVertical className="w-4 h-4 text-neutral-400" />
+                  <MoreVertical className="w-4 h-4 text-muted-foreground" />
                 </button>
                 
                 {/* Dropdown Menu */}
                 {openMenuId === client._id && (
                   <div
                     ref={(el) => { menuRefs.current[client._id] = el; }}
-                    className="absolute right-0 top-8 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[150px]"
+                    className="absolute right-0 top-8 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[150px]"
                   >
                     <button
                       onClick={(e) => {
@@ -624,7 +624,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                         setInviteClient(client);
                         setOpenMenuId(null);
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 transition-colors"
+                      className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
                     >
                       <UserPlus className="w-4 h-4" />
                       Invite Client
@@ -650,20 +650,20 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
         {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-4 mt-6">
-          <div className="bg-white rounded-lg border border-neutral-200 p-5">
-            <p className="text-neutral-600 text-sm mb-1">Total Clients</p>
-            <p className="text-neutral-900 font-semibold">{filteredClients.length}</p>
+          <div className="bg-surface rounded-lg border border-border p-5">
+            <p className="text-muted-foreground text-sm mb-1">Total Clients</p>
+            <p className="text-foreground font-semibold">{filteredClients.length}</p>
           </div>
-          <div className="bg-white rounded-lg border border-neutral-200 p-5">
-            <p className="text-neutral-600 text-sm mb-1">Active Permits</p>
-            <p className="text-neutral-900 font-semibold">34</p>
+          <div className="bg-surface rounded-lg border border-border p-5">
+            <p className="text-muted-foreground text-sm mb-1">Active Permits</p>
+            <p className="text-foreground font-semibold">34</p>
           </div>
-          <div className="bg-white rounded-lg border border-neutral-200 p-5">
-            <p className="text-neutral-600 text-sm mb-1">Pending Review</p>
-            <p className="text-neutral-900 font-semibold">12</p>
+          <div className="bg-surface rounded-lg border border-border p-5">
+            <p className="text-muted-foreground text-sm mb-1">Pending Review</p>
+            <p className="text-foreground font-semibold">12</p>
           </div>
-          <div className="bg-white rounded-lg border border-neutral-200 p-5">
-            <p className="text-neutral-600 text-sm mb-1">Action Required</p>
+          <div className="bg-surface rounded-lg border border-border p-5">
+            <p className="text-muted-foreground text-sm mb-1">Action Required</p>
             <p className="text-amber-600 font-semibold">4</p>
           </div>
         </div>

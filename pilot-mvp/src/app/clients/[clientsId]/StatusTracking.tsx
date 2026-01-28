@@ -51,7 +51,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
   const [reviewingPermitName, setReviewingPermitName] = useState<string>('');
 
   const columns = [
-    { id: 'draft' as const, label: 'Draft', color: 'bg-neutral-100' },
+    { id: 'draft' as const, label: 'Draft', color: 'bg-muted' },
     { id: 'submitted' as const, label: 'Submitted', color: 'bg-blue-100' },
     { id: 'action-required' as const, label: 'Action Required', color: 'bg-amber-100' },
     { id: 'approved' as const, label: 'Approved', color: 'bg-green-100' },
@@ -114,11 +114,11 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-neutral-200 px-8 py-6">
+      <div className="bg-surface border-b border-border px-8 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-neutral-900 mb-1">Status & Tracking</h1>
-            <p className="text-neutral-600">{client?.businessName || clientId || 'Unknown Client'}</p>
+            <h1 className="text-foreground mb-1">Status & Tracking</h1>
+            <p className="text-muted-foreground">{client?.businessName || clientId || 'Unknown Client'}</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -131,7 +131,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
             >
               <Filter className="w-4 h-4" /> Filter
               {activeFilterCount > 0 && (
-                <span className="bg-white text-neutral-900 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full font-medium">
                   {activeFilterCount}
                 </span>
               )}
@@ -144,7 +144,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                 Clear all
               </button>
             )}
-            <button className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors">
               <Plus className="w-4 h-4" /> Add Permit
             </button>
           </div>
@@ -161,13 +161,13 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
               className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
             />
           </div>
-          <div className="flex border border-neutral-300 rounded-lg overflow-hidden">
+          <div className="flex border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode('kanban')}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'kanban'
-                  ? 'bg-neutral-900 text-white'
-                  : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-surface text-muted-foreground hover:bg-accent'
               }`}
             >
               Kanban
@@ -176,8 +176,8 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
               onClick={() => setViewMode('table')}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'table'
-                  ? 'bg-neutral-900 text-white'
-                  : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-surface text-muted-foreground hover:bg-accent'
               }`}
             >
               Table
@@ -199,9 +199,9 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                         type="checkbox"
                         checked={selectedStatuses.includes(status)}
                         onChange={() => toggleFilter(selectedStatuses, setSelectedStatuses, status)}
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700 capitalize">
+                      <span className="text-sm text-foreground capitalize">
                         {status === 'action-required' ? 'Action Required' : status}
                       </span>
                     </label>
@@ -219,9 +219,9 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                         type="checkbox"
                         checked={selectedPriorities.includes(priority)}
                         onChange={() => toggleFilter(selectedPriorities, setSelectedPriorities, priority)}
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700 capitalize">{priority}</span>
+                      <span className="text-sm text-foreground capitalize">{priority}</span>
                     </label>
                   ))}
                 </div>
@@ -237,9 +237,9 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                         type="checkbox"
                         checked={selectedAssignees.includes(assignee)}
                         onChange={() => toggleFilter(selectedAssignees, setSelectedAssignees, assignee)}
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700">{assignee}</span>
+                      <span className="text-sm text-foreground">{assignee}</span>
                     </label>
                   ))}
                 </div>
@@ -250,7 +250,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
 
         {/* Results Count */}
         {filteredPermits.length !== mockPermits.length && (
-          <p className="text-sm text-neutral-500 mt-3">
+          <p className="text-sm text-muted-foreground mt-3">
             Showing {filteredPermits.length} of {mockPermits.length} permits
           </p>
         )}
@@ -279,7 +279,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                       <div
                         key={permit.id}
                         onClick={() => onEditPermit?.(permit.id)}
-                        className="bg-white rounded-lg border border-neutral-200 p-4 hover:shadow-md hover:border-neutral-300 cursor-pointer transition-all"
+                        className="bg-surface rounded-lg border border-border p-4 hover:shadow-md hover:border-border cursor-pointer transition-all"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <h4 className="font-medium text-neutral-900 text-sm leading-snug">{permit.name}</h4>
@@ -288,7 +288,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                           </button>
                         </div>
 
-                        <p className="text-xs text-neutral-600 mb-3">{permit.authority}</p>
+                        <p className="text-xs text-muted-foreground mb-3">{permit.authority}</p>
 
                         <div className="flex items-center justify-between">
                           <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(permit.priority)}`}>
@@ -300,8 +300,8 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                           </div>
                         </div>
 
-                        <div className="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between">
-                          <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700">
+                        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                          <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                             <GripVertical className="w-3 h-3" /> Drag to move
                           </button>
                           <button
@@ -339,12 +339,12 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
               <div
                 key={permit.id}
                 onClick={() => onEditPermit?.(permit.id)}
-                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
+                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-border hover:bg-accent/50 cursor-pointer transition-colors"
               >
                 <div className="col-span-4">
                   <p className="font-medium text-neutral-900">{permit.name}</p>
                 </div>
-                <div className="col-span-3 flex items-center text-neutral-600 text-sm">{permit.authority}</div>
+                <div className="col-span-3 flex items-center text-muted-foreground text-sm">{permit.authority}</div>
                 <div className="col-span-2 flex items-center">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -354,7 +354,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                         ? 'bg-blue-50 text-blue-700'
                         : permit.status === 'action-required'
                         ? 'bg-amber-50 text-amber-700'
-                        : 'bg-neutral-50 text-neutral-600'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {permit.status === 'action-required'
@@ -370,7 +370,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                 <div className="col-span-1 flex items-center">
                   <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium">{permit.assignee}</div>
                 </div>
-                <div className="col-span-1 flex items-center text-neutral-600 text-sm">{permit.dueDate}</div>
+                <div className="col-span-1 flex items-center text-muted-foreground text-sm">{permit.dueDate}</div>
                 <div className="col-span-1 flex items-center justify-end">
                   <button
                     onClick={(e) => {

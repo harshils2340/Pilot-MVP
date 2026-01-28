@@ -501,9 +501,9 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
   // Show full-page loading state until data is loaded
   if (loading) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-neutral-50">
-        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-        <p className="mt-4 text-neutral-600">Loading permits...</p>
+      <div className="h-full flex flex-col items-center justify-center bg-page-bg">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">Loading permits...</p>
       </div>
     );
   }
@@ -514,8 +514,8 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
       <div className="bg-white border-b border-neutral-200 px-8 py-6">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-neutral-900 text-2xl font-semibold">Permit Management</h1>
-            <p className="text-neutral-600 mt-1">
+            <h1 className="text-foreground text-2xl font-semibold">Permit Management</h1>
+            <p className="text-muted-foreground mt-1">
               Manage all available permits in the system
             </p>
           </div>
@@ -530,7 +530,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white border-b border-neutral-200 px-8 py-4">
+      <div className="bg-surface border-b border-border px-8 py-4">
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -539,21 +539,21 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search permits by name, description, authority, or category..."
-              className="w-full pl-10 pr-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
               showFilters || activeFilterCount > 0
-                ? 'bg-neutral-900 text-white border-neutral-900'
+                ? 'bg-primary text-primary-foreground border-primary'
                 : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
             }`}
           >
             <Filter className="w-4 h-4" />
             Filters
             {activeFilterCount > 0 && (
-              <span className="bg-white text-neutral-900 text-xs px-1.5 py-0.5 rounded-full font-medium">
+              <span className="bg-primary-foreground/20 text-primary-foreground text-xs px-1.5 py-0.5 rounded-full font-medium">
                 {activeFilterCount}
               </span>
             )}
@@ -561,7 +561,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
           {activeFilterCount > 0 && (
             <button
               onClick={clearAllFilters}
-              className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Clear all
             </button>
@@ -570,11 +570,11 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
 
         {/* Filter Panel */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
             <div className="grid grid-cols-3 gap-6">
               {/* Category Filter */}
               <div>
-                <p className="text-sm font-medium text-neutral-700 mb-2">Category</p>
+                <p className="text-sm font-medium text-foreground mb-2">Category</p>
                 <div className="space-y-2">
                   {categories.map((category) => (
                     <label key={category} className="flex items-center gap-2 cursor-pointer">
@@ -584,9 +584,9 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                         onChange={() =>
                           toggleFilter(selectedCategories, setSelectedCategories, category)
                         }
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700">{category}</span>
+                      <span className="text-sm text-foreground">{category}</span>
                     </label>
                   ))}
                 </div>
@@ -594,7 +594,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
 
               {/* Complexity Filter */}
               <div>
-                <p className="text-sm font-medium text-neutral-700 mb-2">Complexity</p>
+                <p className="text-sm font-medium text-foreground mb-2">Complexity</p>
                 <div className="space-y-2">
                   {complexities.map((complexity) => (
                     <label key={complexity} className="flex items-center gap-2 cursor-pointer">
@@ -604,9 +604,9 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                         onChange={() =>
                           toggleFilter(selectedComplexities, setSelectedComplexities, complexity)
                         }
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700 capitalize">{complexity}</span>
+                      <span className="text-sm text-foreground capitalize">{complexity}</span>
                     </label>
                   ))}
                 </div>
@@ -614,7 +614,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
 
               {/* Authority Filter */}
               <div>
-                <p className="text-sm font-medium text-neutral-700 mb-2">Issuing Authority</p>
+                <p className="text-sm font-medium text-foreground mb-2">Issuing Authority</p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {authorities.map((authority) => (
                     <label key={authority} className="flex items-center gap-2 cursor-pointer">
@@ -624,9 +624,9 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                         onChange={() =>
                           toggleFilter(selectedAuthorities, setSelectedAuthorities, authority)
                         }
-                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-neutral-700">{authority}</span>
+                      <span className="text-sm text-foreground">{authority}</span>
                     </label>
                   ))}
                 </div>
@@ -646,11 +646,11 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
 
       {/* Permits Table */}
       <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
+        <div className="bg-surface rounded-lg border border-border overflow-hidden">
           <table className="w-full">
-              <thead className="bg-neutral-50 border-b border-neutral-200">
+              <thead className="bg-muted/50 border-b border-border">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Permit Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
@@ -673,11 +673,11 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200">
+              <tbody className="divide-y divide-border">
                 {filteredPermits.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center">
-                      <p className="text-neutral-500">
+                      <p className="text-muted-foreground">
                         {permits.length === 0 
                           ? 'No permits found. Click "Add New Permit" to create one.'
                           : 'No permits found matching your criteria'}
@@ -693,8 +693,8 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                   >
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium text-neutral-900">{permit.name}</p>
-                        <p className="text-sm text-neutral-500 mt-0.5">{permit.description}</p>
+                        <p className="font-medium text-foreground">{permit.name}</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">{permit.description}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -702,7 +702,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                         {permit.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-neutral-700">{permit.authority}</td>
+                    <td className="px-6 py-4 text-sm text-foreground">{permit.authority}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-medium border rounded capitalize ${getComplexityColor(
@@ -735,7 +735,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                         </button>
                         <button
                           onClick={() => handleOpenEdit(permit)}
-                          className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                          className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors"
                           title="Edit permit"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -768,7 +768,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeletingPermitId(null)}
-                className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
               >
                 Cancel
               </button>
@@ -929,7 +929,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                     <button
                       type="button"
                       onClick={handleAddRequirement}
-                      className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -967,7 +967,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                  className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
                 >
                   {editingPermit ? 'Update Permit' : 'Add Permit'}
                 </button>
@@ -1071,7 +1071,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                         key={index}
                         className="flex items-center gap-3 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg"
                       >
-                        <div className="w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-medium">
+                        <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
                           {index + 1}
                         </div>
                         <span className="text-sm text-neutral-700">{requirement}</span>

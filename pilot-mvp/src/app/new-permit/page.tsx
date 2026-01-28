@@ -179,18 +179,18 @@ export default function NewPermitPage() {
   };
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-page-bg">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
-        <div className="px-6 py-5 border-b border-neutral-200">
-          <h1 className="text-lg font-semibold text-neutral-900">Pilot</h1>
-          <p className="text-xs text-neutral-500">Compliance Platform</p>
+      <aside className="w-64 bg-surface border-r border-surface-border flex flex-col">
+        <div className="px-6 py-5 border-b border-surface-border">
+          <h1 className="text-lg font-semibold text-foreground">Pilot</h1>
+          <p className="text-xs text-muted-foreground">Compliance Platform</p>
         </div>
 
-        <div className="p-4 border-b border-neutral-200">
+        <div className="p-4 border-b border-surface-border">
           <button 
             onClick={() => router.push('/permit-management')}
-            className="flex items-center gap-2 text-sm text-neutral-600 hover:bg-neutral-100 px-3 py-2 rounded-lg w-full"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:bg-accent px-3 py-2 rounded-lg w-full transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Permits
@@ -202,15 +202,15 @@ export default function NewPermitPage() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="bg-white border-b border-neutral-200 px-8 py-6">
-          <h2 className="text-2xl font-semibold text-neutral-900">Add New Permit</h2>
-          <p className="text-sm text-neutral-500 mt-1">Fill in the details to add a new permit to the system</p>
+        <div className="bg-surface border-b border-surface-border px-8 py-6">
+          <h2 className="text-2xl font-semibold text-foreground">Add New Permit</h2>
+          <p className="text-sm text-muted-foreground mt-1">Fill in the details to add a new permit to the system</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 max-w-4xl">
           {/* Required Fields Section */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">Required Information</h3>
+          <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Required Information</h3>
             
             <div className="grid grid-cols-2 gap-6">
               {/* Permit Name */}
@@ -222,7 +222,7 @@ export default function NewPermitPage() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
@@ -235,7 +235,7 @@ export default function NewPermitPage() {
                 <select
                   value={formData.level}
                   onChange={(e) => handleInputChange('level', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 >
                   <option value="municipal">Municipal</option>
@@ -253,7 +253,7 @@ export default function NewPermitPage() {
                   type="text"
                   value={formData.authority}
                   onChange={(e) => handleInputChange('authority', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
@@ -268,7 +268,7 @@ export default function NewPermitPage() {
                   value={formData.jurisdiction.province}
                   onChange={(e) => handleInputChange('jurisdiction.province', e.target.value)}
                   placeholder="e.g., ON, BC, QC"
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
@@ -282,7 +282,7 @@ export default function NewPermitPage() {
                   type="text"
                   value={formData.jurisdiction.city}
                   onChange={(e) => handleInputChange('jurisdiction.city', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -296,7 +296,7 @@ export default function NewPermitPage() {
                   value={formData.applyUrl}
                   onChange={(e) => handleInputChange('applyUrl', e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
@@ -311,7 +311,7 @@ export default function NewPermitPage() {
                   value={formData.sourceUrl}
                   onChange={(e) => handleInputChange('sourceUrl', e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
@@ -319,7 +319,7 @@ export default function NewPermitPage() {
           </div>
 
           {/* Business Types */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
+          <div className="bg-surface rounded-lg border border-border p-6 mb-6">
             <h3 className="text-lg font-semibold text-neutral-900 mb-4">
               Business Types <span className="text-red-500">*</span>
             </h3>
@@ -335,7 +335,7 @@ export default function NewPermitPage() {
               <button
                 type="button"
                 onClick={handleAddBusinessType}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
               >
                 Add
               </button>
@@ -360,7 +360,7 @@ export default function NewPermitPage() {
           </div>
 
           {/* Activities */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
+          <div className="bg-surface rounded-lg border border-border p-6 mb-6">
             <h3 className="text-lg font-semibold text-neutral-900 mb-4">
               Activities <span className="text-red-500">*</span>
             </h3>
@@ -376,7 +376,7 @@ export default function NewPermitPage() {
               <button
                 type="button"
                 onClick={handleAddActivity}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
               >
                 Add
               </button>
@@ -401,8 +401,8 @@ export default function NewPermitPage() {
           </div>
 
           {/* Optional Fields */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">Additional Information (Optional)</h3>
+          <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Additional Information (Optional)</h3>
             
             <div className="grid grid-cols-2 gap-6">
               {/* Prerequisites */}
@@ -412,7 +412,7 @@ export default function NewPermitPage() {
                   value={formData.prerequisites}
                   onChange={(e) => handleInputChange('prerequisites', e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -423,7 +423,7 @@ export default function NewPermitPage() {
                   type="email"
                   value={formData.contactInfo.email}
                   onChange={(e) => handleInputChange('contactInfo.email', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -434,7 +434,7 @@ export default function NewPermitPage() {
                   type="tel"
                   value={formData.contactInfo.phone}
                   onChange={(e) => handleInputChange('contactInfo.phone', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -445,7 +445,7 @@ export default function NewPermitPage() {
                   type="date"
                   value={formData.lastVerified}
                   onChange={(e) => handleInputChange('lastVerified', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -457,7 +457,7 @@ export default function NewPermitPage() {
                   value={formData.moreInfoUrl}
                   onChange={(e) => handleInputChange('moreInfoUrl', e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
             </div>
@@ -475,7 +475,7 @@ export default function NewPermitPage() {
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
                 <>

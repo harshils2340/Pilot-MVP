@@ -642,20 +642,20 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header – matches Workspace theme */}
-      <div className="flex-shrink-0 bg-white px-8 py-6">
+      <div className="flex-shrink-0 bg-surface px-8 py-6 border-b border-border">
         <div className="flex items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => (onBackToDashboard ? onBackToDashboard() : router.push('/'))}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors border border-neutral-200"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors border border-border"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Dashboard</span>
             </button>
             <div>
-              <h1 className="text-neutral-900 mb-1">Leads</h1>
-              <p className="text-neutral-600">Pipeline · Permit-related opportunities</p>
+              <h1 className="text-foreground mb-1">Leads</h1>
+              <p className="text-muted-foreground">Pipeline · Permit-related opportunities</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -664,7 +664,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                 if (stages.length > 0) setAddLeadStage(stages[0]);
               }}
               disabled={stages.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-900"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               title={stages.length > 0 ? 'Add New Lead' : 'Load pipeline stages first'}
             >
               <Plus className="w-4 h-4" />
@@ -672,7 +672,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
             </button>
             <button
               onClick={handleExportLeads}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground rounded-lg hover:bg-accent transition-colors text-sm font-medium"
               title="Export Leads"
             >
               <Download className="w-4 h-4" />
@@ -680,7 +680,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
             </button>
             <button
               onClick={() => router.push('/settings')}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground rounded-lg hover:bg-accent transition-colors text-sm font-medium"
               title="Pipeline Settings"
             >
               <Settings className="w-4 h-4" />
@@ -690,13 +690,13 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[200px] max-w-md relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               placeholder="Search leads..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
 
@@ -707,8 +707,8 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                 onClick={() => setFilterChip(chip)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
                   filterChip === chip
-                    ? 'bg-neutral-900 text-white border-neutral-900'
-                    : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-surface text-foreground border-border hover:bg-accent'
                 }`}
               >
                 {chip === 'all' ? 'All' : 'Pre-Sales'}
@@ -718,11 +718,11 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
 
           {selectedLeadIds.size > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-neutral-600">
-                <span className="font-medium text-neutral-900">{selectedLeadIds.size}</span> selected
+              <span className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{selectedLeadIds.size}</span> selected
               </span>
               {movingStage ? (
-                <span className="text-sm text-neutral-600 px-3 py-2">
+                <span className="text-sm text-muted-foreground px-3 py-2">
                   Moving {movingStage.count} to {movingStage.stage.name}…
                 </span>
               ) : (
@@ -733,7 +733,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                     if (s) handleMoveSelectedToStage(s);
                   }}
                 >
-                  <SelectTrigger className="w-[180px] border-neutral-300">
+                  <SelectTrigger className="w-[180px] border-border">
                     <SelectValue placeholder="Move to…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -749,7 +749,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                 type="button"
                 onClick={clearSelection}
                 disabled={!!movingStage}
-                className="px-4 py-2 text-sm text-neutral-700 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
               >
                 Clear
               </button>
@@ -760,7 +760,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
             <button
               type="button"
               onClick={selectAllVisible}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
             >
               Select all
             </button>
@@ -773,7 +773,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
               fetchLeads();
             }}
             title="Refresh"
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -781,20 +781,20 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
       </div>
 
       {/* Kanban board */}
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto px-8 pb-8">
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto px-8 pb-8 bg-page-bg">
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <p className="text-neutral-500">Loading...</p>
+            <p className="text-muted-foreground">Loading...</p>
           </div>
         ) : visibleStages.length === 0 ? (
           <div className="flex items-center justify-center h-48">
-            <p className="text-neutral-500">No pipeline stages.</p>
+            <p className="text-muted-foreground">No pipeline stages.</p>
           </div>
         ) : leadsInVisibleStages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Mail className="w-12 h-12 text-neutral-300 mb-4" />
-            <h3 className="text-lg font-medium text-neutral-900 mb-2">No leads yet</h3>
-            <p className="text-sm text-neutral-500 max-w-md">
+            <Mail className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No leads yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
               {searchQuery
                 ? 'No matches for your search. Try a different query.'
                 : 'Permit-related leads will appear here when emails about permits or licensing are received.'}
@@ -818,31 +818,31 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                   className={`flex-shrink-0 flex flex-col rounded-xl border overflow-hidden shadow-sm transition-all ${
                     dragOverStageId === stage._id
                       ? 'border-emerald-500 bg-emerald-50/50 shadow-lg ring-2 ring-emerald-500/20'
-                      : 'border-neutral-200 bg-neutral-50/80'
+                      : 'border-border bg-muted/50'
                   }`}
                   style={{ minWidth: COLUMN_MIN_W, width: COLUMN_MIN_W }}
                   onDragOver={(e) => handleDragOver(e, stage._id)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, stage)}
                 >
-                  <div className="p-4 bg-white border-b border-neutral-200">
+                  <div className="p-4 bg-surface border-b border-border">
                     <div className="flex items-center justify-between mb-2">
-                      <h2 className="font-semibold text-neutral-900">{stage.name}</h2>
+                      <h2 className="font-semibold text-foreground">{stage.name}</h2>
                       <button
                         onClick={() => setAddLeadStage(stage)}
-                        className="w-7 h-7 rounded flex items-center justify-center text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700 transition-colors"
+                        className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                         title="Add lead"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden mb-2">
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
                       <div
                         className="h-full rounded-full bg-emerald-500 transition-all"
                         style={{ width: `${Math.min(100, stage.probability)}%` }}
                       />
                     </div>
-                    <p className="text-sm font-medium text-neutral-600">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {revDisplay} – {totalInStage} lead{totalInStage !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -863,8 +863,8 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                           onDragStart={(e) => handleDragStart(e, lead._id)}
                           onDragEnd={handleDragEnd}
                           onClick={(e) => handleCardClick(e, lead._id)}
-                          className={`bg-white rounded-lg border shadow-sm p-4 cursor-move hover:shadow-md hover:border-neutral-300 transition-all ${
-                            isSelected(lead._id) ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-neutral-200'
+                          className={`bg-surface rounded-lg border shadow-sm p-4 cursor-move hover:shadow-md hover:border-border transition-all ${
+                            isSelected(lead._id) ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-border'
                           } ${
                             draggedLeadId === lead._id ? 'opacity-50' : ''
                           }`}
@@ -882,7 +882,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                                   className="shrink-0"
                                 />
                               )}
-                              <h3 className="font-semibold text-neutral-900 text-sm leading-tight truncate">
+                              <h3 className="font-semibold text-foreground text-sm leading-tight truncate">
                                 {lead.name}
                               </h3>
                             </div>
@@ -928,7 +928,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                             </p>
                           )}
                           {lead.company && (
-                            <p className="text-xs text-neutral-500 mb-2">{lead.company}</p>
+                            <p className="text-xs text-muted-foreground mb-2">{lead.company}</p>
                           )}
                           {tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-2">
@@ -947,7 +947,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                               <Star
                                 key={i}
                                 className={`w-3.5 h-3.5 ${
-                                  i <= stars ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'
+                                  i <= stars ? 'fill-amber-400 text-amber-400' : 'text-muted'
                                 }`}
                               />
                             ))}
@@ -955,7 +955,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-2">
                               <span
-                                className="inline-flex items-center gap-0.5 text-xs text-neutral-500"
+                                className="inline-flex items-center gap-0.5 text-xs text-muted-foreground"
                                 title="Emails"
                               >
                                 <Mail className="w-3 h-3 text-emerald-600" />
@@ -988,7 +988,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                               )}
                             </div>
                             <div
-                              className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium text-neutral-600 flex-shrink-0"
+                              className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground flex-shrink-0"
                               title={lead.name}
                             >
                               {(lead.name || '?').charAt(0).toUpperCase()}
@@ -1008,7 +1008,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
 
       {/* Common Load More button for all sections */}
       {!loading && hasMoreInAnyStage && (
-        <div className="flex-shrink-0 flex items-center justify-center px-6 py-4 border-t border-neutral-200 bg-white">
+        <div className="flex-shrink-0 flex items-center justify-center px-6 py-4 border-t border-border bg-surface">
           <Button
             variant="outline"
             size="sm"
