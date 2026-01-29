@@ -402,9 +402,18 @@ export default function PermitManagementPage() {
                             setReviewingPermitId(p._id);
                             setReviewingPermitName(p.name);
                           }}
-                          title="Review permit"
                         />
-                        <Eye className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-foreground" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewingPermitId(p._id);
+                            setReviewingPermitName(p.name);
+                          }}
+                          title="Review permit"
+                          className="p-1 hover:bg-neutral-100 rounded"
+                        >
+                          <Eye className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-foreground" />
+                        </button>
                         <Pencil 
                           className={`w-4 h-4 cursor-pointer transition-colors ${
                             isExpanded ? 'text-blue-600' : 'text-muted-foreground hover:text-foreground'

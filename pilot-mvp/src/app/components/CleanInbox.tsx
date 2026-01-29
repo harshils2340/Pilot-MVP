@@ -182,7 +182,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ clientId: doc.clientId, documentId: doc.id }),
-            }).catch(() => {}) // Silently fail
+            }).then(() => {}).catch(() => {}) // Silently fail
           );
         }
 
@@ -960,14 +960,14 @@ Common Issues:
           {selectedNotification && (
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="px-6 py-5 border-b border-border">
-                <h2 className="text-lg font-semibold text-emerald-600 mb-1">
+              <SheetHeader className="px-6 py-5 border-b border-border">
+                <SheetTitle className="text-lg font-semibold text-emerald-600 mb-1">
                   {selectedNotification.title}
-                </h2>
+                </SheetTitle>
                 <p className="text-sm text-muted-foreground">
                   {selectedNotification.message}
                 </p>
-              </div>
+              </SheetHeader>
 
               {/* Form Content */}
               <div className="flex-1 overflow-y-auto px-6 py-6">
