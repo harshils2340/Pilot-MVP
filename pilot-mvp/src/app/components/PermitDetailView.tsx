@@ -1,5 +1,4 @@
 import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
-import { PermitDocumentReview } from './PermitDocumentReview';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
 import { useState, useEffect } from 'react';
@@ -155,7 +154,6 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
   const [documentRequests, setDocumentRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [documents, setDocuments] = useState<any[]>([]);
-  const [showDocumentReview, setShowDocumentReview] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
@@ -1836,13 +1834,6 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                 </div>
                 <div className="flex items-center gap-2">
                   <button 
-                    onClick={() => setShowDocumentReview(true)}
-                    className="flex items-center gap-2 px-3 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors"
-                  >
-                    <GitPullRequest className="w-4 h-4" />
-                    Review Documents
-                  </button>
-                  <button 
                     onClick={() => setShowRequestModal(true)}
                     className="flex items-center gap-2 px-3 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors"
                   >
@@ -2351,16 +2342,6 @@ ${permit.assignee.name || 'Permit Consultant'}`;
           </div>
         </main>
       </div>
-
-      {/* Document Review Modal */}
-      {showDocumentReview && (
-        <PermitDocumentReview
-          permitId={permitId}
-          permitName={permit.name}
-          isOpen={showDocumentReview}
-          onClose={() => setShowDocumentReview(false)}
-        />
-      )}
 
       {/* Request Document Modal */}
       {showRequestModal && clientInfo && (
