@@ -1,7 +1,9 @@
-import { FileText, Download, CheckCircle, Clock, AlertCircle, ChevronDown, ChevronRight, MessageCircle, XCircle, Loader2, Upload, RefreshCw, AlertTriangle, UserPlus, X, Check, Eye, Dot } from 'lucide-react';
+'use client';
+
+import { FileText, Download, CheckCircle, Clock, AlertCircle, ChevronDown, ChevronRight, MessageCircle, XCircle, Loader2, Upload, RefreshCw, AlertTriangle, UserPlus, X, Eye, Dot } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-interface Check {
+interface DocumentCheck {
   id: string;
   name: string;
   description: string;
@@ -34,7 +36,7 @@ interface DocumentReview {
   uploadedAt: string;
   size: string;
   status: 'pending_review' | 'approved' | 'changes_requested';
-  checks?: Check[];
+  checks?: DocumentCheck[];
   reviewers: {
     name: string;
     initials: string;
@@ -72,7 +74,7 @@ export function ReviewSection({ reviews: initialReviews, onUpdateReview }: Revie
       if (!review.checks || review.checks.length === 0) {
         // Start checks after a brief delay
         setTimeout(() => {
-          const initialChecks: Check[] = [
+          const initialChecks: DocumentCheck[] = [
             { 
               id: 'ai-compliance', 
               name: 'AI Compliance Validation', 
@@ -190,7 +192,7 @@ export function ReviewSection({ reviews: initialReviews, onUpdateReview }: Revie
   const rerunChecks = (reviewId: string, documentName: string) => {
     setReviews(prev => prev.map(r => {
       if (r.id === reviewId) {
-        const resetChecks: Check[] = [
+        const resetChecks: DocumentCheck[] = [
           { id: 'ai-compliance', name: 'AI Compliance Validation', description: 'Validating document against SF Health Department requirements', status: 'running' },
           { id: 'format-validation', name: 'Format & Structure Check', description: 'Verifying document format meets submission standards', status: 'pending' },
           { id: 'completeness', name: 'Completeness Verification', description: 'Ensuring all required information is present', status: 'pending' },
@@ -202,15 +204,15 @@ export function ReviewSection({ reviews: initialReviews, onUpdateReview }: Revie
     runChecks(reviewId, documentName);
   };
 
-  const allChecksPassed = (checks?: Check[]) => {
+  const allChecksPassed = (checks?: DocumentCheck[]) => {
     return checks && checks.length > 0 ? checks.every(check => check.status === 'passed') : false;
   };
 
-  const hasFailedChecks = (checks?: Check[]) => {
+  const hasFailedChecks = (checks?: DocumentCheck[]) => {
     return checks ? checks.some(check => check.status === 'failed') : false;
   };
 
-  const checksInProgress = (checks?: Check[]) => {
+  const checksInProgress = (checks?: DocumentCheck[]) => {
     return checks ? checks.some(check => check.status === 'running' || check.status === 'pending') : true;
   };
 
