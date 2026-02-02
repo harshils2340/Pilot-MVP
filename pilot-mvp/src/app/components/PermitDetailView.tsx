@@ -1,4 +1,7 @@
-import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
+import { PermitDocumentReview } from './PermitDocumentReview';
+import { RequestDocumentModal } from './RequestDocumentModal';
+import { ReviewSection } from './ReviewSection';
 import { useState, useEffect } from 'react';
 
 interface PermitDetailViewProps {
@@ -54,7 +57,7 @@ interface CityFeedbackItem {
   consultantResponse?: string;
 }
 
-type Section = 'overview' | 'city-feedback' | 'discussion' | 'history' | 'documents';
+type Section = 'overview' | 'city-feedback' | 'documents' | 'review' | 'discussion' | 'history';
 
 interface ClientEmail {
   _id: string;
@@ -149,6 +152,13 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
   const [cityEmails, setCityEmails] = useState<ClientEmail[]>([]);
   const [loadingCityEmails, setLoadingCityEmails] = useState(false);
   const [cityEmailResponses, setCityEmailResponses] = useState<Record<string, string>>({});
+  const [documentRequests, setDocumentRequests] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [showDocumentReview, setShowDocumentReview] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
 
   // Mock data - would come from props or API
   const permit = {
@@ -168,6 +178,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
       color: 'bg-green-500',
     },
     applicationNumber: 'HP-2024-12345',
+    governmentFee: 1250,
   };
 
   const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([
@@ -447,6 +458,69 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
     }
   }, [permitId]);
 
+  // Fetch document requests and documents when documents section is active
+  useEffect(() => {
+    if (activeSection === 'documents' && permitId) {
+      fetchDocumentRequests();
+      fetchDocuments();
+    }
+  }, [activeSection, permitId]);
+
+  const fetchDocumentRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      const res = await fetch(`/api/documents/requests?permitId=${permitId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocumentRequests(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch document requests:', error);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const res = await fetch(`/api/documents?permitId=${permitId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(Array.isArray(data) ? data : data?.documents || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch documents:', error);
+    }
+  };
+
+  // Fetch client info for document requests
+  useEffect(() => {
+    const fetchClientInfo = async () => {
+      if (!clientName) return;
+      try {
+        // Try to get client by name
+        const res = await fetch(`/api/clients/${encodeURIComponent(clientName)}`);
+        if (res.ok) {
+          const client = await res.json();
+          setClientInfo({
+            id: client._id || client.id,
+            name: client.businessName || clientName,
+            email: client.contactInfo?.email || '',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch client info:', error);
+        // Fallback to clientName only
+        setClientInfo({
+          id: '',
+          name: clientName || 'Client',
+          email: '',
+        });
+      }
+    };
+    fetchClientInfo();
+  }, [clientName]);
+
   const formatEmailDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -560,6 +634,15 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     {statusConfig.label}
                   </span>
                 </div>
+                <div>
+                  <p className="text-xs font-medium text-neutral-500 mb-1">Government Fee</p>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-neutral-400" />
+                    <p className="text-sm font-semibold text-neutral-900">
+                      {permit.governmentFee > 0 ? `$${permit.governmentFee.toLocaleString()}` : 'No fee'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -582,6 +665,98 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                 </div>
               </div>
             )}
+
+            {/* Required Documents */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+              <h3 className="text-sm font-semibold text-neutral-900 mb-4">Required Documents</h3>
+              <p className="text-sm text-neutral-600 mb-4">Documents needed to complete this permit application</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-neutral-900">Floor Plan with Equipment Layout</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Detailed floor plan showing all equipment placement and dimensions</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-neutral-900">Equipment Specifications</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Manufacturer specs for all food service equipment</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-neutral-900">Menu & Food Handling Procedures</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Description of food prep, storage, and handling processes</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-neutral-900">Proof of Lease or Ownership</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Legal documentation of property rights</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Form Filling */}
+            <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-1">Government Form</h3>
+                    <p className="text-sm text-neutral-600">
+                      Click below to open the government portal. Our AI will help you fill the form using information from your documents.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                      <FileEdit className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-semibold text-neutral-900">Health Permit Application (Form EH-01)</h4>
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-xs font-medium">
+                          Required
+                        </span>
+                      </div>
+                      <p className="text-sm text-neutral-600 mb-2">
+                        Primary application form for food service establishment health permits
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-neutral-500">
+                        <span className="flex items-center gap-1">
+                          <Building2 className="w-3.5 h-3.5" />
+                          SF Dept. of Public Health
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          ~15 min to complete
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => window.open('https://www.sfdph.org/dph/EH/Food/default.asp', '_blank')}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Fill with AI
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         );
 
@@ -1630,16 +1805,177 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
           </div>
         );
       case 'documents':
+        // Calculate document counts by source
+        const documentsFromClient = documents.filter(d => d.uploadedBy?.isClient).length;
+        const documentsFromTeam = documents.filter(d => !d.uploadedBy?.isClient && d.metadata?.source !== 'government').length;
+        const documentsFromGovernment = documents.filter(d => d.metadata?.source === 'government').length;
+        const totalDocuments = documents.length;
+        
+        // Calculate request counts
+        const pendingRequests = documentRequests.filter(r => r.status === 'pending').length;
+        const uploadedRequests = documentRequests.filter(r => r.status === 'fulfilled').length;
+
+        const handleCopyLink = (requestId: string) => {
+          const uploadUrl = `${window.location.origin}/client-portal?requestId=${requestId}`;
+          navigator.clipboard.writeText(uploadUrl);
+          // You could add a toast notification here
+        };
+
         return (
           <div className="space-y-6">
+            {/* Documents Attached Section */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                    {totalDocuments} document{totalDocuments !== 1 ? 's' : ''} attached to this permit
+                  </h3>
+                  <p className="text-sm text-neutral-500">
+                    {documentsFromClient} from client • {documentsFromTeam} from team • {documentsFromGovernment} from government
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowDocumentReview(true)}
+                    className="flex items-center gap-2 px-3 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                  >
+                    <GitPullRequest className="w-4 h-4" />
+                    Review Documents
+                  </button>
+                  <button 
+                    onClick={() => setShowRequestModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Request from Client
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.multiple = true;
+                      input.onchange = async (e) => {
+                        const files = (e.target as HTMLInputElement).files;
+                        if (!files || files.length === 0) return;
+                        
+                        for (const file of Array.from(files)) {
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('clientId', clientInfo?.id || '');
+                          formData.append('permitId', permitId);
+                          formData.append('permitName', permit.name);
+                          formData.append('workspace', 'permits');
+                          
+                          try {
+                            const res = await fetch('/api/documents/upload', {
+                              method: 'POST',
+                              body: formData,
+                            });
+                            if (res.ok) {
+                              fetchDocuments();
+                            }
+                          } catch (error) {
+                            console.error('Failed to upload document:', error);
+                          }
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Document
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Document Requests Section */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-1">Document Requests</h3>
+                <p className="text-sm text-neutral-500">
+                  {pendingRequests} pending • {uploadedRequests} uploaded
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {documentRequests.length === 0 ? (
+                  <div className="text-center py-8 text-neutral-500">
+                    <Mail className="w-8 h-8 mx-auto mb-2 text-neutral-300" />
+                    <p className="text-sm">No document requests yet</p>
+                  </div>
+                ) : (
+                  documentRequests.map((request) => {
+                    const uploadUrl = `${window.location.origin}/client-portal?requestId=${request.id}`;
+                    const isPending = request.status === 'pending';
+                    const requestedDate = new Date(request.requestedAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                    const requestedTime = new Date(request.requestedAt).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    });
+
+                    return (
+                      <div key={request.id} className="border-t border-neutral-200 pt-4 first:border-t-0 first:pt-0">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-sm font-semibold text-neutral-900">{request.title}</h4>
+                              {isPending && (
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded text-xs font-medium flex items-center gap-1">
+                                  <Mail className="w-3 h-3" />
+                                  Waiting for Upload
+                                </span>
+                              )}
+                              {!isPending && (
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 border border-green-200 rounded text-xs font-medium flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Uploaded
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-neutral-500 mb-2">
+                              Requested from {request.clientEmail || request.clientName || 'client'} • {requestedDate} at {requestedTime}
+                            </p>
+                            {request.description && (
+                              <p className="text-sm text-neutral-600 mb-3">{request.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {isPending && (
+                          <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={uploadUrl}
+                                className="flex-1 px-3 py-2 bg-white border border-neutral-300 rounded text-sm text-neutral-900"
+                              />
+                              <button
+                                onClick={() => handleCopyLink(request.id)}
+                                className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded hover:bg-neutral-800 transition-colors"
+                              >
+                                <Link2 className="w-4 h-4" />
+                                Copy Link
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
             {/* Upload Area */}
             <div className="bg-white border border-neutral-200 rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-neutral-900">Permit Documents</h3>
-                <button className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors">
-                  <Upload className="w-4 h-4" />
-                  Upload Document
-                </button>
+                <h3 className="text-sm font-semibold text-neutral-900">All Documents</h3>
               </div>
               
               {/* Required Documents */}
@@ -1741,13 +2077,71 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             </div>
           </div>
         );
+
+      case 'review':
+        const documentReviews = [
+          {
+            id: '1',
+            documentName: 'floor_plan_revised_v2.pdf',
+            documentType: 'Floor Plan',
+            uploadedBy: 'Sarah Chen',
+            uploadedAt: 'Jan 11 at 9:15 AM',
+            size: '1.8 MB',
+            status: 'changes_requested' as const,
+            reviewers: [
+              {
+                name: 'Michael Park',
+                initials: 'MP',
+                color: 'bg-blue-600',
+                status: 'changes_requested' as const,
+                reviewedAt: 'Jan 11 at 11:30 AM',
+              },
+            ],
+            comments: [
+              {
+                id: 'rc1',
+                author: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-600' },
+                message: 'The 3-compartment sink dimensions look good now, but I noticed the water supply line routing isn\'t shown. Can you add that detail before we submit?',
+                timestamp: 'Jan 11 at 11:30 AM',
+                type: 'change_request' as const,
+                documentName: 'floor_plan_revised_v2.pdf',
+              },
+            ],
+          },
+          {
+            id: '2',
+            documentName: 'sink_specifications_kohler.pdf',
+            documentType: 'Equipment Specification',
+            uploadedBy: 'Sarah Chen',
+            uploadedAt: 'Jan 11 at 10:00 AM',
+            size: '456 KB',
+            status: 'pending_review' as const,
+            reviewers: [],
+            comments: [],
+          },
+          {
+            id: '3',
+            documentName: 'water_supply_calculations.pdf',
+            documentType: 'Engineering Calculation',
+            uploadedBy: 'Michael Park',
+            uploadedAt: 'Jan 11 at 2:00 PM',
+            size: '234 KB',
+            status: 'pending_review' as const,
+            reviewers: [],
+            comments: [],
+          },
+        ];
+        return (
+          <ReviewSection reviews={documentReviews} />
+        );
     }
   };
 
   const sections = [
-    { id: 'overview' as Section, label: 'Overview', icon: Info },
+    { id: 'overview' as Section, label: 'Overview', icon: Eye },
     { id: 'city-feedback' as Section, label: 'City Feedback', icon: AlertCircle, badge: cityFeedback.filter(f => f.status !== 'addressed').length + cityEmails.filter(e => e.status === 'unread').length },
     { id: 'documents' as Section, label: 'Documents', icon: FileText },
+    { id: 'review' as Section, label: 'Review', icon: GitPullRequest },
     { id: 'discussion' as Section, label: 'Discussion', icon: MessageCircle, badge: comments.filter(c => !c.resolved).length },
     { id: 'history' as Section, label: 'History', icon: Clock },
   ];
@@ -1957,6 +2351,34 @@ ${permit.assignee.name || 'Permit Consultant'}`;
           </div>
         </main>
       </div>
+
+      {/* Document Review Modal */}
+      {showDocumentReview && (
+        <PermitDocumentReview
+          permitId={permitId}
+          permitName={permit.name}
+          isOpen={showDocumentReview}
+          onClose={() => setShowDocumentReview(false)}
+        />
+      )}
+
+      {/* Request Document Modal */}
+      {showRequestModal && clientInfo && (
+        <RequestDocumentModal
+          clientId={clientInfo.id}
+          clientName={clientInfo.name}
+          clientEmail={clientInfo.email}
+          consultantId="consultant-1"
+          consultantName="Consultant"
+          permitId={permitId}
+          permitName={permit.name}
+          onClose={() => setShowRequestModal(false)}
+          onSuccess={() => {
+            fetchDocumentRequests();
+            setShowRequestModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

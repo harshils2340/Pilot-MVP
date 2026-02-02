@@ -9,6 +9,8 @@ interface RequestDocumentModalProps {
   clientEmail: string;
   consultantId: string;
   consultantName: string;
+  permitId?: string;
+  permitName?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -19,6 +21,8 @@ export function RequestDocumentModal({
   clientEmail,
   consultantId,
   consultantName,
+  permitId,
+  permitName,
   onClose,
   onSuccess,
 }: RequestDocumentModalProps) {
@@ -45,6 +49,8 @@ export function RequestDocumentModal({
           description: description.trim() || undefined,
           consultantId: consultantId || undefined,
           consultantName: consultantName || undefined,
+          permitId: permitId || undefined,
+          permitName: permitName || undefined,
           expiresAt: dueDate ? new Date(dueDate).toISOString() : undefined,
         }),
       });
@@ -143,7 +149,7 @@ export function RequestDocumentModal({
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-2"
             >
               <Send className="w-4 h-4" />
               {submitting ? 'Sending...' : 'Send Request'}

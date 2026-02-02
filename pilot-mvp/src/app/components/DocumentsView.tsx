@@ -6,9 +6,10 @@ import { toast } from 'sonner';
 import { 
   FileText, Upload, Folder, FolderOpen, Search, MoreVertical, 
   Share2, Download, Trash2, Calendar, User, 
-  CheckCircle2, Plus, X, Loader2, Send, ChevronRight, ChevronDown, File, Eye
+  CheckCircle2, Plus, X, Loader2, Send, ChevronRight, ChevronDown, File, Eye, GitPullRequest
 } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
+import { DocumentReviewModal } from './DocumentReviewModal';
 
 interface Document {
   id: string;
@@ -20,7 +21,7 @@ interface Document {
   workspace: string;
   folder?: string;
   tags: string[];
-  status: 'draft' | 'shared' | 'signed' | 'archived';
+  status: 'draft' | 'shared' | 'signed' | 'archived' | 'pending-review';
   uploadedBy: {
     userName: string;
     userEmail: string;
@@ -120,6 +121,7 @@ export function DocumentsView({
   const [uploading, setUploading] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ name: string; email: string } | null>(null);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
+  const [reviewingDocument, setReviewingDocument] = useState<Document | null>(null);
   const lastDocumentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -559,6 +561,22 @@ export function DocumentsView({
       )}
 
       {/* Request Document Modal */}
+      {reviewingDocument && (
+        <DocumentReviewModal
+          documentId={reviewingDocument.id}
+          documentName={reviewingDocument.name}
+          documentUrl={reviewingDocument.fileUrl}
+          documentType={reviewingDocument.fileType}
+          isOpen={!!reviewingDocument}
+          onClose={() => {
+            setReviewingDocument(null);
+            fetchDocuments(); // Refresh to show updated review status
+          }}
+          onReviewComplete={() => {
+            fetchDocuments(); // Refresh after review completion
+          }}
+        />
+      )}
       {showRequestModal && clientInfo && consultantId && (
         <RequestDocumentModal
           clientId={clientId}
@@ -694,7 +712,16 @@ function DocumentRow({
         })}
       </td>
       <td className="px-4 py-3">
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 items-center">
+          {document.status === 'pending-review' && (
+            <span
+              className="px-2 py-0.5 text-xs font-medium rounded-full border bg-blue-100 text-blue-700 border-blue-200 flex items-center gap-1"
+              title="Under review"
+            >
+              <GitPullRequest className="w-3 h-3" />
+              Review
+            </span>
+          )}
           {(document.tags || []).slice(0, 2).map((tag) => {
             const colors = getTagColor(tag);
             return (
@@ -752,6 +779,16 @@ function DocumentRow({
               <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
                 <Share2 className="w-4 h-4" />
                 Share
+              </button>
+              <button 
+                onClick={() => {
+                  setReviewingDocument(document);
+                  setShowMenu(false);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+              >
+                <GitPullRequest className="w-4 h-4" />
+                Review
               </button>
               <div className="h-px bg-neutral-200 my-1" />
               <button 

@@ -6,7 +6,8 @@
     "dev": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_TLS_REJECT_UNAUTHORIZED=0 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy:gmail-addon": "ts-node scripts/deploy-gmail-addon.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
