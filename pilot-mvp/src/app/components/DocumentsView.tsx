@@ -503,6 +503,7 @@ export function DocumentsView({
                     formatFileSize={formatFileSize}
                     onDelete={(docId) => setDocuments(prev => prev.filter(d => d.id !== docId))}
                     onView={handleViewDocument}
+                    onReview={setReviewingDocument}
                   />
                 ))}
               </tbody>
@@ -600,11 +601,13 @@ function DocumentRow({
   formatFileSize,
   onDelete,
   onView,
+  onReview,
 }: { 
   document: Document; 
   formatFileSize: (bytes: number) => string;
   onDelete: (docId: string) => void;
   onView?: (doc: Document) => void;
+  onReview?: (doc: Document) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -780,16 +783,18 @@ function DocumentRow({
                 <Share2 className="w-4 h-4" />
                 Share
               </button>
-              <button 
-                onClick={() => {
-                  setReviewingDocument(document);
-                  setShowMenu(false);
-                }}
-                className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
-              >
-                <GitPullRequest className="w-4 h-4" />
-                Review
-              </button>
+              {onReview && (
+                <button 
+                  onClick={() => {
+                    onReview(document);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+                >
+                  <GitPullRequest className="w-4 h-4" />
+                  Review
+                </button>
+              )}
               <div className="h-px bg-neutral-200 my-1" />
               <button 
                 onClick={handleDelete}
