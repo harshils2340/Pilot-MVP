@@ -1,7 +1,9 @@
 import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
-import { useState, useEffect } from 'react';
+import { FillablePDFModal } from './FillablePDFModal';
+import { useState, useEffect, useMemo } from 'react';
+import { getPermitById } from '../lib/permits/demoData';
 
 interface PermitDetailViewProps {
   permitId: string;
@@ -156,28 +158,46 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
   const [documents, setDocuments] = useState<any[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showFillablePDFModal, setShowFillablePDFModal] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
 
-  // Mock data - would come from props or API
-  const permit = {
-    id: permitId,
-    name: 'Health Department Plan Review',
-    department: 'SF Dept. of Public Health',
-    municipality: 'San Francisco',
-    status: 'action-required' as const,
-    order: 3,
-    submittedDate: 'December 15, 2024',
-    lastUpdated: 'December 18, 2024',
-    blockedBy: null,
-    blocks: ['Business Operating Permit', 'Building Modification Permit'],
-    assignee: {
-      name: 'Sarah Chen',
-      initials: 'SC',
-      color: 'bg-green-500',
-    },
-    applicationNumber: 'HP-2024-12345',
-    governmentFee: 1250,
-  };
+  // Look up permit by ID from shared demo data (or API in production)
+  const permitData = useMemo(() => getPermitById(permitId), [permitId]);
+  const permit = permitData
+    ? {
+        id: permitData.id,
+        name: permitData.name,
+        department: permitData.authority,
+        municipality: permitData.municipality,
+        status: permitData.status,
+        order: permitData.order,
+        submittedDate: 'December 15, 2024',
+        lastUpdated: permitData.lastActivityDate,
+        blockedBy: permitData.blockedBy ?? null,
+        blocks: permitData.blocks ?? [],
+        assignee: permitData.assignee ?? {
+          name: 'Sarah Chen',
+          initials: 'SC',
+          color: 'bg-green-500',
+        },
+        applicationNumber: 'HP-2024-12345',
+        governmentFee: 1250,
+      }
+    : {
+        id: permitId,
+        name: permitId ? 'Unknown Permit' : 'Loading...',
+        department: '',
+        municipality: '',
+        status: 'not-started' as const,
+        order: 0,
+        submittedDate: '',
+        lastUpdated: '',
+        blockedBy: null,
+        blocks: [] as string[],
+        assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
+        applicationNumber: '',
+        governmentFee: 0,
+      };
 
   const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([
     {
@@ -273,7 +293,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         return {
           icon: <Clock className="w-4 h-4" />,
           label: 'Not Started',
-          className: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+          className: 'bg-muted text-muted-foreground border-border',
         };
     }
   };
@@ -296,7 +316,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         return {
           icon: <Circle className="w-4 h-4" />,
           label: 'Not Started',
-          className: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+          className: 'bg-muted text-muted-foreground border-border',
         };
     }
   };
@@ -577,13 +597,13 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         return (
           <div className="space-y-6">
             {/* Status Card */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="bg-surface border border-border rounded-lg p-6">
               <h3 className="text-sm font-semibold text-neutral-900 mb-4">Permit Information</h3>
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                 <div>
                   <p className="text-xs font-medium text-neutral-500 mb-1">Application Number</p>
                   <div className="flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-neutral-400" />
+                    <Hash className="w-4 h-4 text-muted-foreground" />
                     <p className="text-sm text-neutral-900 font-mono">{permit.applicationNumber}</p>
                   </div>
                 </div>
@@ -594,7 +614,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                 <div>
                   <p className="text-xs font-medium text-neutral-500 mb-1">Issuing Authority</p>
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-neutral-400" />
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
                     <p className="text-sm text-neutral-900">{permit.department}</p>
                   </div>
                 </div>
@@ -605,14 +625,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                 <div>
                   <p className="text-xs font-medium text-neutral-500 mb-1">Submitted</p>
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-neutral-400" />
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
                     <p className="text-sm text-neutral-900">{permit.submittedDate}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-neutral-500 mb-1">Last Updated</p>
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-neutral-400" />
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     <p className="text-sm text-neutral-900">{permit.lastUpdated}</p>
                   </div>
                 </div>
@@ -635,7 +655,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                 <div>
                   <p className="text-xs font-medium text-neutral-500 mb-1">Government Fee</p>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-neutral-400" />
+                    <DollarSign className="w-4 h-4 text-muted-foreground" />
                     <p className="text-sm font-semibold text-neutral-900">
                       {permit.governmentFee > 0 ? `$${permit.governmentFee.toLocaleString()}` : 'No fee'}
                     </p>
@@ -646,7 +666,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
 
             {/* Dependencies */}
             {permit.blocks.length > 0 && (
-              <div className="bg-white border border-neutral-200 rounded-lg p-6">
+              <div className="bg-surface border border-border rounded-lg p-6">
                 <h3 className="text-sm font-semibold text-neutral-900 mb-4">Dependencies</h3>
                 <div className="space-y-3">
                   <div>
@@ -665,33 +685,33 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             )}
 
             {/* Required Documents */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="bg-surface border border-border rounded-lg p-6">
               <h3 className="text-sm font-semibold text-neutral-900 mb-4">Required Documents</h3>
-              <p className="text-sm text-neutral-600 mb-4">Documents needed to complete this permit application</p>
+              <p className="text-sm text-muted-foreground mb-4">Documents needed to complete this permit application</p>
               <div className="space-y-2">
-                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
-                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
+                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-neutral-900">Floor Plan with Equipment Layout</p>
                     <p className="text-xs text-neutral-500 mt-0.5">Detailed floor plan showing all equipment placement and dimensions</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
-                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
+                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-neutral-900">Equipment Specifications</p>
                     <p className="text-xs text-neutral-500 mt-0.5">Manufacturer specs for all food service equipment</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
-                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
+                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-neutral-900">Menu & Food Handling Procedures</p>
                     <p className="text-xs text-neutral-500 mt-0.5">Description of food prep, storage, and handling processes</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
-                  <FileText className="w-4 h-4 text-neutral-600 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
+                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-neutral-900">Proof of Lease or Ownership</p>
                     <p className="text-xs text-neutral-500 mt-0.5">Legal documentation of property rights</p>
@@ -701,7 +721,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             </div>
 
             {/* AI Form Filling */}
-            <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div className="bg-surface border border-border rounded-lg overflow-hidden">
               <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
@@ -709,7 +729,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                   </div>
                   <div className="flex-1">
                     <h3 className="text-sm font-semibold text-neutral-900 mb-1">Government Form</h3>
-                    <p className="text-sm text-neutral-600">
+                    <p className="text-sm text-muted-foreground">
                       Click below to open the government portal. Our AI will help you fill the form using information from your documents.
                     </p>
                   </div>
@@ -729,7 +749,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                           Required
                         </span>
                       </div>
-                      <p className="text-sm text-neutral-600 mb-2">
+                      <p className="text-sm text-muted-foreground mb-2">
                         Primary application form for food service establishment health permits
                       </p>
                       <div className="flex items-center gap-4 text-xs text-neutral-500">
@@ -745,7 +765,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     </div>
                   </div>
                   <button 
-                    onClick={() => window.open('https://www.sfdph.org/dph/EH/Food/default.asp', '_blank')}
+                    onClick={() => setShowFillablePDFModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
                   >
                     <Sparkles className="w-4 h-4" />
@@ -768,7 +788,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         return (
           <div className="space-y-4">
             {/* Summary Bar */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-4">
+            <div className="bg-surface border border-border rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6">
                   <div>
@@ -782,7 +802,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     </p>
                   </div>
                   {cityFeedback.length > 0 && (
-                    <div className="h-2 w-48 bg-neutral-200 rounded-full overflow-hidden">
+                    <div className="h-2 w-48 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-green-500 transition-all duration-300"
                         style={{ width: `${(cityFeedback.filter(f => f.status === 'addressed').length / cityFeedback.length) * 100}%` }}
@@ -808,9 +828,9 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
 
             {/* Loading State for City Emails */}
             {loadingCityEmails && (
-              <div className="bg-white border border-neutral-200 rounded-lg p-6 text-center">
+              <div className="bg-surface border border-border rounded-lg p-6 text-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-900 mx-auto mb-2"></div>
-                <p className="text-xs text-neutral-600">Loading city emails...</p>
+                <p className="text-xs text-muted-foreground">Loading city emails...</p>
               </div>
             )}
 
@@ -826,13 +846,13 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     return (
                       <div
                         key={email._id}
-                        className={`bg-white border rounded-lg overflow-hidden ${
+                        className={`bg-surface border rounded-lg overflow-hidden ${
                           isUnread ? 'border-l-4 border-l-red-500 border-neutral-200' : 'border-l-4 border-l-blue-500 border-neutral-200'
                         }`}
                       >
                         {/* Header - Always Visible */}
                         <div
-                          className={`px-6 py-4 cursor-pointer hover:bg-neutral-50 transition-colors ${
+                          className={`px-6 py-4 cursor-pointer hover:bg-accent transition-colors ${
                             isUnread ? 'bg-red-50/30' : ''
                           }`}
                           onClick={() => {
@@ -845,9 +865,9 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3 flex-1">
                               {isExpanded ? (
-                                <ChevronDown className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                <ChevronDown className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                               ) : (
-                                <ChevronRight className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                <ChevronRight className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                               )}
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-1">
@@ -862,14 +882,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                       ? 'bg-red-50 text-red-700 border-red-200'
                                       : email.priority === 'medium'
                                       ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                      : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+                                      : 'bg-muted/50 text-muted-foreground border-neutral-200'
                                   }`}>
                                     {email.priority}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-neutral-600">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span className="font-medium">{email.from.name || email.from.email}</span>
-                                  <span className="text-neutral-400">•</span>
+                                  <span className="text-muted-foreground">•</span>
                                   <span>{formatEmailDate(email.receivedAt)}</span>
                                 </div>
                               </div>
@@ -882,7 +902,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                           <div className="border-t border-neutral-200">
                             {/* City's Message */}
                             <div className="px-6 py-4 bg-red-50/30">
-                              <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-2">
+                              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">
                                 City's Request:
                               </p>
                               <p className="text-sm text-neutral-900 leading-relaxed whitespace-pre-line mb-3">
@@ -897,14 +917,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                     {email.attachments.map((attachment, idx) => (
                                       <div
                                         key={idx}
-                                        className="flex items-center justify-between p-2 bg-white border border-neutral-200 rounded group hover:bg-neutral-50 cursor-pointer"
+                                        className="flex items-center justify-between p-2 bg-surface border border-border rounded group hover:bg-accent cursor-pointer"
                                       >
                                         <div className="flex items-center gap-2">
                                           <FileText className="w-4 h-4 text-neutral-500" />
                                           <span className="text-xs font-medium text-neutral-900">{attachment.filename}</span>
                                           <span className="text-xs text-neutral-500">{(attachment.size / 1024).toFixed(1)} KB</span>
                                         </div>
-                                        <Download className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600" />
+                                        <Download className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
                                       </div>
                                     ))}
                                   </div>
@@ -942,7 +962,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                         alert('Failed to save response');
                                       }
                                     }}
-                                    className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 text-xs font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                                    className="px-3 py-1.5 bg-surface border border-neutral-300 text-foreground text-xs font-medium rounded-lg hover:bg-accent transition-colors"
                                   >
                                     Save Response
                                   </button>
@@ -1019,7 +1039,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                       }
                                     }}
                                     disabled={!cityEmailResponses[email._id] || cityEmailResponses[email._id].trim().length === 0}
-                                    className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                    className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                                   >
                                     <Send className="w-3.5 h-3.5" />
                                     Send Reply
@@ -1066,7 +1086,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             {/* Client Emails from Database */}
             {!loadingClientEmails && clientEmails.length > 0 && (
               <div className="space-y-3">
-                <div className="bg-white border border-neutral-200 rounded-lg p-4">
+                <div className="bg-surface border border-border rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-neutral-900">Client Messages</h3>
                   <p className="text-xs text-neutral-500 mt-0.5">
                     {clientEmails.length} message{clientEmails.length !== 1 ? 's' : ''} from client{clientEmails.length !== 1 ? 's' : ''}
@@ -1081,13 +1101,13 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     return (
                       <div
                         key={email._id}
-                        className={`bg-white border rounded-lg overflow-hidden ${
+                        className={`bg-surface border rounded-lg overflow-hidden ${
                           isUnread ? 'border-l-4 border-l-blue-500 border-neutral-200' : 'border-neutral-200'
                         }`}
                       >
                         {/* Header - Always Visible */}
                         <div
-                          className={`px-6 py-4 cursor-pointer hover:bg-neutral-50 transition-colors ${
+                          className={`px-6 py-4 cursor-pointer hover:bg-accent transition-colors ${
                             isUnread ? 'bg-blue-50/30' : ''
                           }`}
                           onClick={() => {
@@ -1100,9 +1120,9 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3 flex-1">
                               {isExpanded ? (
-                                <ChevronDown className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                <ChevronDown className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                               ) : (
-                                <ChevronRight className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                <ChevronRight className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                               )}
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-1">
@@ -1116,15 +1136,15 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                     Client
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-neutral-600">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span className="font-medium">{email.from.name || email.from.email}</span>
                                   {email.clientName && (
                                     <>
-                                      <span className="text-neutral-400">•</span>
+                                      <span className="text-muted-foreground">•</span>
                                       <span>{email.clientName}</span>
                                     </>
                                   )}
-                                  <span className="text-neutral-400">•</span>
+                                  <span className="text-muted-foreground">•</span>
                                   <span>{formatEmailDate(email.receivedAt)}</span>
                                 </div>
                               </div>
@@ -1137,7 +1157,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                           <div className="border-t border-neutral-200">
                             {/* Client's Message */}
                             <div className="px-6 py-4 bg-blue-50/30">
-                              <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-2">
+                              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">
                                 Client's Message:
                               </p>
                               <p className="text-sm text-neutral-900 leading-relaxed whitespace-pre-line mb-3">
@@ -1152,14 +1172,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                     {email.attachments.map((attachment, idx) => (
                                       <div
                                         key={idx}
-                                        className="flex items-center justify-between p-2 bg-white border border-neutral-200 rounded group hover:bg-neutral-50 cursor-pointer"
+                                        className="flex items-center justify-between p-2 bg-surface border border-border rounded group hover:bg-accent cursor-pointer"
                                       >
                                         <div className="flex items-center gap-2">
                                           <FileText className="w-4 h-4 text-neutral-500" />
                                           <span className="text-xs font-medium text-neutral-900">{attachment.filename}</span>
                                           <span className="text-xs text-neutral-500">{(attachment.size / 1024).toFixed(1)} KB</span>
                                         </div>
-                                        <Download className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600" />
+                                        <Download className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
                                       </div>
                                     ))}
                                   </div>
@@ -1206,7 +1226,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                         alert('Failed to save response');
                                       }
                                     }}
-                                    className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 text-xs font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                                    className="px-3 py-1.5 bg-surface border border-neutral-300 text-foreground text-xs font-medium rounded-lg hover:bg-accent transition-colors"
                                   >
                                     Save Draft
                                   </button>
@@ -1285,7 +1305,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                       }
                                     }}
                                     disabled={!clientEmailResponses[email._id] || clientEmailResponses[email._id].trim().length === 0}
-                                    className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                    className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                                   >
                                     <Send className="w-3.5 h-3.5" />
                                     Send Reply
@@ -1307,10 +1327,10 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
               const isExpanded = expandedFeedback === feedback.id;
               
               return (
-                <div key={feedback.id} className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+                <div key={feedback.id} className="bg-surface border border-border rounded-lg overflow-hidden">
                   {/* Header - Always Visible */}
                   <div 
-                    className={`px-6 py-4 cursor-pointer hover:bg-neutral-50 transition-colors ${
+                    className={`px-6 py-4 cursor-pointer hover:bg-accent transition-colors ${
                       feedback.type === 'revision_required' 
                         ? 'border-l-4 border-l-red-500' 
                         : 'border-l-4 border-l-blue-500'
@@ -1320,9 +1340,9 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
                         {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                          <ChevronDown className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                         ) : (
-                          <ChevronRight className="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0" />
+                          <ChevronRight className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                         )}
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
@@ -1334,9 +1354,9 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                               {statusConfig.label}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-neutral-600">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="font-medium">{feedback.author}</span>
-                            <span className="text-neutral-400">•</span>
+                            <span className="text-muted-foreground">•</span>
                             <span>{feedback.date} at {feedback.time}</span>
                           </div>
                         </div>
@@ -1348,9 +1368,9 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                   {isExpanded && (
                     <div className="border-t border-neutral-200">
                       {/* City's Comment */}
-                      <div className="px-6 py-4 bg-neutral-50">
+                      <div className="px-6 py-4 bg-muted/50">
                         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">City's Request</p>
-                        <p className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line">
+                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
                           {feedback.comment}
                         </p>
 
@@ -1362,7 +1382,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                               {feedback.attachments.map((attachment, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex items-center justify-between p-3 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors group cursor-pointer"
+                                  className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg hover:bg-accent transition-colors group cursor-pointer"
                                 >
                                   <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
@@ -1373,7 +1393,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                       <p className="text-xs text-neutral-500">{attachment.size}</p>
                                     </div>
                                   </div>
-                                  <Download className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600" />
+                                  <Download className="w-4 h-4 text-muted-foreground group-hover:text-muted-foreground" />
                                 </div>
                               ))}
                             </div>
@@ -1386,7 +1406,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                         <div className="px-6 py-4 border-t border-neutral-200">
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Required Documents</p>
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors">
+                            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-colors">
                               <Upload className="w-3.5 h-3.5" />
                               Upload File
                             </button>
@@ -1395,7 +1415,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                             {feedback.requiredDocuments.map((doc, idx) => {
                               const uploaded = feedback.uploadedDocuments?.find(u => u.name.toLowerCase().includes(doc.toLowerCase().split(' ')[0]));
                               return (
-                                <div key={idx} className="flex items-center justify-between p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                                <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 border border-border rounded-lg">
                                   <div className="flex items-center gap-3">
                                     {uploaded ? (
                                       <CheckCircle className="w-5 h-5 text-green-600" />
@@ -1412,7 +1432,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                   {uploaded ? (
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs text-neutral-500">{uploaded.size}</span>
-                                      <Download className="w-4 h-4 text-neutral-400 cursor-pointer hover:text-neutral-600" />
+                                      <Download className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-muted-foreground" />
                                     </div>
                                   ) : (
                                     <button className="text-xs text-blue-600 font-medium hover:text-blue-700">
@@ -1431,7 +1451,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                               {feedback.uploadedDocuments
                                 .filter(uploaded => !feedback.requiredDocuments?.some(req => uploaded.name.toLowerCase().includes(req.toLowerCase().split(' ')[0])))
                                 .map((doc, idx) => (
-                                  <div key={idx} className="flex items-center justify-between p-3 bg-neutral-50 border border-neutral-200 rounded-lg mb-2">
+                                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 border border-border rounded-lg mb-2">
                                     <div className="flex items-center gap-3">
                                       <FileText className="w-4 h-4 text-neutral-500" />
                                       <div>
@@ -1475,7 +1495,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                 alert('Failed to save response');
                               }
                             }}
-                            className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors"
+                            className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-colors"
                           >
                             Save Response
                           </button>
@@ -1483,7 +1503,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                       </div>
 
                       {/* Actions */}
-                      <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+                      <div className="px-6 py-4 border-t border-neutral-200 bg-muted/50">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             {feedback.status === 'addressed' ? (
@@ -1497,7 +1517,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                             ) : (
                               <button 
                                 onClick={() => updateFeedbackStatus(feedback.id, 'addressed')}
-                                className="flex items-center gap-2 px-3 py-1.5 border border-neutral-300 text-neutral-700 text-xs font-medium rounded-lg hover:bg-neutral-100 transition-colors"
+                                className="flex items-center gap-2 px-3 py-1.5 border border-neutral-300 text-foreground text-xs font-medium rounded-lg hover:bg-accent transition-colors"
                               >
                                 <Circle className="w-4 h-4" />
                                 Mark as Addressed
@@ -1522,25 +1542,25 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         return (
           <div className="space-y-4">
             {/* Filter Bar */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-3">
+            <div className="bg-surface border border-border rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <button className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-md">
                   All
                 </button>
-                <button className="px-3 py-1.5 text-neutral-600 text-xs font-medium rounded-md hover:bg-neutral-100">
+                <button className="px-3 py-1.5 text-muted-foreground text-xs font-medium rounded-md hover:bg-accent">
                   Unresolved ({comments.filter(c => !c.resolved).length})
                 </button>
-                <button className="px-3 py-1.5 text-neutral-600 text-xs font-medium rounded-md hover:bg-neutral-100">
+                <button className="px-3 py-1.5 text-muted-foreground text-xs font-medium rounded-md hover:bg-accent">
                   Mentions
                 </button>
-                <button className="px-3 py-1.5 text-neutral-600 text-xs font-medium rounded-md hover:bg-neutral-100 ml-auto">
+                <button className="px-3 py-1.5 text-muted-foreground text-xs font-medium rounded-md hover:bg-accent ml-auto">
                   <Pin className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Add Comment */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-4">
+            <div className="bg-surface border border-border rounded-lg p-4">
               <div className="flex gap-3">
                 <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-sm font-medium flex-shrink-0 text-white">
                   JD
@@ -1550,25 +1570,25 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
                     placeholder="Add a comment... (@mention teammates, # to reference feedback)"
                   />
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-1">
-                      <button className="p-1.5 hover:bg-neutral-100 rounded-md transition-colors" title="Attach file">
+                      <button className="p-1.5 hover:bg-accent rounded-md transition-colors" title="Attach file">
                         <Paperclip className="w-4 h-4 text-neutral-500" />
                       </button>
-                      <button className="p-1.5 hover:bg-neutral-100 rounded-md transition-colors" title="Mention teammate">
+                      <button className="p-1.5 hover:bg-accent rounded-md transition-colors" title="Mention teammate">
                         <AtSign className="w-4 h-4 text-neutral-500" />
                       </button>
-                      <button className="p-1.5 hover:bg-neutral-100 rounded-md transition-colors" title="Add emoji">
+                      <button className="p-1.5 hover:bg-accent rounded-md transition-colors" title="Add emoji">
                         <Smile className="w-4 h-4 text-neutral-500" />
                       </button>
                     </div>
                     <button
                       onClick={handleAddComment}
                       disabled={!newComment.trim()}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Send className="w-3.5 h-3.5" />
                       Post
@@ -1583,7 +1603,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
               {comments.map((comment) => (
                 <div 
                   key={comment.id} 
-                  className={`bg-white border rounded-lg overflow-hidden transition-colors ${
+                  className={`bg-surface border rounded-lg overflow-hidden transition-colors ${
                     comment.resolved 
                       ? 'border-neutral-200 opacity-60' 
                       : comment.pinned 
@@ -1620,11 +1640,11 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                         {comment.attachments && comment.attachments.length > 0 && (
                           <div className="mt-2 space-y-1">
                             {comment.attachments.map((attachment, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2 bg-neutral-50 border border-neutral-200 rounded group hover:bg-neutral-100 cursor-pointer">
+                              <div key={idx} className="flex items-center gap-2 p-2 bg-muted/50 border border-border rounded group hover:bg-accent cursor-pointer">
                                 <FileText className="w-4 h-4 text-neutral-500" />
-                                <span className="text-xs text-neutral-700">{attachment.name}</span>
-                                <span className="text-xs text-neutral-400">{attachment.size}</span>
-                                <Download className="w-3.5 h-3.5 text-neutral-400 ml-auto opacity-0 group-hover:opacity-100" />
+                                <span className="text-xs text-foreground">{attachment.name}</span>
+                                <span className="text-xs text-muted-foreground">{attachment.size}</span>
+                                <Download className="w-3.5 h-3.5 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100" />
                               </div>
                             ))}
                           </div>
@@ -1639,15 +1659,15 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                 className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
                                   reaction.userReacted
                                     ? 'bg-blue-100 border border-blue-300'
-                                    : 'bg-neutral-100 border border-neutral-200 hover:border-neutral-300'
+                                    : 'bg-neutral-100 border border-border hover:border-neutral-300'
                                 }`}
                               >
                                 <span>{reaction.emoji}</span>
-                                <span className="text-neutral-700 font-medium">{reaction.count}</span>
+                                <span className="text-foreground font-medium">{reaction.count}</span>
                               </button>
                             ))}
-                            <button className="p-1 hover:bg-neutral-100 rounded transition-colors">
-                              <Smile className="w-4 h-4 text-neutral-400" />
+                            <button className="p-1 hover:bg-accent rounded transition-colors">
+                              <Smile className="w-4 h-4 text-muted-foreground" />
                             </button>
                           </div>
                         )}
@@ -1658,14 +1678,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                           className={`p-1 rounded transition-colors ${
                             comment.resolved 
                               ? 'text-green-600 bg-green-50' 
-                              : 'text-neutral-400 hover:bg-neutral-100'
+                              : 'text-muted-foreground hover:bg-accent'
                           }`}
                           title={comment.resolved ? 'Mark unresolved' : 'Mark resolved'}
                         >
                           <CheckCircle className="w-4 h-4" />
                         </button>
-                        <button className="p-1 hover:bg-neutral-100 rounded transition-colors">
-                          <MoreVertical className="w-4 h-4 text-neutral-400" />
+                        <button className="p-1 hover:bg-accent rounded transition-colors">
+                          <MoreVertical className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </div>
                     </div>
@@ -1673,7 +1693,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
 
                   {/* Replies */}
                   {comment.replies && comment.replies.length > 0 && (
-                    <div className="border-t border-neutral-200 bg-neutral-50/50">
+                    <div className="border-t border-neutral-200 bg-muted/50/50">
                       <div className="px-4 py-3 space-y-3">
                         {comment.replies.map((reply) => (
                           <div key={reply.id} className="flex gap-2">
@@ -1685,16 +1705,16 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                 <span className="font-semibold text-xs text-neutral-900">{reply.author.name}</span>
                                 <span className="text-xs text-neutral-500">{reply.timestamp}</span>
                               </div>
-                              <p className="text-xs text-neutral-700 leading-relaxed">{reply.message}</p>
+                              <p className="text-xs text-foreground leading-relaxed">{reply.message}</p>
                               {reply.reactions && reply.reactions.length > 0 && (
                                 <div className="flex items-center gap-1 mt-1">
                                   {reply.reactions.map((reaction, idx) => (
                                     <button
                                       key={idx}
-                                      className="flex items-center gap-1 px-1.5 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-xs hover:border-neutral-300"
+                                      className="flex items-center gap-1 px-1.5 py-0.5 bg-neutral-100 border border-border rounded text-xs hover:border-neutral-300"
                                     >
                                       <span>{reaction.emoji}</span>
-                                      <span className="text-neutral-700 font-medium">{reaction.count}</span>
+                                      <span className="text-foreground font-medium">{reaction.count}</span>
                                     </button>
                                   ))}
                                 </div>
@@ -1708,7 +1728,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
 
                   {/* Reply Input */}
                   {replyingTo === comment.id ? (
-                    <div className="border-t border-neutral-200 bg-neutral-50/50 p-3">
+                    <div className="border-t border-neutral-200 bg-muted/50/50 p-3">
                       <div className="flex gap-2">
                         <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-xs font-medium flex-shrink-0 text-white">
                           JD
@@ -1719,14 +1739,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                             onChange={(e) => setReplyText(e.target.value)}
                             rows={2}
                             autoFocus
-                            className="w-full px-2 py-1.5 border border-neutral-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
+                            className="w-full px-2 py-1.5 border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
                             placeholder="Write a reply..."
                           />
                           <div className="flex items-center gap-2 mt-1.5">
                             <button
                               onClick={() => handleAddReply(comment.id)}
                               disabled={!replyText.trim()}
-                              className="px-2 py-1 bg-neutral-900 text-white text-xs font-medium rounded hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                              className="px-2 py-1 bg-neutral-900 text-white text-xs font-medium rounded hover:opacity-90 transition-colors disabled:opacity-50"
                             >
                               Reply
                             </button>
@@ -1735,7 +1755,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                                 setReplyingTo(null);
                                 setReplyText('');
                               }}
-                              className="px-2 py-1 text-neutral-600 text-xs font-medium rounded hover:bg-neutral-100"
+                              className="px-2 py-1 text-muted-foreground text-xs font-medium rounded hover:bg-accent"
                             >
                               Cancel
                             </button>
@@ -1747,7 +1767,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     <div className="border-t border-neutral-200 px-4 py-2">
                       <button
                         onClick={() => setReplyingTo(comment.id)}
-                        className="text-xs text-neutral-600 hover:text-neutral-900 font-medium"
+                        className="text-xs text-muted-foreground hover:text-neutral-900 font-medium"
                       >
                         Reply
                       </button>
@@ -1761,7 +1781,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
 
       case 'history':
         return (
-          <div className="bg-white border border-neutral-200 rounded-lg p-6">
+          <div className="bg-surface border border-border rounded-lg p-6">
             <h3 className="text-sm font-semibold text-neutral-900 mb-6">Activity Timeline</h3>
             <div className="space-y-1">
               {history.map((event, index) => (
@@ -1772,10 +1792,10 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                         ? 'bg-blue-500' 
                         : event.type === 'team' 
                         ? 'bg-green-500' 
-                        : 'bg-neutral-400'
+                        : 'bg-muted'
                     }`} />
                     {index < history.length - 1 && (
-                      <div className="w-px flex-1 bg-neutral-200 mt-1" style={{ minHeight: '40px' }} />
+                      <div className="w-px flex-1 bg-muted mt-1" style={{ minHeight: '40px' }} />
                     )}
                   </div>
                   <div className="flex-1 pb-6">
@@ -1787,7 +1807,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                             <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">City</span>
                           )}
                         </div>
-                        <p className="text-sm text-neutral-600 mb-1">{event.details}</p>
+                        <p className="text-sm text-muted-foreground mb-1">{event.details}</p>
                         <div className="flex items-center gap-2 text-xs text-neutral-500">
                           <User2 className="w-3.5 h-3.5" />
                           <span>{event.actor}</span>
@@ -1822,7 +1842,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         return (
           <div className="space-y-6">
             {/* Documents Attached Section */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="bg-surface border border-border rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-neutral-900 mb-1">
@@ -1835,7 +1855,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => setShowRequestModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 border border-neutral-300 text-foreground text-sm font-medium rounded-lg hover:bg-accent transition-colors"
                   >
                     <Mail className="w-4 h-4" />
                     Request from Client
@@ -1872,7 +1892,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                       };
                       input.click();
                     }}
-                    className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-colors"
                   >
                     <Upload className="w-4 h-4" />
                     Upload Document
@@ -1882,7 +1902,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             </div>
 
             {/* Document Requests Section */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="bg-surface border border-border rounded-lg p-6">
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-neutral-900 mb-1">Document Requests</h3>
                 <p className="text-sm text-neutral-500">
@@ -1932,23 +1952,23 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                               Requested from {request.clientEmail || request.clientName || 'client'} • {requestedDate} at {requestedTime}
                             </p>
                             {request.description && (
-                              <p className="text-sm text-neutral-600 mb-3">{request.description}</p>
+                              <p className="text-sm text-muted-foreground mb-3">{request.description}</p>
                             )}
                           </div>
                         </div>
                         
                         {isPending && (
-                          <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3">
+                          <div className="bg-muted/50 border border-border rounded-lg p-3">
                             <div className="flex items-center gap-2">
                               <input
                                 type="text"
                                 readOnly
                                 value={uploadUrl}
-                                className="flex-1 px-3 py-2 bg-white border border-neutral-300 rounded text-sm text-neutral-900"
+                                className="flex-1 px-3 py-2 bg-surface border border-neutral-300 rounded text-sm text-neutral-900"
                               />
                               <button
                                 onClick={() => handleCopyLink(request.id)}
-                                className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded hover:bg-neutral-800 transition-colors"
+                                className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded hover:opacity-90 transition-colors"
                               >
                                 <Link2 className="w-4 h-4" />
                                 Copy Link
@@ -1964,7 +1984,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             </div>
 
             {/* Upload Area */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="bg-surface border border-border rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-neutral-900">All Documents</h3>
               </div>
@@ -1979,7 +1999,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     { name: 'Equipment Specifications', required: true, uploaded: false },
                     { name: 'Insurance Certificate', required: true, uploaded: false },
                   ].map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors">
+                    <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors">
                       <div className="flex items-center gap-3">
                         {doc.uploaded ? (
                           <CheckCircle className="w-5 h-5 text-green-600" />
@@ -1995,10 +2015,10 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                       </div>
                       {doc.uploaded ? (
                         <div className="flex items-center gap-2">
-                          <button className="p-1.5 text-neutral-400 hover:text-neutral-600 transition-colors">
+                          <button className="p-1.5 text-muted-foreground hover:text-muted-foreground transition-colors">
                             <Download className="w-4 h-4" />
                           </button>
-                          <button className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
+                          <button className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -2020,7 +2040,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     { name: 'City Feedback Response - Dec 15.pdf', size: '245 KB', uploadedBy: 'Sarah Chen', uploadedAt: 'Dec 16, 2024' },
                     { name: 'Revised Floor Plan v2.pdf', size: '1.2 MB', uploadedBy: 'Michael Park', uploadedAt: 'Dec 18, 2024' },
                   ].map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors">
+                    <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors">
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 text-blue-500" />
                         <div>
@@ -2029,10 +2049,10 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button className="p-1.5 text-neutral-400 hover:text-neutral-600 transition-colors">
+                        <button className="p-1.5 text-muted-foreground hover:text-muted-foreground transition-colors">
                           <Download className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors">
+                        <button className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -2043,14 +2063,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
             </div>
 
             {/* Submission History */}
-            <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="bg-surface border border-border rounded-lg p-6">
               <h3 className="text-sm font-semibold text-neutral-900 mb-4">Submission History</h3>
               <div className="space-y-3">
                 {[
                   { version: 'Initial Submission', date: 'Dec 10, 2024', status: 'Revision Required', files: 3 },
                   { version: 'Resubmission #1', date: 'Dec 18, 2024', status: 'Under Review', files: 5 },
                 ].map((submission, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg">
                     <div>
                       <p className="text-sm font-medium text-neutral-900">{submission.version}</p>
                       <p className="text-xs text-neutral-500">{submission.date} • {submission.files} files</p>
@@ -2138,33 +2158,33 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
   ];
 
   return (
-    <div className="h-full flex flex-col bg-neutral-50">
+    <div className="h-full flex flex-col bg-page-bg">
       {/* Header */}
-      <div className="bg-white border-b border-neutral-200 px-6 py-4">
+      <div className="bg-surface border-b border-border px-6 py-4">
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors font-medium"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Permit Plan
           </button>
           {clientName && (
-            <span className="text-sm text-neutral-400">•</span>
+            <span className="text-sm text-muted-foreground">•</span>
           )}
           {clientName && (
-            <span className="text-sm text-neutral-500">{clientName}</span>
+            <span className="text-sm text-muted-foreground">{clientName}</span>
           )}
         </div>
 
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-semibold">
+            <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold">
               {permit.order}
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-neutral-900 mb-1">{permit.name}</h1>
-              <p className="text-sm text-neutral-500">{permit.department}</p>
+              <h1 className="text-xl font-semibold text-foreground mb-1">{permit.name}</h1>
+              <p className="text-sm text-muted-foreground">{permit.department}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -2172,14 +2192,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
               {statusConfig.icon}
               {statusConfig.label}
             </span>
-            <button className="p-2 hover:bg-neutral-100 rounded-lg transition-colors">
-              <MoreVertical className="w-5 h-5 text-neutral-600" />
+            <button className="p-2 hover:bg-accent rounded-lg transition-colors">
+              <MoreVertical className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-200">
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
           <button 
             disabled={!allFeedbackAddressed}
             onClick={async () => {
@@ -2275,20 +2295,20 @@ ${permit.assignee.name || 'Permit Consultant'}`;
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               allFeedbackAddressed
                 ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm'
-                : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
           >
             <Send className="w-4 h-4" />
             Resubmit to City
           </button>
-          <button className="px-3 py-1.5 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors text-xs font-medium text-neutral-700">
+          <button className="px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-colors text-xs font-medium text-foreground">
             Add City Feedback
           </button>
-          <button className="px-3 py-1.5 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors text-xs font-medium text-neutral-700">
+          <button className="px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-colors text-xs font-medium text-foreground">
             Mark Approved
           </button>
           {!allFeedbackAddressed && (
-            <p className="text-xs text-neutral-500 ml-auto">
+            <p className="text-xs text-muted-foreground ml-auto">
               Address all city feedback items to enable resubmission
             </p>
           )}
@@ -2298,7 +2318,7 @@ ${permit.assignee.name || 'Permit Consultant'}`;
       {/* Content - Two Column Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Section Navigation */}
-        <aside className="w-56 bg-white border-r border-neutral-200 overflow-auto">
+        <aside className="w-56 bg-surface border-r border-border overflow-auto">
           <nav className="p-3">
             <div className="space-y-0.5">
               {sections.map((section) => {
@@ -2309,8 +2329,8 @@ ${permit.assignee.name || 'Permit Consultant'}`;
                     onClick={() => setActiveSection(section.id)}
                     className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                       activeSection === section.id
-                        ? 'bg-neutral-900 text-white shadow-sm'
-                        : 'text-neutral-700 hover:bg-neutral-100'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-foreground hover:bg-accent'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -2320,7 +2340,7 @@ ${permit.assignee.name || 'Permit Consultant'}`;
                     {section.badge !== undefined && section.badge > 0 && (
                       <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
                         activeSection === section.id
-                          ? 'bg-white text-neutral-900'
+                          ? 'bg-primary-foreground text-primary'
                           : 'bg-red-100 text-red-700'
                       }`}>
                         {section.badge}
@@ -2334,7 +2354,7 @@ ${permit.assignee.name || 'Permit Consultant'}`;
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-auto bg-neutral-50">
+        <main className="flex-1 overflow-auto bg-page-bg">
           <div className="p-6">
             <div className="max-w-4xl mx-auto">
               {renderContent()}
@@ -2360,6 +2380,15 @@ ${permit.assignee.name || 'Permit Consultant'}`;
           }}
         />
       )}
+
+      {/* Fillable PDF Modal - Fill with AI */}
+      <FillablePDFModal
+        isOpen={showFillablePDFModal}
+        onClose={() => setShowFillablePDFModal(false)}
+        permitName={permit.name}
+        clientName={clientName}
+        formTitle="Health Permit Application (Form EH-01)"
+      />
     </div>
   );
 }

@@ -207,13 +207,13 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
   ];
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-surface">
       {/* Header */}
-      <div className="border-b border-neutral-200 px-6 py-4">
+      <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-neutral-900 mb-1">Permit Discovery</h1>
-            <p className="text-sm text-neutral-500">{clientContext.name}</p>
+            <h1 className="text-xl font-semibold text-foreground mb-1">Permit Discovery</h1>
+            <p className="text-sm text-muted-foreground">{clientContext.name}</p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
             <Sparkles className="w-4 h-4 text-blue-600" />
@@ -223,7 +223,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
       </div>
 
       {/* Client Context */}
-      <div className="border-b border-neutral-200 px-6 py-4 bg-neutral-50">
+      <div className="border-b border-border px-6 py-4 bg-muted/50">
         <div className="flex items-start gap-6">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-neutral-500" />
@@ -257,13 +257,13 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
           {!hasAnalyzed ? (
             <div className="space-y-6">
               <div className="text-center py-8">
-                <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-8 h-8 text-neutral-600" />
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h2 className="text-2xl font-semibold text-neutral-900 mb-2">
+                <h2 className="text-2xl font-semibold text-foreground mb-2">
                   What do you want to do?
                 </h2>
-                <p className="text-neutral-600 max-w-md mx-auto">
+                <p className="text-muted-foreground max-w-md mx-auto">
                   Describe what you want to add or change, and we'll discover what permits and approvals you need.
                 </p>
               </div>
@@ -274,7 +274,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   rows={4}
-                  className="w-full px-0 py-0 border-0 text-lg focus:outline-none focus:ring-0 resize-none placeholder:text-neutral-400"
+                  className="w-full px-0 py-0 border-0 text-lg text-foreground bg-transparent focus:outline-none focus:ring-0 resize-none placeholder:text-muted-foreground"
                   placeholder="e.g., Add outdoor seating on the sidewalk..."
                 />
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-200">
@@ -284,7 +284,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                   <button
                     onClick={handleAnalyze}
                     disabled={!input.trim() || isAnalyzing}
-                    className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isAnalyzing ? (
                       <>
@@ -336,7 +336,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
               {/* Results Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-neutral-900 mb-1">
+                  <h2 className="text-xl font-semibold text-foreground mb-1">
                     Discovered {discoveredPermits.length} Required Permits
                   </h2>
                   <p className="text-sm text-neutral-600">
@@ -380,8 +380,8 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                     key={permit.id}
                     className={`border-2 rounded-lg p-5 transition-all ${
                       permit.selected
-                        ? 'border-neutral-900 bg-neutral-50'
-                        : 'border-neutral-200 bg-white opacity-60'
+                        ? 'border-primary bg-muted/50'
+                        : 'border-border bg-surface opacity-60'
                     }`}
                   >
                     <div className="flex items-start gap-4">
@@ -395,7 +395,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                             <CheckCircle2 className="w-4 h-4 text-white" />
                           </div>
                         ) : (
-                          <div className="w-5 h-5 bg-white rounded border-2 border-neutral-300 hover:border-neutral-400 transition-colors" />
+                          <div className="w-5 h-5 bg-surface rounded border-2 border-border hover:border-primary/50 transition-colors" />
                         )}
                       </button>
 
@@ -421,7 +421,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                         <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-neutral-200">
                           <div>
                             <p className="text-xs text-neutral-500 mb-1">Issuing Authority</p>
-                            <p className="text-sm font-medium text-neutral-900">{permit.authority}</p>
+                            <p className="text-sm font-medium text-foreground">{permit.authority}</p>
                           </div>
                           <div>
                             <p className="text-xs text-neutral-500 mb-1">Estimated Timeline</p>
@@ -452,7 +452,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
               </div>
 
               {/* Action Bar */}
-              <div className="sticky bottom-0 bg-white border-t-2 border-neutral-200 p-4 -mx-6 -mb-6 mt-6">
+              <div className="sticky bottom-0 bg-surface border-t-2 border-border p-4 -mx-6 -mb-6 mt-6">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-neutral-900">
@@ -465,7 +465,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                   <button
                     onClick={handleAddToPermitPlan}
                     disabled={discoveredPermits.filter(p => p.selected).length === 0 || isAdding}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                   >
                     {isAdding ? (
                       <>

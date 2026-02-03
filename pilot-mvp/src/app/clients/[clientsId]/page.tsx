@@ -60,11 +60,11 @@ export default function ClientPage({ params }: ClientPageProps) {
   }, [clientId]);
 
   if (!clientId) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+    return <div className="flex h-screen items-center justify-center bg-page-bg text-foreground">Loading...</div>;
   }
 
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-page-bg text-foreground">Loading...</div>}>
       <ClientPageContent clientId={clientId} client={client} />
     </Suspense>
   );

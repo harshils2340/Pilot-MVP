@@ -26,8 +26,8 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
   return (
     <div className="p-8 space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-neutral-900">Billing</h1>
-        <p className="text-sm text-neutral-500 mt-1">
+        <h1 className="text-2xl font-semibold text-foreground">Billing</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           {viewMode === 'client'
             ? 'Your subscription and invoice history'
             : `Billing overview for ${clientName}`}
@@ -35,39 +35,39 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-lg border border-neutral-200 bg-white p-5">
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Plan</p>
-          <p className="mt-2 text-lg font-semibold text-neutral-900">Compliance Pro</p>
-          <p className="mt-1 text-sm text-neutral-500">Includes document requests & permit tracking</p>
+        <div className="rounded-lg border border-border bg-surface p-5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Plan</p>
+          <p className="mt-2 text-lg font-semibold text-foreground">Compliance Pro</p>
+          <p className="mt-1 text-sm text-muted-foreground">Includes document requests & permit tracking</p>
         </div>
-        <div className="rounded-lg border border-neutral-200 bg-white p-5">
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Next Invoice</p>
-          <p className="mt-2 text-lg font-semibold text-neutral-900">$1,200</p>
-          <p className="mt-1 text-sm text-neutral-500">Due Feb 5, 2026</p>
+        <div className="rounded-lg border border-border bg-surface p-5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Next Invoice</p>
+          <p className="mt-2 text-lg font-semibold text-foreground">$1,200</p>
+          <p className="mt-1 text-sm text-muted-foreground">Due Feb 5, 2026</p>
         </div>
-        <div className="rounded-lg border border-neutral-200 bg-white p-5 flex items-center justify-between">
+        <div className="rounded-lg border border-border bg-surface p-5 flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-neutral-500">Payment Method</p>
-            <p className="mt-2 text-lg font-semibold text-neutral-900">Visa •••• 4242</p>
-            <p className="mt-1 text-sm text-neutral-500">Auto-pay enabled</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Payment Method</p>
+            <p className="mt-2 text-lg font-semibold text-foreground">Visa •••• 4242</p>
+            <p className="mt-1 text-sm text-muted-foreground">Auto-pay enabled</p>
           </div>
-          <CreditCard className="w-6 h-6 text-neutral-400" />
+          <CreditCard className="w-6 h-6 text-muted-foreground" />
         </div>
       </div>
 
-      <div className="rounded-lg border border-neutral-200 bg-white">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
-          <h2 className="text-sm font-semibold text-neutral-900">Invoice History</h2>
+      <div className="rounded-lg border border-border bg-surface">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-sm font-semibold text-foreground">Invoice History</h2>
           <button className="text-sm text-blue-600 hover:underline">View all</button>
         </div>
-        <div className="divide-y divide-neutral-200">
+        <div className="divide-y divide-border">
           {MOCK_INVOICES.map((invoice) => (
             <div key={invoice.id} className="flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-3">
-                <Receipt className="w-5 h-5 text-neutral-400" />
+                <Receipt className="w-5 h-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-neutral-900">{invoice.period}</p>
-                  <p className="text-xs text-neutral-500">{invoice.id}</p>
+                  <p className="text-sm font-medium text-foreground">{invoice.period}</p>
+                  <p className="text-xs text-muted-foreground">{invoice.id}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6">
@@ -80,8 +80,8 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
                     Paid
                   </span>
                 )}
-                <p className="text-sm font-medium text-neutral-900">{invoice.amount}</p>
-                <button className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center gap-1">
+                <p className="text-sm font-medium text-foreground">{invoice.amount}</p>
+                <button className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
                   <Download className="w-4 h-4" />
                   PDF
                 </button>
@@ -91,12 +91,12 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
         </div>
       </div>
 
-      <div className="rounded-lg border border-neutral-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="flex items-center gap-3">
           <BadgeCheck className="w-5 h-5 text-green-600" />
           <div>
-            <p className="text-sm font-medium text-neutral-900">Billing status healthy</p>
-            <p className="text-xs text-neutral-500">
+            <p className="text-sm font-medium text-foreground">Billing status healthy</p>
+            <p className="text-xs text-muted-foreground">
               Next invoice scheduled for Feb 5, 2026
             </p>
           </div>

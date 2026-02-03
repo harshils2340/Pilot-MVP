@@ -2,6 +2,8 @@
 
 Complete form filling solution extracted from the Pilot extension. This module can fill both PDF forms and HTML forms using business context data.
 
+**Integration**: This module has been integrated into the Pilot web app at `pilot-mvp/src/app/lib/form-filler/`. The web integration uses localStorage (instead of chrome.storage), pdf-lib from npm, and TypeScript.
+
 ## Files
 
 - `form-filler.js` - Main form filler class (combines all functionality)

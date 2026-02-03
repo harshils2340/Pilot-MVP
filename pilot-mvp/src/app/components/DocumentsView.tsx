@@ -93,9 +93,9 @@ const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> =
   'needs-review': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
   'approved': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'signed': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
-  'draft': { bg: 'bg-neutral-100', text: 'text-neutral-600', border: 'border-neutral-200' },
+  'draft': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
   'equipment': { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
-  'default': { bg: 'bg-neutral-100', text: 'text-neutral-600', border: 'border-neutral-200' },
+  'default': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
 };
 
 function getTagColor(tag: string) {
@@ -341,19 +341,19 @@ export function DocumentsView({
                   }
                   setSelectedPath(isSelected ? null : node.path);
                 }}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors group ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 group ${
                   isSelected
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-neutral-700 hover:bg-neutral-100'
+                    ? 'bg-primary/10 text-primary shadow-sm'
+                    : 'text-foreground hover:bg-accent'
                 }`}
               >
                 {/* Expand/collapse chevron */}
                 <span className="w-4 h-4 flex items-center justify-center">
                   {hasChildren ? (
                     isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                     ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                     )
                   ) : (
                     <span className="w-3.5" />
@@ -368,7 +368,7 @@ export function DocumentsView({
                     <Folder className="w-4 h-4 text-amber-500" />
                   )
                 ) : (
-                  <Folder className="w-4 h-4 text-neutral-400" />
+                  <Folder className="w-4 h-4 text-muted-foreground" />
                 )}
 
                 {/* Folder name */}
@@ -376,7 +376,7 @@ export function DocumentsView({
 
                 {/* Document count badge */}
                 {docCount > 0 && (
-                  <span className="px-1.5 py-0.5 text-xs bg-neutral-200 text-neutral-600 rounded-full">
+                  <span className="px-2 py-0.5 text-xs bg-muted/80 text-muted-foreground rounded-md font-medium">
                     {docCount}
                   </span>
                 )}
@@ -394,13 +394,13 @@ export function DocumentsView({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-page-bg">
       {/* Header */}
-      <div className="border-b border-neutral-200 px-6 py-4">
+      <div className="flex-shrink-0 border-b border-border bg-surface/95 backdrop-blur-sm px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-semibold text-neutral-900">Documents</h1>
-            <p className="text-sm text-neutral-500">
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">Documents</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               {selectedPath ? selectedPath.replace('/', ' / ') : 'All files'}
             </p>
           </div>
@@ -408,7 +408,7 @@ export function DocumentsView({
             {viewMode === 'consultant' && clientInfo && (
               <button
                 onClick={() => setShowRequestModal(true)}
-                className="flex items-center gap-2 px-3 py-2 text-sm border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-accent transition-all duration-200"
               >
                 <Send className="w-4 h-4" />
                 Request
@@ -416,86 +416,98 @@ export function DocumentsView({
             )}
             <button
               onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 active:scale-[0.98] transition-all duration-200 shadow-sm"
             >
               <Upload className="w-4 h-4" />
               Upload
-          </button>
+            </button>
           </div>
         </div>
 
         {/* Search */}
         <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search files..."
-            className="w-full pl-9 pr-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            className="w-full pl-9 pr-3 py-2.5 bg-background/80 border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all duration-200"
+          />
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Folder Tree */}
-        <aside className="w-56 border-r border-neutral-200 overflow-y-auto p-3">
+        <aside className="w-56 flex-shrink-0 border-r border-border overflow-y-auto p-4 bg-surface/80">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3 px-2">Folders</p>
           {/* All Files option */}
-                  <button
+          <button
             onClick={() => setSelectedPath(null)}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm mb-2 transition-colors ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-1 transition-all duration-200 ${
               selectedPath === null
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-neutral-700 hover:bg-neutral-100'
+                ? 'bg-primary/10 text-primary shadow-sm'
+                : 'text-foreground hover:bg-accent'
             }`}
           >
-            <span className="w-4" />
-            <Folder className="w-4 h-4 text-neutral-500" />
-            <span className="flex-1 text-left">All Files</span>
-            <span className="px-1.5 py-0.5 text-xs bg-neutral-200 text-neutral-600 rounded-full">
+            <Folder className={`w-4 h-4 flex-shrink-0 ${selectedPath === null ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className="flex-1 text-left font-medium">All Files</span>
+            <span className="px-2 py-0.5 text-xs bg-muted/80 text-muted-foreground rounded-md font-medium">
               {documents.length}
             </span>
-                  </button>
+          </button>
 
-          <div className="h-px bg-neutral-200 my-2" />
+          <div className="h-px bg-border my-3" />
 
           {/* Folder tree */}
           <FolderTree nodes={FOLDER_STRUCTURE} />
         </aside>
 
         {/* Main Content - File List */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-page-bg/50">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
-              <span className="ml-2 text-sm text-neutral-500">Loading...</span>
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-12 h-12 rounded-full border-2 border-border border-t-primary animate-spin mb-4" />
+              <span className="text-sm text-muted-foreground">Loading documents...</span>
             </div>
           ) : filteredDocuments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-neutral-500">
-              <Folder className="w-12 h-12 mb-3 text-neutral-300" />
-              <p className="text-sm font-medium">No files here</p>
-              <p className="text-xs mt-1">Upload a document to get started</p>
+            <div className="flex flex-col items-center justify-center py-20 px-6">
+              <div className="w-20 h-20 rounded-2xl bg-muted/60 flex items-center justify-center mb-5">
+                <Folder className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <p className="text-base font-medium text-foreground mb-1">No files here</p>
+              <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
+                Upload a document or select a different folder to get started
+              </p>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-all duration-200"
+              >
+                <Upload className="w-4 h-4" />
+                Upload Document
+              </button>
             </div>
           ) : (
+            <div className="p-4">
             <table className="w-full">
-              <thead className="bg-neutral-50 border-b border-neutral-200 sticky top-0">
+              <thead className="bg-surface/90 backdrop-blur-sm border-b border-border sticky top-0 z-10">
                 <tr>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase tracking-wider px-4 py-3">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">
                     Name
                   </th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase tracking-wider px-4 py-3 w-32">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3 w-32">
                     Size
                   </th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase tracking-wider px-4 py-3 w-32">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3 w-32">
                     Modified
                   </th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase tracking-wider px-4 py-3 w-24">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3 w-24">
                     Tags
                   </th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody className="divide-y divide-border bg-surface">
               {filteredDocuments.map((doc) => (
                   <DocumentRow 
                     key={doc.id} 
@@ -508,6 +520,7 @@ export function DocumentsView({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </main>
       </div>
@@ -522,27 +535,28 @@ export function DocumentsView({
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-surface rounded-xl p-6 w-full max-w-md border border-border shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-neutral-900">Upload Document</h2>
+              <h2 className="text-lg font-semibold text-foreground">Upload Document</h2>
               <button
                 onClick={() => setShowUploadModal(false)}
-                className="text-neutral-400 hover:text-neutral-600"
+                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-all duration-200"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {selectedPath && (
-              <p className="text-sm text-neutral-500 mb-4">
-                Uploading to: <span className="font-medium text-neutral-700">{selectedPath}</span>
+              <p className="text-sm text-muted-foreground mb-4 px-1">
+                Uploading to: <span className="font-medium text-foreground">{selectedPath}</span>
               </p>
             )}
 
-            <div className="border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center hover:border-neutral-400 transition-colors">
-              <Upload className="w-8 h-8 mx-auto mb-3 text-neutral-400" />
-              <p className="text-sm text-neutral-600 mb-3">Drag and drop or click to upload</p>
+            <label
+              htmlFor="file-upload"
+              className="block border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 cursor-pointer group"
+            >
               <input
                 type="file"
                 onChange={handleFileUpload}
@@ -550,13 +564,13 @@ export function DocumentsView({
                 className="hidden"
                 id="file-upload"
               />
-              <label
-                htmlFor="file-upload"
-                className="inline-block px-4 py-2 bg-neutral-900 text-white text-sm rounded-lg hover:bg-neutral-800 cursor-pointer"
-              >
+              <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
+              <p className="text-sm text-muted-foreground mb-1 group-hover:text-foreground transition-colors duration-300">Drag and drop or click to upload</p>
+              <p className="text-xs text-muted-foreground mb-4">PDF, images, documents up to 10MB</p>
+              <span className="inline-block px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg group-hover:opacity-90 transition-all duration-200 shadow-sm">
                 {uploading ? 'Uploading...' : 'Choose File'}
-              </label>
-            </div>
+              </span>
+            </label>
           </div>
         </div>
       )}
@@ -626,7 +640,7 @@ function DocumentRow({
     if (['jpg', 'jpeg', 'png', 'gif'].includes(type)) {
       return <FileText className="w-4 h-4 text-purple-500" />;
     }
-    return <File className="w-4 h-4 text-neutral-400" />;
+    return <File className="w-4 h-4 text-muted-foreground" />;
   };
 
   const handleDownload = () => {
@@ -690,25 +704,27 @@ function DocumentRow({
   };
 
   return (
-    <tr className="hover:bg-neutral-50 transition-colors group">
+    <tr className="hover:bg-accent/50 transition-colors duration-200 group">
       <td className="px-4 py-3">
         <button
           onClick={handleOpenFile}
-          className="flex items-center gap-3 hover:text-blue-600 text-left"
+          className="flex items-center gap-3 hover:text-primary text-left transition-colors duration-200"
         >
-          {getFileIcon()}
+          <div className="w-9 h-9 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 transition-colors duration-200">
+            {getFileIcon()}
+          </div>
           <div>
-            <p className="text-sm font-medium text-neutral-900 group-hover:text-blue-600">
+            <p className="text-sm font-medium text-foreground group-hover:text-primary">
               {document.name}
             </p>
-            <p className="text-xs text-neutral-500">{document.fileName}</p>
+            <p className="text-xs text-muted-foreground">{document.fileName}</p>
           </div>
         </button>
       </td>
-      <td className="px-4 py-3 text-sm text-neutral-500">
+      <td className="px-4 py-3 text-sm text-muted-foreground">
         {formatFileSize(document.fileSize)}
       </td>
-      <td className="px-4 py-3 text-sm text-neutral-500">
+      <td className="px-4 py-3 text-sm text-muted-foreground">
         {new Date(document.updatedAt).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -716,9 +732,9 @@ function DocumentRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1 items-center">
-          {document.status === 'pending-review' && (
+          {          document.status === 'pending-review' && (
             <span
-              className="px-2 py-0.5 text-xs font-medium rounded-full border bg-blue-100 text-blue-700 border-blue-200 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-medium rounded-lg border bg-primary/10 text-primary border-primary/20 flex items-center gap-1"
               title="Under review"
             >
               <GitPullRequest className="w-3 h-3" />
@@ -730,14 +746,14 @@ function DocumentRow({
             return (
               <span
                 key={tag}
-                className={`px-2 py-0.5 text-xs font-medium rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}
+                className={`px-2 py-1 text-xs font-medium rounded-lg border ${colors.bg} ${colors.text} ${colors.border}`}
               >
                 {tag}
               </span>
             );
           })}
           {(document.tags || []).length > 2 && (
-            <span className="px-2 py-0.5 text-xs text-neutral-500">
+            <span className="px-2 py-0.5 text-xs text-muted-foreground">
               +{document.tags.length - 2}
             </span>
           )}
@@ -746,7 +762,7 @@ function DocumentRow({
       <td className="px-4 py-3 relative">
         <button
           onClick={() => setShowMenu(!showMenu)}
-          className="p-1 text-neutral-400 hover:text-neutral-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          className="p-1 text-muted-foreground hover:text-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
           disabled={deleting}
         >
           {deleting ? (
@@ -759,14 +775,14 @@ function DocumentRow({
       {showMenu && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-            <div className="absolute right-4 top-10 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 py-1 min-w-[140px]">
+            <div className="absolute right-4 top-10 bg-surface border border-border rounded-xl shadow-xl z-20 py-1.5 min-w-[160px] animate-in fade-in slide-in-from-top-2 duration-200">
               {onView && (
                 <button 
                   onClick={() => {
                     onView(document);
                     setShowMenu(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+                  className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors duration-150 rounded-lg mx-1"
                 >
                   <Eye className="w-4 h-4" />
                   View
@@ -774,12 +790,12 @@ function DocumentRow({
               )}
               <button 
                 onClick={handleDownload}
-                className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download
               </button>
-              <button className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2">
+              <button className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors duration-150 rounded-lg mx-1">
                 <Share2 className="w-4 h-4" />
                 Share
               </button>
@@ -789,16 +805,16 @@ function DocumentRow({
                     onReview(document);
                     setShowMenu(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center gap-2"
+                  className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors duration-150 rounded-lg mx-1"
                 >
                   <GitPullRequest className="w-4 h-4" />
                   Review
                 </button>
               )}
-              <div className="h-px bg-neutral-200 my-1" />
+              <div className="h-px bg-border my-1" />
               <button 
                 onClick={handleDelete}
-                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                className="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-500/10 flex items-center gap-2 transition-colors duration-150 rounded-lg mx-1"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -885,17 +901,17 @@ function DocumentViewer({
 
     // For other file types, show download option
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-neutral-50 p-8">
-        <FileText className="w-16 h-16 text-neutral-400 mb-4" />
-        <p className="text-lg font-medium text-neutral-900 mb-2">
+      <div className="flex flex-col items-center justify-center h-full bg-muted/50 p-8">
+        <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+        <p className="text-lg font-medium text-foreground mb-2">
           {document.name}
         </p>
-        <p className="text-sm text-neutral-500 mb-6">
+        <p className="text-sm text-muted-foreground mb-6">
           This file type cannot be previewed. Please download to view.
         </p>
         <button
           onClick={handleDownload}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
         >
           <Download className="w-4 h-4" />
           Download File
@@ -905,14 +921,14 @@ function DocumentViewer({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex flex-col">
       {/* Header */}
-      <div className="flex-shrink-0 bg-neutral-900 text-white px-6 py-4 flex items-center justify-between">
+      <div className="flex-shrink-0 bg-primary text-primary-foreground px-6 py-4 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <FileText className="w-5 h-5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-semibold truncate">{document.name}</h2>
-            <div className="flex items-center gap-4 text-sm text-neutral-400 mt-1">
+            <div className="flex items-center gap-4 text-sm text-primary-foreground/80 mt-1">
               <span>From: {document.uploadedBy?.userName || 'Unknown'}</span>
               <span>•</span>
               <span>{new Date(document.createdAt).toLocaleDateString()}</span>
@@ -924,7 +940,7 @@ function DocumentViewer({
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownload}
-            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-primary-foreground/20 rounded-lg transition-all duration-200"
             title="Download"
           >
             <Download className="w-5 h-5" />
@@ -942,20 +958,20 @@ function DocumentViewer({
       {/* Document Content */}
       <div className="flex-1 relative overflow-hidden">
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-neutral-50">
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-              <p className="text-sm text-neutral-500">Loading document...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Loading document...</p>
             </div>
           </div>
         )}
         {error ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-neutral-50">
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
             <div className="text-center">
               <p className="text-red-600 mb-4">{error}</p>
               <button
                 onClick={handleDownload}
-                className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors mx-auto"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors mx-auto"
               >
                 <Download className="w-4 h-4" />
                 Download Instead
