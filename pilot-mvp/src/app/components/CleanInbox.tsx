@@ -436,13 +436,13 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
     const classes = 'w-4 h-4';
     switch (type) {
       case 'document':
-        return <FileText className={`${classes} text-blue-600`} />;
+        return <FileText className={`${classes} text-primary`} />;
       case 'lead':
         return <UserPlus className={`${classes} text-violet-600`} />;
       case 'permit':
         return <Calendar className={`${classes} text-emerald-600`} />;
       case 'email':
-        return <Mail className={`${classes} text-amber-600`} />;
+        return <Mail className={`${classes} text-amber-700 dark:text-amber-400`} />;
       case 'deadline':
         return <Clock className={`${classes} text-rose-600`} />;
       default:
@@ -459,7 +459,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'permit':
         return 'bg-emerald-100';
       case 'email':
-        return 'bg-amber-100';
+        return 'bg-amber-100 dark:bg-amber-500/20';
       case 'deadline':
         return 'bg-rose-100';
       default:
@@ -472,7 +472,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'urgent':
         return 'border-l-rose-500 bg-rose-50/50';
       case 'high':
-        return 'border-l-amber-500 bg-amber-50/50';
+        return 'border-l-amber-500 bg-amber-100/50 dark:bg-amber-500/10';
       case 'medium':
         return 'border-l-sky-500 bg-sky-50/50';
       default:
@@ -886,7 +886,7 @@ Common Issues:
                                   </span>
                                 )}
                                 {showClient && (
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 text-amber-700">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 font-medium">
                                     <span className="truncate max-w-[120px]">{m.clientName}</span>
                                   </span>
                                 )}
@@ -900,7 +900,7 @@ Common Issues:
                                 </span>
                               )}
                               {notification.priority === 'high' && (
-                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-lg font-semibold">
+                                <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40 rounded-lg font-semibold">
                                   High
                                 </span>
                               )}

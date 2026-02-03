@@ -90,11 +90,11 @@ const FOLDER_STRUCTURE: FolderNode[] = [
 // Tag colors like GitHub labels
 const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'urgent': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
-  'needs-review': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
+  'needs-review': { bg: 'bg-amber-200/80 dark:bg-amber-500/20', text: 'text-amber-950 dark:text-amber-200', border: 'border-amber-400 dark:border-amber-500/40' },
   'approved': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'signed': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'draft': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
-  'equipment': { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+  'equipment': { bg: 'bg-muted', text: 'text-foreground', border: 'border-border' },
   'default': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
 };
 
@@ -343,7 +343,7 @@ export function DocumentsView({
                 }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 group ${
                   isSelected
-                    ? 'bg-primary/10 text-primary shadow-sm'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-foreground hover:bg-accent'
                 }`}
               >
@@ -363,9 +363,9 @@ export function DocumentsView({
                 {/* Folder icon */}
                 {hasChildren ? (
                   isExpanded ? (
-                    <FolderOpen className="w-4 h-4 text-amber-500" />
+                    <FolderOpen className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                   ) : (
-                    <Folder className="w-4 h-4 text-amber-500" />
+                    <Folder className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                   )
                 ) : (
                   <Folder className="w-4 h-4 text-muted-foreground" />
@@ -446,7 +446,7 @@ export function DocumentsView({
             onClick={() => setSelectedPath(null)}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-1 transition-all duration-200 ${
               selectedPath === null
-                ? 'bg-primary/10 text-primary shadow-sm'
+                ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-foreground hover:bg-accent'
             }`}
           >
@@ -710,7 +710,7 @@ function DocumentRow({
           onClick={handleOpenFile}
           className="flex items-center gap-3 hover:text-primary text-left transition-colors duration-200"
         >
-          <div className="w-9 h-9 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 transition-colors duration-200">
+          <div className="w-9 h-9 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0 group-hover:bg-muted transition-colors duration-200">
             {getFileIcon()}
           </div>
           <div>
@@ -734,7 +734,7 @@ function DocumentRow({
         <div className="flex flex-wrap gap-1 items-center">
           {          document.status === 'pending-review' && (
             <span
-              className="px-2 py-1 text-xs font-medium rounded-lg border bg-primary/10 text-primary border-primary/20 flex items-center gap-1"
+              className="px-2 py-1 text-xs font-medium rounded-lg border bg-muted text-foreground border-border flex items-center gap-1"
               title="Under review"
             >
               <GitPullRequest className="w-3 h-3" />
@@ -869,7 +869,7 @@ function DocumentViewer({
     // Image viewer
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileType || '')) {
       return (
-        <div className="flex items-center justify-center h-full bg-neutral-50">
+        <div className="flex items-center justify-center h-full bg-muted">
           <img
             src={fileUrl}
             alt={document.name}
@@ -947,7 +947,7 @@ function DocumentViewer({
           </button>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent rounded-lg transition-colors"
             title="Close"
           >
             <X className="w-5 h-5" />

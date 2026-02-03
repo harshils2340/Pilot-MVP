@@ -320,7 +320,7 @@ export function FormFilling({ clientId }: FormFillingProps) {
               <div key={index} className="bg-white rounded-lg border border-neutral-200 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   {item.type === 'previous' && <Clock className="w-4 h-4 text-blue-600" />}
-                  {item.type === 'correction' && <AlertCircle className="w-4 h-4 text-amber-600" />}
+                  {item.type === 'correction' && <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />}
                   {item.type === 'note' && <CheckCircle2 className="w-4 h-4 text-green-600" />}
                   <span className="text-xs font-medium text-neutral-600 uppercase">
                     {item.type === 'previous'

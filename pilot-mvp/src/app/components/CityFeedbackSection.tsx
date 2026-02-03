@@ -169,15 +169,15 @@ export function CityFeedbackSection() {
               <span className="text-sm font-medium text-green-700">Ready to Resubmit</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-700">{totalItems - completedItems} items remaining</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+              <span className="text-sm font-medium text-amber-950 dark:text-amber-200">{totalItems - completedItems} items remaining</span>
             </div>
           )}
         </div>
         
         {/* Progress Bar */}
-        <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div 
             className="h-full bg-green-500 transition-all duration-300"
             style={{ width: `${(completedItems / totalItems) * 100}%` }}
@@ -225,7 +225,7 @@ export function CityFeedbackSection() {
                       </div>
                       {feedback.requiredItems.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-32 bg-neutral-200 rounded-full overflow-hidden">
+                          <div className="h-1.5 w-32 bg-muted rounded-full overflow-hidden">
                             <div 
                               className={`h-full transition-all duration-300 ${
                                 feedback.status === 'complete' ? 'bg-green-500' : 'bg-blue-500'
@@ -329,7 +329,7 @@ export function CityFeedbackSection() {
                                     <span className="text-xs text-neutral-500">{item.uploadedFile.size}</span>
                                   </div>
                                 ) : (
-                                  <button className="flex items-center gap-1.5 px-2 py-1 bg-neutral-100 hover:bg-neutral-200 rounded text-xs font-medium text-neutral-700 transition-colors">
+                                  <button className="flex items-center gap-1.5 px-2 py-1 bg-neutral-100 hover:bg-muted rounded text-xs font-medium text-neutral-700 transition-colors">
                                     <Upload className="w-3 h-3" />
                                     Upload Document
                                   </button>

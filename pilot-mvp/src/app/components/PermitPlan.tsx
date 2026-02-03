@@ -128,7 +128,7 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
         return {
           icon: <Send className="w-3.5 h-3.5" />,
           label: 'Submitted',
-          className: 'text-blue-700',
+          className: 'text-foreground',
         };
       case 'action-required':
         return {
@@ -349,8 +349,8 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
 
                       {/* Blocker */}
                       {isBlocked && (
-                        <div className="flex items-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
-                          <Lock className="w-3 h-3 text-amber-600" />
+                        <div className="flex items-center gap-1.5 p-2 bg-amber-200/80 dark:bg-amber-500/20 border border-amber-400 dark:border-amber-500/40 rounded text-xs text-amber-950 dark:text-amber-200 font-medium">
+                          <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
                           <span>Blocked by <span className="font-medium">{permit.blockedBy}</span></span>
                         </div>
                       )}

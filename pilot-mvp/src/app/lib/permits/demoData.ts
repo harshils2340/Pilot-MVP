@@ -21,6 +21,8 @@ export interface DemoPermit {
     color: string;
   };
   priority?: 'high' | 'medium' | 'low';
+  formTitle?: string;
+  formCode?: string;
 }
 
 export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
@@ -37,6 +39,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivityDate: 'Nov 28, 2024',
       daysInState: 45,
       assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
+      formTitle: "Seller's Permit Application",
+      formCode: 'CDTFA-401-A',
     },
     {
       id: 'sf-2',
@@ -50,6 +54,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivityDate: 'Dec 15, 2024',
       daysInState: 8,
       assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
+      formTitle: 'Food Service Establishment Permit Application',
+      formCode: 'Form FSE-01',
     },
     {
       id: 'sf-3',
@@ -64,6 +70,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       daysInState: 5,
       priority: 'high',
       assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
+      formTitle: 'Health Permit Application',
+      formCode: 'Form EH-01',
     },
     {
       id: 'sf-4',
@@ -78,6 +86,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivityDate: 'Dec 5, 2024',
       daysInState: 18,
       assignee: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-500' },
+      formTitle: 'Business Operating Permit Application',
+      formCode: 'Form BOP-100',
     },
     {
       id: 'sf-5',
@@ -91,6 +101,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivityDate: 'Dec 5, 2024',
       daysInState: 18,
       assignee: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-500' },
+      formTitle: 'Building Modification Permit Application',
+      formCode: 'Form BMP-200',
     },
     {
       id: 'sf-6',
@@ -104,6 +116,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Blocked',
       lastActivityDate: 'Dec 5, 2024',
       daysInState: 18,
+      formTitle: 'Fire Safety Inspection Request',
+      formCode: 'Form FD-300',
     },
   ],
   Calgary: [
@@ -118,6 +132,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Business Licence Application',
+      formCode: 'Form BL-100',
     },
     {
       id: 'cal-2',
@@ -130,6 +146,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Food Handling Permit Application',
+      formCode: 'Form FH-200',
     },
     {
       id: 'cal-3',
@@ -142,6 +160,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Development Permit Application',
+      formCode: 'Form DP-300',
     },
     {
       id: 'cal-4',
@@ -155,6 +175,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Blocked',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Building Permit Application',
+      formCode: 'Form BP-400',
     },
     {
       id: 'cal-5',
@@ -167,6 +189,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Fire Safety Inspection Request',
+      formCode: 'Form FS-500',
     },
   ],
   Toronto: [
@@ -181,6 +205,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Business Licence Application',
+      formCode: 'Form TML-100',
     },
     {
       id: 'tor-2',
@@ -193,6 +219,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Food Premises Licence Application',
+      formCode: 'Form FPL-200',
     },
     {
       id: 'tor-3',
@@ -205,6 +233,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Building Permit Application',
+      formCode: 'Form BP-300',
     },
     {
       id: 'tor-4',
@@ -217,6 +247,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Sign Permit Application',
+      formCode: 'Form SP-400',
     },
   ],
   default: [
@@ -231,6 +263,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Business Registration Application',
+      formCode: 'Form BR-100',
     },
     {
       id: 'def-2',
@@ -243,6 +277,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Health & Safety Permit Application',
+      formCode: 'Form HS-200',
     },
     {
       id: 'def-3',
@@ -255,6 +291,8 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       lastActivity: 'Not Started',
       lastActivityDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       daysInState: 0,
+      formTitle: 'Building Permit Application',
+      formCode: 'Form BP-300',
     },
   ],
 };

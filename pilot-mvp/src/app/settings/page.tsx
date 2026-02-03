@@ -224,7 +224,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme(opt.id)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
                       active
-                        ? 'border-primary bg-primary/10 text-primary'
+                        ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border hover:border-surface-border bg-muted/50 text-foreground'
                     }`}
                   >

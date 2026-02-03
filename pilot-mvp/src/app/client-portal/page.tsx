@@ -72,7 +72,7 @@ function ClientPortalContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-neutral-600">Loading...</div>
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -82,7 +82,7 @@ function ClientPortalContent() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-foreground mb-2">Access Denied</h1>
-          <p className="text-neutral-600">Please use the invitation link provided by your consultant.</p>
+          <p className="text-muted-foreground">Please use the invitation link provided by your consultant.</p>
         </div>
       </div>
     );
@@ -109,7 +109,7 @@ function ClientPortalContent() {
         {/* Client Info */}
         <div className="px-4 pt-4 pb-2">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Your Account</p>
-          <p className="text-sm font-medium text-foreground bg-primary/10 px-2 py-1 rounded">
+          <p className="text-sm font-medium text-foreground bg-muted px-2 py-1 rounded">
             {clientName}
           </p>
         </div>
@@ -223,7 +223,7 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
   if (loading) {
     return (
       <div className="p-8">
-        <div className="text-neutral-600">Loading requests...</div>
+        <div className="text-muted-foreground">Loading requests...</div>
       </div>
     );
   }
@@ -232,11 +232,11 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-foreground mb-2">Document Requests</h1>
-        <p className="text-neutral-600">Requests from your consultant</p>
+        <p className="text-muted-foreground">Requests from your consultant</p>
       </div>
 
       {requests.length === 0 ? (
-        <div className="text-center py-12 text-neutral-500">
+        <div className="text-center py-12 text-muted-foreground">
           <Inbox className="w-12 h-12 mx-auto mb-4 text-neutral-400" />
           <p>No pending requests</p>
         </div>
@@ -260,20 +260,20 @@ function DocumentRequestCard({ request }: { request: any }) {
   };
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-6">
+    <div className="bg-surface border border-neutral-200 rounded-lg p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-foreground mb-1">{request.title}</h3>
-          <p className="text-sm text-neutral-600">{request.description}</p>
+          <p className="text-sm text-muted-foreground">{request.description}</p>
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-          request.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+          request.status === 'pending' ? 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200' : 'bg-green-100 text-green-700'
         }`}>
           {request.status}
         </span>
       </div>
       
-      <div className="flex items-center gap-4 text-sm text-neutral-500 mb-4">
+      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
         <div className="flex items-center gap-1">
           <Clock className="w-4 h-4" />
           <span>Requested {new Date(request.createdAt).toLocaleDateString()}</span>
@@ -289,7 +289,7 @@ function DocumentRequestCard({ request }: { request: any }) {
       <button
         onClick={handleSubmit}
         disabled={submitting}
-        className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
+        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
       >
         {submitting ? 'Submitting...' : 'Submit Response'}
       </button>
@@ -325,7 +325,7 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
   if (loading) {
     return (
       <div className="p-8">
-        <div className="text-neutral-600">Loading shared documents...</div>
+        <div className="text-muted-foreground">Loading shared documents...</div>
       </div>
     );
   }
@@ -334,21 +334,21 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-foreground mb-2">Shared Documents</h1>
-        <p className="text-neutral-600">Documents shared with you by your consultant</p>
+        <p className="text-muted-foreground">Documents shared with you by your consultant</p>
       </div>
 
       {documents.length === 0 ? (
-        <div className="text-center py-12 text-neutral-500">
+        <div className="text-center py-12 text-muted-foreground">
           <Upload className="w-12 h-12 mx-auto mb-4 text-neutral-400" />
           <p>No shared documents</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {documents.map((doc) => (
-            <div key={doc.id || doc._id} className="bg-white border border-neutral-200 rounded-lg p-4">
+            <div key={doc.id || doc._id} className="bg-surface border border-neutral-200 rounded-lg p-4">
               <FileText className="w-8 h-8 text-neutral-400 mb-2" />
               <h3 className="font-medium text-foreground mb-1">{doc.name}</h3>
-              <p className="text-xs text-neutral-500 mb-2">{doc.fileType?.toUpperCase() || 'FILE'}</p>
+              <p className="text-xs text-muted-foreground mb-2">{doc.fileType?.toUpperCase() || 'FILE'}</p>
               <button
                 onClick={() => {
                   if (doc.fileUrl?.startsWith('data:')) {
@@ -367,7 +367,7 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
                     window.open(doc.fileUrl, '_blank');
                   }
                 }}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-primary hover:underline"
               >
                 View Document
               </button>
@@ -385,7 +385,7 @@ export default function ClientPortalPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-screen">
-        <div className="text-neutral-600">Loading...</div>
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     }>
       <ClientPortalContent />

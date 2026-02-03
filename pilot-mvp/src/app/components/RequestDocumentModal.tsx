@@ -142,7 +142,7 @@ export function RequestDocumentModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800"
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
               Cancel
             </button>

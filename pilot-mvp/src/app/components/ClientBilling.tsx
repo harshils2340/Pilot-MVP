@@ -58,7 +58,7 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
       <div className="rounded-lg border border-border bg-surface">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Invoice History</h2>
-          <button className="text-sm text-blue-600 hover:underline">View all</button>
+          <button className="text-sm text-primary hover:underline">View all</button>
         </div>
         <div className="divide-y divide-border">
           {MOCK_INVOICES.map((invoice) => (
@@ -72,7 +72,7 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
               </div>
               <div className="flex items-center gap-6">
                 {invoice.status === 'due' ? (
-                  <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                  <span className="text-xs font-medium text-amber-950 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-500/20 font-semibold px-2 py-1 rounded-full">
                     Due {invoice.dueDate}
                   </span>
                 ) : (

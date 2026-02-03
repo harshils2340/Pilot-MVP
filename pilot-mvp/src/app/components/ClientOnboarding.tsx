@@ -674,7 +674,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                               permit.priority === 'High'
                                 ? 'bg-red-100 text-red-700 border border-red-200'
                                 : permit.priority === 'Medium'
-                                ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                ? 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40'
                                 : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
                             }`}
                           >
@@ -971,26 +971,26 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 </div>
 
                 {/* Tips Card */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="w-4 h-4 text-amber-600" />
-                    <h3 className="text-sm font-semibold text-amber-900">Quick Tips</h3>
+                    <Lightbulb className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                    <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-200">Quick Tips</h3>
                   </div>
-                  <ul className="space-y-2 text-xs text-amber-800">
+                  <ul className="space-y-2 text-xs text-amber-950 dark:text-amber-200">
                     <li className="flex items-start gap-2">
-                      <span className="text-amber-600 mt-0.5">•</span>
+                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
                       <span>Be specific with your business type for better results</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-amber-600 mt-0.5">•</span>
+                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
                       <span>Include both city and province/state for location</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-amber-600 mt-0.5">•</span>
+                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
                       <span>Permit keywords help narrow down the search</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-amber-600 mt-0.5">•</span>
+                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
                       <span>The search may take a few minutes to complete</span>
                     </li>
                   </ul>

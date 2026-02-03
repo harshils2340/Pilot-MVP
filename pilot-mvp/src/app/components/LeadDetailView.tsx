@@ -33,7 +33,7 @@ const TAG_COLORS = [
   'bg-violet-100 text-violet-700',
   'bg-red-100 text-red-700',
   'bg-blue-100 text-blue-700',
-  'bg-amber-100 text-amber-700',
+  'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200',
   'bg-emerald-100 text-emerald-700',
   'bg-sky-100 text-sky-700',
 ];
@@ -177,13 +177,13 @@ export function LeadDetailView({
           <div className="border-b border-border px-6 py-5 bg-surface">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold text-neutral-900 truncate mb-2">{lead.name}</h1>
+                <h1 className="text-2xl font-semibold text-foreground truncate mb-2">{lead.name}</h1>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex px-2.5 py-0.5 rounded-md bg-violet-100 text-violet-700 text-sm font-medium">
                     {lead.stageName || lead.status || 'Lead'}
                   </span>
                   {lead.source && (
-                    <span className="text-sm text-neutral-500">via {lead.source}</span>
+                    <span className="text-sm text-muted-foreground">via {lead.source}</span>
                   )}
                 </div>
               </div>
@@ -211,7 +211,7 @@ export function LeadDetailView({
           <div className="divide-y divide-neutral-200">
             {/* Contact */}
             <section className="px-6 py-5">
-              <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Contact</h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact</h2>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
@@ -226,17 +226,17 @@ export function LeadDetailView({
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                       <Phone className="w-4 h-4" />
                     </div>
-                    <a href={`tel:${lead.phone}`} className="text-neutral-700">
+                    <a href={`tel:${lead.phone}`} className="text-foreground">
                       {lead.phone}
                     </a>
                   </div>
                 )}
                 {lead.company && (
                   <div className="flex items-center gap-3 text-sm">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200">
                       <Building2 className="w-4 h-4" />
                     </div>
-                    <span className="text-neutral-700">{lead.company}</span>
+                    <span className="text-foreground">{lead.company}</span>
                   </div>
                 )}
               </div>
@@ -244,7 +244,7 @@ export function LeadDetailView({
 
             {/* Pipeline */}
             <section className="px-6 py-5">
-              <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Pipeline</h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Pipeline</h2>
               <div className="flex flex-wrap gap-2">
                 {lead.stageName && (
                   <span className="inline-flex px-2.5 py-1 rounded-lg bg-violet-100 text-violet-700 text-sm font-medium">
@@ -257,7 +257,7 @@ export function LeadDetailView({
                   </span>
                 )}
                 {lead.probability != null && (
-                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-sm">
+                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 text-sm">
                     {lead.probability}% probability
                   </span>
                 )}
@@ -271,10 +271,10 @@ export function LeadDetailView({
               lead.createdAt ||
               lead.updatedAt) && (
               <section className="px-6 py-5">
-                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                   Revenue &amp; dates
                 </h2>
-                <div className="space-y-2 text-sm text-neutral-700">
+                <div className="space-y-2 text-sm text-foreground">
                   {lead.expectedRevenue != null && lead.expectedRevenue > 0 && (
                     <p className="font-semibold text-emerald-600">
                       $
@@ -300,7 +300,7 @@ export function LeadDetailView({
                     </p>
                   )}
                   {(lead.createdAt || lead.updatedAt) && (
-                    <p className="flex items-center gap-2 text-neutral-500">
+                    <p className="flex items-center gap-2 text-muted-foreground">
                       <Clock className="w-4 h-4 text-neutral-400 shrink-0" />
                       {lead.createdAt && <>Created {new Date(lead.createdAt).toLocaleDateString()}</>}
                       {lead.updatedAt && lead.createdAt !== lead.updatedAt && (
@@ -314,8 +314,8 @@ export function LeadDetailView({
 
             {lead.notes && lead.notes.trim() && (
               <section className="px-6 py-5">
-                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Notes</h2>
-                <p className="text-sm text-neutral-700 whitespace-pre-wrap rounded-lg bg-neutral-50 p-4 border border-neutral-100">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Notes</h2>
+                <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted p-4 border border-neutral-100">
                   {lead.notes}
                 </p>
               </section>
@@ -323,7 +323,7 @@ export function LeadDetailView({
 
             {lead.tags && lead.tags.length > 0 && (
               <section className="px-6 py-5">
-                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Tags</h2>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tags</h2>
                 <div className="flex flex-wrap gap-1.5">
                   {lead.tags.map((tag, idx) => (
                     <span
@@ -339,7 +339,7 @@ export function LeadDetailView({
 
             {lead.activities && lead.activities.length > 0 && (
               <section className="px-6 py-5">
-                <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                   Activities
                 </h2>
                 <ul className="space-y-2">
@@ -353,7 +353,7 @@ export function LeadDetailView({
                         <p className="font-medium text-neutral-800">{act.type}</p>
                         {act.summary && <p className="text-neutral-600 text-xs mt-0.5">{act.summary}</p>}
                         {act.scheduledDate && (
-                          <p className="text-neutral-500 text-xs mt-1">
+                          <p className="text-muted-foreground text-xs mt-1">
                             {new Date(act.scheduledDate).toLocaleDateString()}
                             {act.status && ` · ${act.status}`}
                           </p>
@@ -367,12 +367,12 @@ export function LeadDetailView({
 
             {/* Emails */}
             <section className="px-6 py-5">
-              <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Inbox className="w-4 h-4 text-neutral-400" />
                 Emails received on website
               </h2>
               {emailsLoading ? (
-                <div className="flex items-center justify-center gap-2 py-12 text-neutral-500">
+                <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span className="text-sm">Loading emails…</span>
                 </div>
@@ -393,7 +393,7 @@ export function LeadDetailView({
                             open={expandedEmailIds.has(email._id)}
                             onOpenChange={() => toggleEmailExpanded(email._id)}
                           >
-                            <div className="rounded-lg border border-neutral-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-neutral-300 transition-all">
+                            <div className="rounded-lg border border-border overflow-hidden bg-surface shadow-sm hover:shadow-md hover:border-neutral-300 transition-all">
                               <CollapsibleTrigger asChild>
                                 <button
                                   type="button"
@@ -409,10 +409,10 @@ export function LeadDetailView({
                                     )}
                                   </span>
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-neutral-900 truncate">
+                                    <p className="text-sm font-medium text-foreground truncate">
                                       {email.subject || '(No subject)'}
                                     </p>
-                                    <p className="text-xs text-neutral-500 mt-0.5">
+                                    <p className="text-xs text-muted-foreground mt-0.5">
                                       {email.direction === 'inbound'
                                         ? `${email.from?.name || email.from?.email || 'Unknown'} → You`
                                         : `You → ${email.to?.name || email.to?.email || 'Unknown'}`}
@@ -433,7 +433,7 @@ export function LeadDetailView({
                                 <div className="border-t border-border px-3 py-3 bg-muted/50">
                                   {email.htmlBody ? (
                                     <div
-                                      className="prose prose-sm max-w-none text-neutral-700 text-sm email-body"
+                                      className="prose prose-sm max-w-none text-foreground text-sm email-body"
                                       dangerouslySetInnerHTML={{ __html: email.htmlBody }}
                                       style={{
                                         fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -442,12 +442,12 @@ export function LeadDetailView({
                                       }}
                                     />
                                   ) : (
-                                    <p className="text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed">
+                                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                                       {email.body || '—'}
                                     </p>
                                   )}
                                   {email.attachments && email.attachments.length > 0 && (
-                                    <p className="text-xs text-neutral-500 mt-2">
+                                    <p className="text-xs text-muted-foreground mt-2">
                                       {email.attachments.length} attachment
                                       {email.attachments.length !== 1 ? 's' : ''}
                                     </p>
@@ -470,7 +470,7 @@ export function LeadDetailView({
                           </div>
                         )}
                         {permitClientEmails.length > 0 && otherEmails.length > 0 && (
-                          <div className="border-t border-neutral-200 my-4" role="separator" aria-hidden />
+                          <div className="border-t border-border my-4" role="separator" aria-hidden />
                         )}
                         {otherEmails.length > 0 && (
                           <div>

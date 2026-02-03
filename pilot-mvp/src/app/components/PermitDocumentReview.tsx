@@ -231,7 +231,7 @@ export function PermitDocumentReview({
       case 'approved':
         return 'bg-neutral-100 text-neutral-700 border-neutral-200';
       case 'pending-review':
-        return 'bg-amber-100 text-amber-700 border-amber-200';
+        return 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40';
       default:
         return 'bg-neutral-100 text-neutral-700 border-neutral-200';
     }

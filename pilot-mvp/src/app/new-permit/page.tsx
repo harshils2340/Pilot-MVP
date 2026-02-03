@@ -320,7 +320,7 @@ export default function NewPermitPage() {
 
           {/* Business Types */}
           <div className="bg-surface rounded-lg border border-border p-6 mb-6">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Business Types <span className="text-red-500">*</span>
             </h3>
             <div className="flex gap-2 mb-3">
@@ -330,7 +330,7 @@ export default function NewPermitPage() {
                 onChange={(e) => setNewBusinessType(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddBusinessType())}
                 placeholder="Add business type"
-                className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="button"
@@ -350,7 +350,7 @@ export default function NewPermitPage() {
                   <button
                     type="button"
                     onClick={() => handleRemoveBusinessType(type)}
-                    className="text-neutral-500 hover:text-red-600"
+                    className="text-muted-foreground hover:text-red-600"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -361,7 +361,7 @@ export default function NewPermitPage() {
 
           {/* Activities */}
           <div className="bg-surface rounded-lg border border-border p-6 mb-6">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Activities <span className="text-red-500">*</span>
             </h3>
             <div className="flex gap-2 mb-3">
@@ -371,7 +371,7 @@ export default function NewPermitPage() {
                 onChange={(e) => setNewActivity(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddActivity())}
                 placeholder="Add activity"
-                className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="button"
@@ -391,7 +391,7 @@ export default function NewPermitPage() {
                   <button
                     type="button"
                     onClick={() => handleRemoveActivity(activity)}
-                    className="text-neutral-500 hover:text-red-600"
+                    className="text-muted-foreground hover:text-red-600"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -468,7 +468,7 @@ export default function NewPermitPage() {
             <button
               type="button"
               onClick={() => router.push('/permit-management')}
-              className="px-6 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
+              className="px-6 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-accent"
             >
               Cancel
             </button>

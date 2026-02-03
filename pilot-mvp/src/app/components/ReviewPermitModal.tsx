@@ -87,13 +87,13 @@ export function ReviewPermitModal({
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
+    if (score >= 60) return 'text-amber-800 dark:text-amber-400';
     return 'text-red-600';
   };
 
   const getScoreBgColor = (score: number) => {
     if (score >= 80) return 'bg-green-50 border-green-200';
-    if (score >= 60) return 'bg-yellow-50 border-yellow-200';
+    if (score >= 60) return 'bg-amber-100 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/40';
     return 'bg-red-50 border-red-200';
   };
 
@@ -169,7 +169,7 @@ export function ReviewPermitModal({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                  <AlertTriangle className="w-5 h-5 text-amber-800 dark:text-amber-400" />
                   <span className="text-sm font-medium">
                     {reviewResult.warnings.length} Warning{reviewResult.warnings.length !== 1 ? 's' : ''}
                   </span>
@@ -218,13 +218,13 @@ export function ReviewPermitModal({
 
             {/* Warnings Section */}
             {reviewResult.warnings.length > 0 && (
-              <div className="border border-yellow-200 rounded-lg bg-yellow-50">
-                <div className="bg-yellow-100 px-4 py-3 border-b border-yellow-200 rounded-t-lg">
-                  <h4 className="font-semibold text-yellow-900 flex items-center gap-2">
+              <div className="border border-amber-300 dark:border-amber-500/40 rounded-lg bg-amber-100 dark:bg-amber-500/20">
+                <div className="bg-amber-100 dark:bg-amber-500/20 px-4 py-3 border-b border-amber-300 dark:border-amber-500/40 rounded-t-lg">
+                  <h4 className="font-semibold text-amber-950 dark:text-amber-200 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5" />
                     Warnings ({reviewResult.warnings.length})
                   </h4>
-                  <p className="text-xs text-yellow-700 mt-1">
+                  <p className="text-xs text-amber-950 dark:text-amber-200 mt-1">
                     These should be addressed for better completeness
                   </p>
                 </div>
@@ -232,16 +232,16 @@ export function ReviewPermitModal({
                   {reviewResult.warnings.map((warning, index) => (
                     <div
                       key={index}
-                      className="bg-white border border-yellow-200 rounded-lg p-4"
+                      className="bg-surface border border-amber-300 dark:border-amber-500/40 rounded-lg p-4"
                     >
                       <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-amber-800 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">
+                            <span className="text-xs font-medium text-amber-800 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded">
                               {warning.field}
                             </span>
-                            <span className="text-xs text-yellow-600">Warning</span>
+                            <span className="text-xs text-amber-800 dark:text-amber-400">Warning</span>
                           </div>
                           <p className="font-medium text-neutral-900 mb-1">{warning.message}</p>
                           {warning.suggestion && (

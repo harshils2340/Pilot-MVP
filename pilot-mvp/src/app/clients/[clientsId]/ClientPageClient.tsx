@@ -206,7 +206,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         {/* Client Name Display */}
         <div className="px-4 pt-4 pb-2">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Client</p>
-          <p className="text-sm font-medium text-foreground bg-primary/10 px-2 py-1 rounded mb-2">
+          <p className="text-sm font-medium text-foreground bg-muted px-2 py-1 rounded mb-2">
             {client?.businessName || 'Loading...'}
           </p>
           <button

@@ -269,8 +269,8 @@ export function FillablePDFModal({
             <X className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 shrink-0">
-              <FileText className="w-4 h-4 text-primary" />
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted shrink-0">
+              <FileText className="w-4 h-4 text-foreground" />
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground truncate">{formTitle}</h2>
@@ -420,8 +420,8 @@ export function FillablePDFModal({
 
               {filled && (
                 <div className="flex items-center gap-3 mt-8 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 shrink-0">
-                    <Sparkles className="w-4 h-4 text-primary" />
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-muted shrink-0">
+                    <Sparkles className="w-4 h-4 text-foreground" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Form filled with AI-suggested data</p>
