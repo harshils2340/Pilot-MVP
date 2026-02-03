@@ -1,7 +1,6 @@
 import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
-import { FillablePDFModal } from './FillablePDFModal';
 import { useState, useEffect, useMemo } from 'react';
 import { getPermitById } from '../lib/permits/demoData';
 
@@ -158,7 +157,6 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
   const [documents, setDocuments] = useState<any[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showFillablePDFModal, setShowFillablePDFModal] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
 
   // Look up permit by ID from shared demo data (or API in production)
@@ -766,14 +764,16 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                       </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setShowFillablePDFModal(true)}
+                  <a
+                    href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
                   >
                     <Sparkles className="w-4 h-4" />
                     Fill with AI
                     <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -2383,16 +2383,6 @@ ${permit.assignee.name || 'Permit Consultant'}`;
         />
       )}
 
-      {/* Fillable PDF Modal - Fill with AI */}
-      <FillablePDFModal
-        isOpen={showFillablePDFModal}
-        onClose={() => setShowFillablePDFModal(false)}
-        permitName={permit.name}
-        clientName={clientName}
-        formTitle={permitData?.formTitle && permitData?.formCode 
-          ? `${permitData.formTitle} (${permitData.formCode})`
-          : permitData?.formTitle || permit.name}
-      />
     </div>
   );
 }

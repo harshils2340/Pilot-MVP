@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { PDFDocument } from 'pdf-lib';
-import { X, FileText, Sparkles, Download, Loader2, RotateCcw, Search, CheckCircle2, Building2, Users, MapPin, Calendar } from 'lucide-react';
+import { X, FileText, Sparkles, Download, Loader2, RotateCcw, Search, CheckCircle2, Building2, Users, MapPin, Calendar, ArrowLeft } from 'lucide-react';
 import {
   getSuggestedFieldValues,
   buildBusinessContextFromPermit,
@@ -34,6 +35,8 @@ export interface FillablePDFModalProps {
   formTitle?: string;
   /** Optional: URL to load an existing fillable PDF. When not provided, a sample form is created. */
   pdfUrl?: string;
+  /** When true, renders as a standalone page (always visible, close button goes back). Used by /fill-form route. */
+  asPage?: boolean;
 }
 
 // Create a fillable PDF with common permit form fields
@@ -78,7 +81,9 @@ export function FillablePDFModal({
   clientName,
   formTitle = 'Health Permit Application (Form EH-01)',
   pdfUrl,
+  asPage = false,
 }: FillablePDFModalProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [filling, setFilling] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -122,10 +127,10 @@ export function FillablePDFModal({
   }, [pdfUrl]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadPDF();
     }
-  }, [isOpen, loadPDF]);
+  }, [isOpen, asPage, loadPDF]);
 
   const handleFill = () => {
     setFilling(true);
@@ -252,25 +257,34 @@ export function FillablePDFModal({
     return 'text';
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
+
+  const handleClose = () => {
+    if (asPage) {
+      router.back();
+    } else {
+      onClose();
+    }
+  };
 
   const progressPercent = fieldNames.length ? (filledCount / fieldNames.length) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-muted/30 via-page-bg to-muted/20">
-      {/* Top toolbar - document chrome */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-border bg-surface/95 backdrop-blur-sm shadow-sm">
+    <div className={`flex flex-col min-h-screen bg-gradient-to-b from-muted/30 via-page-bg to-muted/20 ${!asPage ? 'fixed inset-0 z-50' : ''}`}>
+      {/* Top toolbar - matches site header style */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-border bg-surface shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
           <button
-            onClick={onClose}
-            className="p-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors shrink-0"
-            aria-label="Close"
+            onClick={handleClose}
+            className="flex items-center gap-1.5 p-2 -ml-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors shrink-0"
+            aria-label={asPage ? 'Go back' : 'Close'}
           >
-            <X className="w-5 h-5" />
+            {asPage ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {asPage && <span className="text-sm font-medium hidden sm:inline">Back</span>}
           </button>
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted shrink-0">
-              <FileText className="w-4 h-4 text-foreground" />
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 shrink-0">
+              <FileText className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground truncate">{formTitle}</h2>
@@ -282,7 +296,7 @@ export function FillablePDFModal({
           <button
             onClick={handleFill}
             disabled={filling || loading || loadError !== null}
-            className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground text-sm font-medium rounded-lg hover:from-primary/95 hover:to-primary/85 shadow-sm disabled:opacity-70 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 shadow-sm disabled:opacity-70 transition-all"
           >
             {filling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             Fill with AI
@@ -290,7 +304,7 @@ export function FillablePDFModal({
           <button
             onClick={handleClear}
             disabled={loading || loadError !== null}
-            className="flex items-center gap-2 px-3 py-2 border border-border text-foreground text-sm rounded-lg hover:bg-accent hover:border-border/80 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 border border-border bg-surface text-foreground text-sm rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Clear
@@ -298,7 +312,7 @@ export function FillablePDFModal({
           <button
             onClick={handleDownload}
             disabled={downloading || loading || loadError !== null || fieldNames.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 shadow-sm disabled:opacity-70 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-70"
           >
             {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Download
@@ -309,10 +323,10 @@ export function FillablePDFModal({
       {/* Page area - paper/document style */}
       <div className="flex-1 overflow-auto flex justify-center p-6 sm:p-8 md:p-12">
         <div className="w-full max-w-3xl min-h-full">
-          {/* Paper-style form container */}
-          <div className="bg-surface border border-border rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)]">
+          {/* Paper-style form container - matches site card styling */}
+          <div className="bg-surface border border-border rounded-xl shadow-sm">
             {/* Document header - form title as page header */}
-            <div className="px-8 sm:px-10 pt-10 pb-6 border-b border-border">
+            <div className="px-8 sm:px-10 pt-10 pb-6 border-b border-border bg-gradient-to-r from-muted/50 to-transparent rounded-t-xl">
               <h1 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight">{formTitle}</h1>
               <p className="text-sm text-muted-foreground mt-1.5">Complete all fields below. Use Fill with AI to auto-populate from your data.</p>
             </div>
@@ -357,7 +371,7 @@ export function FillablePDFModal({
                     value={fieldSearch}
                     onChange={(e) => setFieldSearch(e.target.value)}
                     placeholder="Search fields..."
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-border transition-all"
                   />
                 </div>
               </div>
@@ -369,7 +383,7 @@ export function FillablePDFModal({
                   return (
                     <section key={section} className="space-y-4">
                       <div className="flex items-center gap-2 pl-3 border-l-2 border-primary/30">
-                        <SectionIcon className="w-4 h-4 text-primary/70 shrink-0" />
+                        <SectionIcon className="w-4 h-4 text-muted-foreground shrink-0" />
                         <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
                           {section}
                         </h3>
@@ -387,7 +401,7 @@ export function FillablePDFModal({
                               <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-1.5">
                                 {formatFieldLabel(name)}
                                 {isFilled && (
-                                  <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" />
                                 )}
                               </label>
                               <input
@@ -396,7 +410,7 @@ export function FillablePDFModal({
                                 onChange={(e) =>
                                   setFieldValues((prev) => ({ ...prev, [name]: e.target.value }))
                                 }
-                                className="w-full px-3 py-2.5 text-sm bg-muted/30 border border-border rounded-lg text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary hover:bg-muted/50 transition-all"
+                                className="w-full px-3 py-2.5 text-sm bg-muted/30 border border-border rounded-lg text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-ring focus:border-border hover:bg-muted/50 transition-all"
                                 placeholder={`Enter ${formatFieldLabel(name).toLowerCase()}`}
                               />
                             </div>
@@ -419,9 +433,9 @@ export function FillablePDFModal({
               )}
 
               {filled && (
-                <div className="flex items-center gap-3 mt-8 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-muted shrink-0">
-                    <Sparkles className="w-4 h-4 text-foreground" />
+                <div className="flex items-center gap-3 mt-8 p-4 rounded-lg bg-muted/50 border border-border">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 shrink-0">
+                    <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Form filled with AI-suggested data</p>

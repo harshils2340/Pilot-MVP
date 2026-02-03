@@ -8,17 +8,14 @@ import {
   Folder,
   Shield,
   Save,
-  Mail,
-  Calendar,
-  Lock,
-  Key,
-  Clock,
-  Users,
+  CheckCircle2,
+  AlertCircle,
   Database,
   Palette,
   Circle,
   Moon,
   Droplets,
+  X,
 } from 'lucide-react';
 import { useTheme, type Theme } from '../components/ThemeProvider';
 import { Button } from '../components/ui/button';
@@ -63,6 +60,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [settings, setSettings] = useState<SettingsState>({
     notifications: {
       emailAlerts: true,
@@ -106,6 +104,7 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    setSaveMessage(null);
     setIsSaving(true);
     try {
       // Save to localStorage
@@ -118,11 +117,12 @@ export default function SettingsPage() {
       await new Promise((resolve) => setTimeout(resolve, 500));
       
       setHasChanges(false);
-      // Show success message (you could use a toast here)
-      alert('Settings saved successfully!');
+      setSaveMessage({ type: 'success', text: 'Changes Saved' });
+      setTimeout(() => setSaveMessage(null), 4000);
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Failed to save settings. Please try again.');
+      setSaveMessage({ type: 'error', text: 'Failed to save settings. Please try again.' });
+      setTimeout(() => setSaveMessage(null), 5000);
     } finally {
       setIsSaving(false);
     }
@@ -204,6 +204,35 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Save message - pops up at bottom of screen, matches site theme */}
+      {saveMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md">
+          <div
+            className={`flex items-center gap-3 px-5 py-3 rounded-full shadow-lg border ${
+              saveMessage.type === 'success'
+                ? 'bg-surface border-border text-foreground'
+                : 'bg-surface border-destructive/50 text-destructive'
+            }`}
+          >
+            {saveMessage.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 shrink-0" />
+            )}
+            <p className="flex-1 text-sm font-semibold">
+              {saveMessage.text}
+            </p>
+            <button
+              onClick={() => setSaveMessage(null)}
+              className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-8 py-8">
