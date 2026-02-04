@@ -156,7 +156,7 @@ export async function GET() {
 
     const bytes = await pdfDoc.save();
 
-    return new NextResponse(bytes, {
+    return new NextResponse(bytes.buffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'inline; filename="sample-permit-form.pdf"',
