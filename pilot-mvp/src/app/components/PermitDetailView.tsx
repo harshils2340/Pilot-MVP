@@ -813,14 +813,14 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                   )}
                 </div>
                 {allFeedbackAddressed && unreadCityEmails === 0 && unreadClientEmails === 0 ? (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">Ready to Resubmit</span>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/40 border border-border rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-foreground" />
+                    <span className="text-sm font-medium text-foreground">Ready to Resubmit</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg">
-                    <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                    <span className="text-sm font-medium text-amber-950 dark:text-amber-200">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/40 border border-border rounded-lg">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">
                       {feedbackInProgress + feedbackNotStarted + unreadCityEmails + unreadClientEmails} item{feedbackInProgress + feedbackNotStarted + unreadCityEmails + unreadClientEmails !== 1 ? 's' : ''} need attention
                     </span>
                   </div>
