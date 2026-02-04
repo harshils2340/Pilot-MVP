@@ -162,7 +162,14 @@ export function FillablePDFModal({
         // Load from URL using form-filler integration (make it feel like an extension is "extracting fields")
         setAiStatus('Downloading PDF…');
         setAiProgress(10);
-        const res = await fetch(pdfUrl);
+        
+        // Use proxy for external URLs to bypass CORS
+        const isExternal = pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://');
+        const fetchUrl = isExternal 
+          ? `/api/documents/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`
+          : pdfUrl;
+        
+        const res = await fetch(fetchUrl);
         if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
         await sleep(350);
         const arrBuf = await res.arrayBuffer();

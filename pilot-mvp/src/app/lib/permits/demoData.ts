@@ -23,6 +23,7 @@ export interface DemoPermit {
   priority?: 'high' | 'medium' | 'low';
   formTitle?: string;
   formCode?: string;
+  formUrl?: string; // URL to the actual government fillable PDF form
 }
 
 export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
@@ -56,6 +57,7 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
       formTitle: 'Food Service Establishment Permit Application',
       formCode: 'Form FSE-01',
+      formUrl: 'https://www.sf.gov/file/electrical-permit-application-worksheet',
     },
     {
       id: 'sf-3',
@@ -72,6 +74,7 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
       formTitle: 'Health Permit Application',
       formCode: 'Form EH-01',
+      formUrl: 'https://www.sf.gov/file/electrical-permit-application-worksheet',
     },
     {
       id: 'sf-4',
@@ -88,6 +91,7 @@ export const JURISDICTION_PERMITS: Record<string, DemoPermit[]> = {
       assignee: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-500' },
       formTitle: 'Business Operating Permit Application',
       formCode: 'Form BOP-100',
+      formUrl: 'https://www.sf.gov/file/electrical-permit-application-worksheet',
     },
     {
       id: 'sf-5',
