@@ -9,6 +9,7 @@ import {
   buildBusinessContextFromPermit,
   parsePDFFormFields,
   saveBusinessContext,
+  getBusinessContext,
 } from '../lib/form-filler';
 import { Progress } from './ui/progress';
 
@@ -87,29 +88,99 @@ export function FillablePDFModal({
   const [loading, setLoading] = useState(true);
   const [filling, setFilling] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [aiProgress, setAiProgress] = useState<number>(0);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldNames, setFieldNames] = useState<string[]>([]);
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [filled, setFilled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldSearch, setFieldSearch] = useState('');
+  const [useSharedContext, setUseSharedContext] = useState(true);
+  const [sharedContextDraft, setSharedContextDraft] = useState<{
+    businessName: string;
+    businessAddress: string;
+    contactEmail: string;
+    contactPhone: string;
+    ownerName: string;
+    businessType: string;
+    city: string;
+    province: string;
+  }>({
+    businessName: '',
+    businessAddress: '',
+    contactEmail: '',
+    contactPhone: '',
+    ownerName: '',
+    businessType: '',
+    city: '',
+    province: '',
+  });
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  const seedSharedContextDraft = useCallback(() => {
+    const saved = getBusinessContext();
+    if (saved) {
+      setSharedContextDraft({
+        businessName: saved.businessName ?? '',
+        businessAddress:
+          typeof saved.businessAddress === 'string'
+            ? saved.businessAddress
+            : saved.businessAddress?.full ?? '',
+        contactEmail: saved.contactEmail ?? saved.ownerEmail ?? '',
+        contactPhone: saved.contactPhone ?? '',
+        ownerName: saved.ownerName ?? '',
+        businessType: saved.businessType ?? '',
+        city: saved.city ?? '',
+        province: saved.province ?? '',
+      });
+      return;
+    }
+
+    const fallback = buildBusinessContextFromPermit(permitName, clientName);
+    setSharedContextDraft({
+      businessName: fallback.businessName ?? '',
+      businessAddress:
+        typeof fallback.businessAddress === 'string'
+          ? fallback.businessAddress
+          : fallback.businessAddress?.full ?? '',
+      contactEmail: fallback.contactEmail ?? '',
+      contactPhone: fallback.contactPhone ?? '',
+      ownerName: fallback.ownerName ?? '',
+      businessType: fallback.businessType ?? '',
+      city: fallback.city ?? '',
+      province: fallback.province ?? '',
+    });
+  }, [permitName, clientName]);
 
   const loadPDF = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
       if (pdfUrl) {
-        // Load from URL using form-filler integration
+        // Load from URL using form-filler integration (make it feel like an extension is "extracting fields")
+        setAiStatus('Downloading PDF…');
+        setAiProgress(10);
         const res = await fetch(pdfUrl);
         if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
+        await sleep(350);
         const arrBuf = await res.arrayBuffer();
         const bytes = new Uint8Array(arrBuf);
+        setAiStatus('Extracting form fields…');
+        setAiProgress(35);
+        await sleep(500);
         const parsed = await parsePDFFormFields(bytes);
         const names = parsed.map((f) => f.fieldName);
         if (names.length === 0) throw new Error('No fillable fields found in PDF');
+        setAiStatus('Normalizing field names…');
+        setAiProgress(55);
+        await sleep(350);
         setPdfBytes(bytes);
         setFieldNames(names);
         setFieldValues(names.reduce((acc, n) => ({ ...acc, [n]: '' }), {}));
+        setAiStatus(null);
+        setAiProgress(0);
       } else {
         const { bytes, fieldNames: names } = await createFillablePDF();
         setPdfBytes(bytes);
@@ -129,30 +200,70 @@ export function FillablePDFModal({
   useEffect(() => {
     if (isOpen || asPage) {
       loadPDF();
+      seedSharedContextDraft();
     }
-  }, [isOpen, asPage, loadPDF]);
+  }, [isOpen, asPage, loadPDF, seedSharedContextDraft]);
 
-  const handleFill = () => {
+  const handleFill = async () => {
     setFilling(true);
-    const context = buildBusinessContextFromPermit(permitName, clientName);
-    saveBusinessContext(context, { permitName, clientName });
-    const suggested = getSuggestedFieldValues(
-      fieldNames,
-      context,
-      permitName,
-      clientName
-    );
-    setFieldValues((prev) => {
-      const next = { ...prev };
-      for (const name of fieldNames) {
-        if (suggested[name] !== undefined) {
-          next[name] = suggested[name];
+    setAiProgress(0);
+    try {
+      const shared =
+        useSharedContext
+          ? saveBusinessContext(
+              {
+                businessName: sharedContextDraft.businessName,
+                businessAddress: sharedContextDraft.businessAddress,
+                contactEmail: sharedContextDraft.contactEmail,
+                contactPhone: sharedContextDraft.contactPhone,
+                ownerName: sharedContextDraft.ownerName,
+                businessType: sharedContextDraft.businessType,
+                city: sharedContextDraft.city,
+                province: sharedContextDraft.province,
+              },
+              { permitName, clientName }
+            )
+          : null;
+
+      const context = shared ?? buildBusinessContextFromPermit(permitName, clientName);
+      if (!shared) saveBusinessContext(context, { permitName, clientName });
+
+      setAiStatus('Analyzing form structure…');
+      setAiProgress(15);
+      await sleep(450);
+
+      setAiStatus('Matching fields to shared context…');
+      setAiProgress(40);
+      await sleep(650);
+
+      setAiStatus('Generating best-guess answers…');
+      setAiProgress(65);
+      await sleep(550);
+
+      const suggested = getSuggestedFieldValues(fieldNames, context, permitName, clientName);
+
+      setAiStatus('Applying values to fields…');
+      setAiProgress(85);
+      await sleep(450);
+
+      setFieldValues((prev) => {
+        const next = { ...prev };
+        for (const name of fieldNames) {
+          if (suggested[name] !== undefined) {
+            next[name] = String(suggested[name] ?? '');
+          }
         }
-      }
-      return next;
-    });
-    setFilled(true);
-    setFilling(false);
+        return next;
+      });
+
+      setAiProgress(100);
+      await sleep(250);
+      setFilled(true);
+    } finally {
+      setAiStatus(null);
+      setAiProgress(0);
+      setFilling(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -339,7 +450,14 @@ export function FillablePDFModal({
               <p className="text-sm font-medium text-foreground">
                 {pdfUrl ? 'Loading PDF...' : 'Creating fillable form...'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Auto-detecting form fields</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {aiStatus ?? 'Auto-detecting form fields'}
+              </p>
+              {aiProgress > 0 && (
+                <div className="w-full max-w-xs mt-5">
+                  <Progress value={aiProgress} />
+                </div>
+              )}
             </div>
           ) : loadError ? (
             <div className="flex flex-col items-center justify-center py-24">
@@ -354,6 +472,142 @@ export function FillablePDFModal({
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Shared Context - extension-like shared memory */}
+              <div className="rounded-lg border border-border bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Shared business context</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Saved once and reused across forms (same idea as a Chrome extension).
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-foreground select-none">
+                    <input
+                      type="checkbox"
+                      checked={useSharedContext}
+                      onChange={(e) => setUseSharedContext(e.target.checked)}
+                      className="accent-primary"
+                    />
+                    Use shared context
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Business name</label>
+                    <input
+                      value={sharedContextDraft.businessName}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, businessName: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="e.g. Urban Eats Restaurant Group LLC"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Owner / rep</label>
+                    <input
+                      value={sharedContextDraft.ownerName}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, ownerName: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="e.g. Sarah Chen"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-muted-foreground">Business address</label>
+                    <input
+                      value={sharedContextDraft.businessAddress}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, businessAddress: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="Street, City, State, ZIP"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Email</label>
+                    <input
+                      value={sharedContextDraft.contactEmail}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, contactEmail: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="contact@company.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                    <input
+                      value={sharedContextDraft.contactPhone}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, contactPhone: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="(415) 555-0123"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">City</label>
+                    <input
+                      value={sharedContextDraft.city}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, city: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="San Francisco"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Province/State</label>
+                    <input
+                      value={sharedContextDraft.province}
+                      onChange={(e) => setSharedContextDraft((p) => ({ ...p, province: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface"
+                      placeholder="CA"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <button
+                    onClick={() => {
+                      saveBusinessContext(
+                        {
+                          businessName: sharedContextDraft.businessName,
+                          businessAddress: sharedContextDraft.businessAddress,
+                          contactEmail: sharedContextDraft.contactEmail,
+                          contactPhone: sharedContextDraft.contactPhone,
+                          ownerName: sharedContextDraft.ownerName,
+                          businessType: sharedContextDraft.businessType,
+                          city: sharedContextDraft.city,
+                          province: sharedContextDraft.province,
+                        },
+                        { permitName, clientName }
+                      );
+                    }}
+                    className="px-3 py-2 text-sm rounded-lg bg-surface border border-border hover:bg-accent transition-colors"
+                  >
+                    Save shared context
+                  </button>
+                  <button
+                    onClick={seedSharedContextDraft}
+                    className="px-3 py-2 text-sm rounded-lg bg-surface border border-border hover:bg-accent transition-colors"
+                  >
+                    Reload saved
+                  </button>
+                </div>
+              </div>
+
+              {/* AI run status */}
+              {(filling || aiStatus) && (
+                <div className="rounded-lg border border-border bg-surface p-4">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {aiStatus ?? 'Working…'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Using {useSharedContext ? 'shared context' : 'permit context'} • This can take a moment
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <Progress value={aiProgress || 5} />
+                  </div>
+                </div>
+              )}
+
               {/* Progress + Search */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-6 border-b border-border/60">
                 <div className="flex items-center gap-4 flex-1 min-w-0">

@@ -11,6 +11,7 @@ function FillFormContent() {
   const clientName = searchParams.get('clientName') ?? '';
   const formTitleParam = searchParams.get('formTitle');
   const permitNameParam = searchParams.get('permitName');
+  const pdfUrl = searchParams.get('pdfUrl') ?? undefined;
 
   const permitData = permitId ? getPermitById(permitId) : null;
   const permitName = permitNameParam ?? permitData?.name ?? '';
@@ -28,6 +29,7 @@ function FillFormContent() {
       permitName={permitName}
       clientName={clientName || undefined}
       formTitle={formTitle}
+      pdfUrl={pdfUrl}
     />
   );
 }

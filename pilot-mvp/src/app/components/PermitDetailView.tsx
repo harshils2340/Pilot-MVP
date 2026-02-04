@@ -765,7 +765,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                     </div>
                   </div>
                   <a
-                    href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}`}
+                    href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}&pdfUrl=${encodeURIComponent(`/api/documents/sample-form?permitId=${encodeURIComponent(permitId)}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
