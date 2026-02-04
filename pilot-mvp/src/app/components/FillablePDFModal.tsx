@@ -211,6 +211,18 @@ export function FillablePDFModal({
     }
   }, [isOpen, asPage, loadPDF, seedSharedContextDraft]);
 
+  // Auto-fill when PDF loads if it's from an external URL (Chrome extension-like behavior)
+  useEffect(() => {
+    if (pdfUrl && fieldNames.length > 0 && !filled && !loading && !filling && pdfUrl.startsWith('http')) {
+      // Small delay to let UI settle, then auto-fill
+      const timer = setTimeout(() => {
+        handleFill();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfUrl, fieldNames.length, filled, loading, filling]);
+
   const handleFill = async () => {
     setFilling(true);
     setAiProgress(0);

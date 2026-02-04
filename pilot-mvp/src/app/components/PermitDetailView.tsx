@@ -764,16 +764,41 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                       </div>
                     </div>
                   </div>
-                  <a
-                    href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}${permitData?.formUrl ? `&pdfUrl=${encodeURIComponent(permitData.formUrl)}` : `&pdfUrl=${encodeURIComponent(`/api/documents/sample-form?permitId=${encodeURIComponent(permitId)}`)}`}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Fill with AI
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                  {permitData?.formUrl ? (
+                    <>
+                      <a
+                        href={permitData.formUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-all flex-shrink-0"
+                      >
+                        <FileText className="w-4 h-4" />
+                        View Form
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                      <a
+                        href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}&pdfUrl=${encodeURIComponent(permitData.formUrl)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Fill with AI
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </>
+                  ) : (
+                    <a
+                      href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}&pdfUrl=${encodeURIComponent(`/api/documents/sample-form?permitId=${encodeURIComponent(permitId)}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Fill with AI
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
