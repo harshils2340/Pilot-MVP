@@ -598,7 +598,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                 {hasPending ? (
                   <div className="flex items-center gap-2">
                     {pendingDocs > 0 && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40 rounded text-xs font-semibold">
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-muted text-foreground border border-border rounded text-xs font-semibold">
                         <FileText className="w-3 h-3" />
                         {pendingDocs} docs
                       </span>
@@ -684,7 +684,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
           </div>
           <div className="bg-surface rounded-lg border border-border p-5">
             <p className="text-muted-foreground text-sm mb-1">Action Required</p>
-            <p className="text-amber-700 dark:text-amber-400 font-semibold">4</p>
+            <p className="text-foreground font-semibold">4</p>
           </div>
         </div>
       </div>
