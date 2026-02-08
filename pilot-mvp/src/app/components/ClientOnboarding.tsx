@@ -674,7 +674,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                               permit.priority === 'High'
                                 ? 'bg-red-100 text-red-700 border border-red-200'
                                 : permit.priority === 'Medium'
-                                ? 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40'
+                                ? 'bg-muted text-foreground border border-border'
                                 : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
                             }`}
                           >
@@ -759,9 +759,8 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       {/* Form Content - Enhanced Layout with Sidebar */}
       <div className="flex-1 overflow-auto px-8 py-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Side - Form Fields (2 columns) */}
-            <div className="lg:col-span-2 flex flex-col">
+          <div className="max-w-2xl mx-auto">
+            <div className="flex flex-col">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <div className="space-y-4">
@@ -832,57 +831,6 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 </div>
               </div>
 
-              {/* Info Box and Additional Content */}
-              <div className="mt-6 space-y-4">
-                {/* Info Box */}
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-start gap-3">
-                    <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-900 mb-1">Ready to find permits?</p>
-                      <p className="text-xs text-blue-800 leading-relaxed">
-                        We'll analyze your business details using BizPaL and identify all required permits and licenses for your jurisdiction.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Process Steps Card */}
-                <div className="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm">
-                  <h3 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-neutral-600" />
-                    How It Works
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-neutral-900 text-white text-xs font-medium flex items-center justify-center">
-                        1
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-neutral-900 mb-0.5">Fill Details</p>
-                        <p className="text-xs text-neutral-600">Enter your business information</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-neutral-900 text-white text-xs font-medium flex items-center justify-center">
-                        2
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-neutral-900 mb-0.5">Search Permits</p>
-                        <p className="text-xs text-neutral-600">We'll search BizPaL database</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-neutral-900 text-white text-xs font-medium flex items-center justify-center">
-                        3
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-neutral-900 mb-0.5">Review Results</p>
-                        <p className="text-xs text-neutral-600">Review and add to dashboard</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Helpful Note */}
                 {loading && (
@@ -909,135 +857,6 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
               </div>
             </div>
 
-            {/* Right Sidebar - Helpful Information */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-6 space-y-4">
-                {/* Form Summary Card */}
-                <div className="bg-white border border-neutral-200 rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <h3 className="text-sm font-semibold text-neutral-900">Form Summary</h3>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      {formData.businessName.trim() ? (
-                        <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                      )}
-                      <span className={formData.businessName.trim() ? 'text-neutral-700' : 'text-neutral-400'}>
-                        Business Name
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {formData.location.trim() ? (
-                        <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                      )}
-                      <span className={formData.location.trim() ? 'text-neutral-700' : 'text-neutral-400'}>
-                        Location
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {formData.businessType.trim() ? (
-                        <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-3 h-3 text-neutral-400 flex-shrink-0" />
-                      )}
-                      <span className={formData.businessType.trim() ? 'text-neutral-700' : 'text-neutral-400'}>
-                        Business Type
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {formData.permitKeywords.trim() ? (
-                        <CheckCircle className="w-3 h-3 text-blue-600 flex-shrink-0" />
-                      ) : (
-                        <div className="w-3 h-3 flex-shrink-0" />
-                      )}
-                      <span className={formData.permitKeywords.trim() ? 'text-neutral-700' : 'text-neutral-400'}>
-                        Permit Keywords (Optional)
-                      </span>
-                    </div>
-                  </div>
-                  {isStep1Valid && (
-                    <div className="mt-3 pt-3 border-t border-neutral-200">
-                      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 rounded px-2 py-1.5">
-                        <CheckCircle className="w-3 h-3" />
-                        <span className="font-medium">Ready to search</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tips Card */}
-                <div className="bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                    <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-200">Quick Tips</h3>
-                  </div>
-                  <ul className="space-y-2 text-xs text-amber-950 dark:text-amber-200">
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
-                      <span>Be specific with your business type for better results</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
-                      <span>Include both city and province/state for location</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
-                      <span>Permit keywords help narrow down the search</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-700 dark:text-amber-400 mt-0.5">•</span>
-                      <span>The search may take a few minutes to complete</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Examples Card */}
-                <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Info className="w-4 h-4 text-neutral-600" />
-                    <h3 className="text-sm font-semibold text-neutral-900">Examples</h3>
-                  </div>
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <p className="font-medium text-neutral-700 mb-1">Business Type:</p>
-                      <p className="text-neutral-600">"Restaurant & Food Service"</p>
-                      <p className="text-neutral-600">"Retail Store"</p>
-                      <p className="text-neutral-600">"Construction Company"</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-neutral-700 mb-1">Location:</p>
-                      <p className="text-neutral-600">"Toronto, Ontario"</p>
-                      <p className="text-neutral-600">"Vancouver, BC"</p>
-                      <p className="text-neutral-600">"Calgary, Alberta"</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-neutral-700 mb-1">Permit Keywords:</p>
-                      <p className="text-neutral-600">"zoning, building, food service"</p>
-                      <p className="text-neutral-600">"business license, health permit"</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* What Happens Next Card */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ArrowRight className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-sm font-semibold text-blue-900">What Happens Next?</h3>
-                  </div>
-                  <ol className="space-y-2 text-xs text-blue-800 list-decimal list-inside">
-                    <li>We'll search BizPaL for relevant permits</li>
-                    <li>Review the identified permits and licenses</li>
-                    <li>Add the client to your dashboard</li>
-                    <li>Start tracking permit applications</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
