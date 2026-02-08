@@ -357,9 +357,9 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
 
                       {/* Blocker */}
                       {isBlocked && (
-                        <div className="flex items-center gap-1.5 p-2 bg-amber-200/80 dark:bg-amber-500/20 border border-amber-400 dark:border-amber-500/40 rounded text-xs text-amber-950 dark:text-amber-200 font-medium">
-                          <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
-                          <span>Blocked by <span className="font-medium">{permit.blockedBy}</span></span>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 border border-border rounded-md text-xs text-muted-foreground font-medium">
+                          <Lock className="w-3 h-3 text-muted-foreground" />
+                          <span>Blocked by <span className="font-semibold text-foreground">{permit.blockedBy}</span></span>
                         </div>
                       )}
 

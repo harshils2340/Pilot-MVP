@@ -52,9 +52,9 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
 
   const columns = [
     { id: 'draft' as const, label: 'Draft', color: 'bg-muted' },
-    { id: 'submitted' as const, label: 'Submitted', color: 'bg-blue-100' },
-    { id: 'action-required' as const, label: 'Action Required', color: 'bg-amber-100' },
-    { id: 'approved' as const, label: 'Approved', color: 'bg-green-100' },
+    { id: 'submitted' as const, label: 'Submitted', color: 'bg-blue-50' },
+    { id: 'action-required' as const, label: 'Action Required', color: 'bg-destructive/10' },
+    { id: 'approved' as const, label: 'Approved', color: 'bg-green-50' },
   ];
 
   // Extract unique values for filters
@@ -349,12 +349,12 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
                       permit.status === 'approved'
-                        ? 'bg-green-50 text-green-700'
+                        ? 'bg-green-50 text-green-700 border border-green-200'
                         : permit.status === 'submitted'
-                        ? 'bg-muted text-foreground'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
                         : permit.status === 'action-required'
-                        ? 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200'
-                        : 'bg-muted text-muted-foreground'
+                        ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                        : 'bg-muted text-muted-foreground border border-border'
                     }`}
                   >
                     {permit.status === 'action-required'

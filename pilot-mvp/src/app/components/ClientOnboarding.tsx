@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, Building2, MapPin, Briefcase, FileText, CheckCircle2, Loader2, Info, Lightbulb, CheckCircle, AlertCircle, Search } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Building2, MapPin, Briefcase, FileText, CheckCircle2, Loader2, Info, Lightbulb, CheckCircle, AlertCircle, Search, Sparkles } from 'lucide-react';
 
 interface ClientOnboardingProps {
   onComplete: (clientData: any) => void;
@@ -451,6 +451,76 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     ];
   };
 
+  // Helper to parse location string (e.g., "Ottawa, Ontario" or "San Francisco, CA")
+  const parseLocation = (locationStr: string): { country: string; province: string; city: string } => {
+    const parts = locationStr.split(',').map(p => p.trim());
+    let city = parts[0] || '';
+    let province = parts[1] || '';
+    let country = 'CA'; // Default to Canada
+    
+    // Handle US states
+    const usStates: { [key: string]: string } = {
+      'california': 'CA', 'ca': 'CA', 'calif': 'CA',
+      'new york': 'NY', 'ny': 'NY',
+      'texas': 'TX', 'tx': 'TX',
+      'florida': 'FL', 'fl': 'FL',
+    };
+    
+    const provinceLower = province.toLowerCase();
+    if (usStates[provinceLower]) {
+      country = 'US';
+      province = usStates[provinceLower];
+    } else if (province.length === 2) {
+      // Assume 2-letter codes are US states
+      country = 'US';
+    } else {
+      // Canadian provinces
+      const canadianProvinces: { [key: string]: string } = {
+        'ontario': 'ON', 'on': 'ON',
+        'quebec': 'QC', 'qc': 'QC',
+        'british columbia': 'BC', 'bc': 'BC',
+        'alberta': 'AB', 'ab': 'AB',
+        'manitoba': 'MB', 'mb': 'MB',
+        'saskatchewan': 'SK', 'sk': 'SK',
+        'nova scotia': 'NS', 'ns': 'NS',
+        'new brunswick': 'NB', 'nb': 'NB',
+        'newfoundland': 'NL', 'nl': 'NL',
+        'prince edward island': 'PE', 'pe': 'PE',
+        'northwest territories': 'NT', 'nt': 'NT',
+        'yukon': 'YT', 'yt': 'YT',
+        'nunavut': 'NU', 'nu': 'NU',
+      };
+      
+      const provinceKey = provinceLower;
+      if (canadianProvinces[provinceKey]) {
+        province = canadianProvinces[provinceKey];
+      } else if (province.length === 2) {
+        // Assume it's already a 2-letter code
+        province = province.toUpperCase();
+      }
+    }
+    
+    return { country, province: province.toUpperCase(), city };
+  };
+
+  // Map business type to slug
+  const mapBusinessTypeToSlug = (businessType: string): string => {
+    const businessTypeLower = businessType.toLowerCase();
+    
+    // Check if it matches any known business types
+    if (businessTypeLower.includes('restaurant') || businessTypeLower.includes('food') || 
+        businessTypeLower.includes('cafe') || businessTypeLower.includes('dining')) {
+      return 'restaurant';
+    }
+    if (businessTypeLower.includes('retail') || businessTypeLower.includes('store') || 
+        businessTypeLower.includes('shop')) {
+      return 'retail';
+    }
+    
+    // Default to restaurant if unclear
+    return 'restaurant';
+  };
+
   const handleFindPermits = async () => {
     // Validate form fields before proceeding
     const trimmedData = {
@@ -471,29 +541,91 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     console.log('🔍 Starting permit discovery...');
     console.log('📋 Form data:', trimmedData);
     
-    // Simulate loading for 5 seconds then show hardcoded permits
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => resolve(), 5000);
-      timeoutIdRef.current = timeout;
-    });
-    
-    // Check if cancelled during wait
-    if (isCancelledRef.current) {
-      console.log('🚫 Operation was cancelled');
+    try {
+      // Parse location
+      const parsedLocation = parseLocation(trimmedData.location);
+      const businessTypeSlug = mapBusinessTypeToSlug(trimmedData.businessType);
+      
+      // Convert permitKeywords to activities array
+      const activities = trimmedData.permitKeywords
+        ? trimmedData.permitKeywords.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [trimmedData.businessType]; // Fallback to business type
+      
+      // If no activities, use business type as activity
+      if (activities.length === 0) {
+        activities.push(trimmedData.businessType);
+      }
+      
+      const payload = {
+        location: parsedLocation,
+        businessType: businessTypeSlug,
+        activities: activities,
+      };
+      
+      console.log('🚀 Calling permit search API with payload:', payload);
+      
+      const res = await fetch('/api/clients/permits/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      if (isCancelledRef.current) {
+        console.log('🚫 Operation was cancelled');
+        setLoading(false);
+        return;
+      }
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ Permit search failed:', errorData);
+        alert(`Failed to search for permits: ${errorData.error || 'Unknown error'}`);
+        setLoading(false);
+        return;
+      }
+      
+      const data = await res.json();
+      const apiPermits = data.permits || [];
+      
+      console.log(`✅ Found ${apiPermits.length} permits from API`);
+      
+      // Transform API permits to our Permit format
+      const discoveredPermits: Permit[] = apiPermits.map((p: any, index: number) => ({
+        _id: `permit-${index}-${Date.now()}`,
+        name: p.name,
+        level: p.level || 'municipal',
+        jurisdiction: {
+          city: parsedLocation.city,
+          province: parsedLocation.province,
+        },
+        authority: p.authority || 'Unknown',
+        activities: p.reasons || [],
+        priority: p.confidence === 'required' ? 'High' : p.confidence === 'conditional' ? 'Medium' : 'Low',
+        category: p.level === 'federal' ? 'Federal' : p.level === 'provincial' ? 'Provincial' : 'Municipal',
+        sourceUrl: p.sourceUrl || p.applyUrl,
+      }));
+      
+      // If no permits found from API, fallback to hardcoded permits
+      if (discoveredPermits.length === 0) {
+        console.log('⚠️ No permits found from API, using fallback...');
+        const fallbackPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
+        setPermits(fallbackPermits);
+      } else {
+        setPermits(discoveredPermits);
+      }
+      
+      setShowPermits(true);
       setLoading(false);
-      return;
+      console.log('🏁 Permit discovery process completed');
+    } catch (err) {
+      console.error('❌ Error during permit discovery:', err);
+      // Fallback to hardcoded permits on error
+      console.log('⚠️ Using fallback permits due to error...');
+      const fallbackPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
+      setPermits(fallbackPermits);
+      setShowPermits(true);
+      setLoading(false);
     }
-    
-    // Get hardcoded permits based on location and business type
-    const discoveredPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
-    
-    console.log(`✅ Found ${discoveredPermits.length} permits for ${trimmedData.location}`);
-    
-    setPermits(discoveredPermits);
-    setShowPermits(true);
-    setLoading(false);
-    
-    console.log('🏁 Permit discovery process completed');
   };
 
   // Handle cancel with cleanup
@@ -620,28 +752,28 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
 
   if (showPermits) {
     return (
-      <div className="h-full flex flex-col bg-white">
+      <div className="h-full flex flex-col bg-surface">
         {/* Header */}
-        <div className="border-b border-neutral-200 px-8 py-6">
-          <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
+        <div className="border-b border-border px-8 py-6 bg-surface">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <Building2 className="w-4 h-4" />
             <span>New Client Setup</span>
           </div>
-          <h1 className="text-neutral-900 mb-1">Required Permits</h1>
-          <p className="text-neutral-600">Review and confirm the permits needed for {formData.businessName}</p>
+          <h1 className="text-2xl font-semibold text-foreground mb-1">Required Permits</h1>
+          <p className="text-sm text-muted-foreground">Review and confirm the permits needed for {formData.businessName}</p>
         </div>
 
         {/* Permits List */}
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-8 bg-surface">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-muted/50 border border-border rounded-lg p-5 mb-6">
               <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-blue-900 mb-1">
+                  <p className="font-semibold text-foreground mb-1">
                     {permits.length} permits identified
                   </p>
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-muted-foreground">
                     Based on the business information provided and BizPaL data, we've identified the following permits and licenses required for your client.
                   </p>
                 </div>
@@ -649,7 +781,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
             </div>
 
             {permits.length === 0 ? (
-              <div className="text-center py-12 text-neutral-600">
+              <div className="text-center py-12 text-muted-foreground">
                 No permits found. Please try modifying your search criteria.
               </div>
             ) : (
@@ -657,25 +789,25 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 {permits.map((permit, index) => (
                   <div
                     key={permit._id || index}
-                    className="bg-white border border-neutral-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+                    className="bg-surface border border-border rounded-lg p-5 hover:border-border hover:shadow-md transition-all"
                   >
                     <div className="flex items-start gap-4">
                       {/* Number Badge */}
-                      <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-neutral-900 text-white text-sm font-semibold">
+                      <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground text-sm font-semibold">
                         {index + 1}
                       </span>
                       
                       <div className="flex-1 min-w-0">
                         {/* Title Row */}
                         <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className="font-semibold text-neutral-900 text-base">{permit.name}</h3>
+                          <h3 className="font-semibold text-foreground text-base">{permit.name}</h3>
                           <span
-                            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${
+                            className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border ${
                               permit.priority === 'High'
-                                ? 'bg-red-100 text-red-700 border border-red-200'
+                                ? 'bg-destructive/10 text-destructive border-destructive/20'
                                 : permit.priority === 'Medium'
-                                ? 'bg-muted text-foreground border border-border'
-                                : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+                                ? 'bg-muted text-muted-foreground border-border'
+                                : 'bg-muted text-muted-foreground border-border'
                             }`}
                           >
                             {permit.priority}
@@ -683,24 +815,24 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                         </div>
                         
                         {/* Authority */}
-                        <p className="text-sm text-neutral-600 mb-2">
+                        <p className="text-sm text-muted-foreground mb-3">
                           {permit.authority || permit.jurisdiction?.province || 'Unknown'}
                         </p>
                         
                         {/* Tags Row */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-muted text-foreground rounded-md text-xs font-medium border border-border">
                             <FileText className="w-3 h-3" />
                             {permit.category || permit.level || 'General'}
                           </span>
                           {permit.jurisdiction?.city && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 text-neutral-600 rounded-md text-xs">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-muted text-muted-foreground rounded-md text-xs border border-border">
                               <MapPin className="w-3 h-3" />
                               {permit.jurisdiction.city}
                             </span>
                           )}
                           {permit.activities && permit.activities.length > 0 && (
-                            <span className="text-xs text-neutral-500">
+                            <span className="text-xs text-muted-foreground">
                               {permit.activities.slice(0, 2).join(' • ')}
                             </span>
                           )}
@@ -712,10 +844,10 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-neutral-200">
+            <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
               <button
                 onClick={() => setShowPermits(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors border border-neutral-200"
+                className="flex items-center gap-2 px-4 py-2.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors border border-border"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Details
@@ -723,7 +855,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
               <button
                 onClick={handleComplete}
                 disabled={permits.length === 0 || submitting}
-                className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:bg-neutral-300 disabled:cursor-not-allowed disabled:shadow-none font-medium text-base"
+                className="flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all shadow-sm disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed disabled:shadow-none font-medium"
               >
                 {submitting ? (
                   <>
@@ -745,128 +877,144 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-surface">
       {/* Compact Header */}
-      <div className="border-b border-neutral-200 px-8 py-4">
-        <div className="flex items-center gap-2 text-sm text-neutral-600 mb-1">
-          <Building2 className="w-4 h-4" />
-          <span>New Client Setup</span>
+      <div className="border-b border-border px-8 py-6 bg-surface">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+          <FileText className="w-4 h-4" />
+          <span>New Permit Setup</span>
         </div>
-        <h1 className="text-xl font-semibold text-neutral-900">Add New Client</h1>
-        <p className="text-xs text-neutral-500 mt-0.5">Tell us about the business to discover required permits</p>
+        <h1 className="text-2xl font-semibold text-foreground">Start New Permit</h1>
+        <p className="text-sm text-muted-foreground mt-1">Tell us about the business to discover required permits and licenses</p>
       </div>
 
-      {/* Form Content - Enhanced Layout with Sidebar */}
-      <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="max-w-2xl mx-auto">
-            <div className="flex flex-col">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left Column */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                      Business Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.businessName}
-                      onChange={(e) => handleInputChange('businessName', e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-sm text-neutral-900 placeholder:text-neutral-400"
-                      placeholder="e.g., Riverside Coffee Co."
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                      Business Location <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) => handleInputChange('location', e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-sm text-neutral-900 placeholder:text-neutral-400"
-                      placeholder="Ex: Ottawa, Ontario"
-                      required
-                    />
-                    <p className="text-xs text-neutral-500 mt-1">City and province/state</p>
-                  </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                      Business Type <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.businessType}
-                      onChange={(e) => handleInputChange('businessType', e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-sm text-neutral-900 placeholder:text-neutral-400"
-                      placeholder="Ex: restaurant business"
-                      required
-                    />
-                    <p className="text-xs text-neutral-500 mt-1">Describe the type of business</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-900 mb-1.5">
-                      Permit Keywords <span className="text-xs font-normal text-neutral-500">(Optional)</span>
-                    </label>
-                    <textarea
-                      value={formData.permitKeywords}
-                      onChange={(e) => handleInputChange('permitKeywords', e.target.value)}
-                      rows={2}
-                      maxLength={200}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none text-sm text-neutral-900 placeholder:text-neutral-400"
-                      placeholder="Ex: zoning, food service, building permits"
-                    />
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-neutral-500">Specific permits or licenses you're looking for</p>
-                      <p className="text-xs text-neutral-400">{formData.permitKeywords.length}/200</p>
-                    </div>
-                  </div>
-                </div>
+      {/* Form Content */}
+      <div className="flex-1 overflow-auto px-8 py-8 bg-surface">
+        <div className="w-full max-w-7xl mx-auto">
+          <div className="bg-surface border border-border rounded-lg p-8 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  <Building2 className="w-4 h-4 inline mr-2" />
+                  Business Name <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.businessName}
+                  onChange={(e) => handleInputChange('businessName', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && isStep1Valid && !loading) {
+                      e.preventDefault();
+                      handleFindPermits();
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                  placeholder="e.g., Riverside Coffee Co."
+                  required
+                />
               </div>
 
-
-                {/* Helpful Note */}
-                {loading && (
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Search className="w-5 h-5 text-blue-600" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-base font-semibold text-blue-900 mb-1">Discovering Permits...</p>
-                        <p className="text-sm text-blue-700">
-                          Analyzing business requirements for {formData.location || 'your location'}
-                        </p>
-                        <div className="mt-3 w-full bg-blue-200 rounded-full h-2 overflow-hidden">
-                          <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '60%' }} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  <MapPin className="w-4 h-4 inline mr-2" />
+                  Business Location <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => handleInputChange('location', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && isStep1Valid && !loading) {
+                      e.preventDefault();
+                      handleFindPermits();
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                  placeholder="Ex: Ottawa, Ontario"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">City and province/state</p>
               </div>
             </div>
 
+            {/* Right Column */}
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Business Type <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.businessType}
+                  onChange={(e) => handleInputChange('businessType', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && isStep1Valid && !loading) {
+                      e.preventDefault();
+                      handleFindPermits();
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                  placeholder="Ex: restaurant business"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">Describe the type of business</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  <Sparkles className="w-4 h-4 inline mr-2" />
+                  Permit Keywords <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                </label>
+                <textarea
+                  value={formData.permitKeywords}
+                  onChange={(e) => handleInputChange('permitKeywords', e.target.value)}
+                  rows={2}
+                  maxLength={200}
+                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                  placeholder="Ex: zoning, food service, building permits"
+                />
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-xs text-muted-foreground">Specific permits or licenses you're looking for</p>
+                  <p className="text-xs text-muted-foreground">{formData.permitKeywords.length}/200</p>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            {/* Loading State */}
+            {loading && (
+              <div className="mt-8 bg-muted/50 border border-border rounded-xl p-6">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-full border-4 border-border border-t-primary animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Search className="w-5 h-5 text-primary" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-base font-semibold text-foreground mb-1">Discovering Permits...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Analyzing business requirements for {formData.location || 'your location'}
+                    </p>
+                    <div className="mt-3 w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Footer Navigation - Compact */}
-      <div className="border-t border-neutral-200 px-8 py-4 bg-neutral-50">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      {/* Footer */}
+      <div className="border-t border-border px-8 py-5 bg-surface">
+        <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
           <button
             onClick={handleCancel}
-            className="flex items-center gap-2 px-4 py-2 text-neutral-600 hover:bg-white rounded-lg transition-colors text-sm font-medium border border-neutral-300"
+            className="flex items-center gap-2 px-4 py-2.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors text-sm font-medium border border-border"
           >
             <ArrowLeft className="w-4 h-4" />
             Cancel
@@ -907,10 +1055,10 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
               handleFindPermits();
             }}
             disabled={loading}
-            className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-colors text-sm font-medium ${
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg transition-all text-sm font-medium ${
               isStep1Valid && !loading
-                ? 'bg-neutral-900 text-white hover:bg-neutral-800 cursor-pointer shadow-sm'
-                : 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
+                ? 'bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-sm'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
             title={
               loading 

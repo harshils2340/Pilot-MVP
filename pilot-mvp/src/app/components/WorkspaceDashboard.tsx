@@ -607,7 +607,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
                         <Clock className="w-3 h-3" />
                         review
-                      </span>
+                </span>
                     )}
                   </div>
                 ) : (
