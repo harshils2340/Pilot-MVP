@@ -1,8 +1,10 @@
 import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
+import { LiveFillModal } from './LiveFillModal';
 import { useState, useEffect, useMemo } from 'react';
 import { getPermitById } from '../lib/permits/demoData';
+import { SIDEWALK_CAFE_FILL_STEPS, SIDEWALK_CAFE_PDF_URL } from '../lib/permits/liveFillData';
 
 interface PermitDetailViewProps {
   permitId: string;
@@ -143,7 +145,10 @@ const mockComments: Comment[] = [
 ];
 
 export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailViewProps) {
-  const [activeSection, setActiveSection] = useState<Section>('city-feedback');
+  // Default to overview when the permit has a fillable form, otherwise city-feedback
+  const [activeSection, setActiveSection] = useState<Section>(
+    getPermitById(permitId)?.formUrl ? 'overview' : 'city-feedback'
+  );
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState<Comment[]>(mockComments);
   const [expandedFeedback, setExpandedFeedback] = useState<string>('1');
@@ -158,6 +163,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [showLiveFill, setShowLiveFill] = useState(false);
 
   // Look up permit by ID from shared demo data (or API in production)
   const permitData = useMemo(() => getPermitById(permitId), [permitId]);
@@ -767,25 +773,23 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
                   {permitData?.formUrl ? (
                     <>
                       <a
-                        href={permitData.formUrl}
+                        href={permitData.formUrl?.startsWith('/api/fill-pdf') ? undefined! : permitData.formUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-all flex-shrink-0"
+                        onClick={permitData.formUrl?.startsWith('/api/fill-pdf') ? (e: React.MouseEvent) => { e.preventDefault(); setShowLiveFill(true); } : undefined}
+                        className="flex items-center gap-2 px-4 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-all flex-shrink-0 cursor-pointer"
                       >
                         <FileText className="w-4 h-4" />
                         View Form
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
-                      <a
-                        href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}&pdfUrl=${encodeURIComponent(permitData.formUrl)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => setShowLiveFill(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
                       >
                         <Sparkles className="w-4 h-4" />
                         Fill with AI
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      </button>
                     </>
                   ) : (
                     <a
@@ -2407,6 +2411,20 @@ ${permit.assignee.name || 'Permit Consultant'}`;
           }}
         />
       )}
+
+      {/* Live Fill Modal — shows the real gov PDF and fills fields in real-time */}
+      <LiveFillModal
+        isOpen={showLiveFill}
+        onClose={() => setShowLiveFill(false)}
+        pdfSourceUrl={SIDEWALK_CAFE_PDF_URL}
+        formTitle={
+          permitData?.formTitle && permitData?.formCode
+            ? `${permitData.formTitle} (${permitData.formCode})`
+            : permitData?.formTitle || permit.name
+        }
+        fillSteps={SIDEWALK_CAFE_FILL_STEPS}
+        downloadFilename="sidewalk-cafe-permit-king-west-kitchen.pdf"
+      />
 
     </div>
   );

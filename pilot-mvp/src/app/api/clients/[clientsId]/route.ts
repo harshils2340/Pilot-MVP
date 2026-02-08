@@ -30,6 +30,12 @@ export async function GET(
       console.log('Queried by businessName:', clientData);
     }
 
+    // If not found by businessName, query by seed 'id' field (mock/demo clients)
+    if (!clientData) {
+      clientData = await db.collection('clients').findOne({ id: clientParam });
+      console.log('Queried by seed id:', clientData);
+    }
+
     // If still not found, return 404
     if (!clientData) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });

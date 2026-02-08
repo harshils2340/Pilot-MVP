@@ -1,6 +1,7 @@
 import { Lock, Clock, CheckCircle2, AlertCircle, Send, ChevronRight, Plus, Search, Building2, User, Sparkles, X, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { JURISDICTION_PERMITS, getPermitsForJurisdiction, type DemoPermit } from '../lib/permits/demoData';
+import { getClientById } from '../lib/mockClients';
 
 type Permit = DemoPermit;
 
@@ -53,6 +54,13 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
           const clientData = await clientRes.json();
           clientJurisdiction = clientData.jurisdiction || clientData.client?.jurisdiction || 'San Francisco';
           console.log(`📍 Client jurisdiction: ${clientJurisdiction}`);
+        } else {
+          // Fallback to local mock data (works without MongoDB)
+          const mock = getClientById(clientId);
+          if (mock) {
+            clientJurisdiction = mock.jurisdiction;
+            console.log(`📍 Using mock jurisdiction: ${clientJurisdiction}`);
+          }
         }
         
         // Get hardcoded permits for this jurisdiction

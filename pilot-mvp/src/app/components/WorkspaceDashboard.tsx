@@ -38,36 +38,56 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
   useEffect(() => {
     const fetchClients = async () => {
+      const { mockClients } = await import('../lib/mockClients');
+      const mockAsClients: Client[] = mockClients.map((c) => ({
+        _id: c.id,
+        businessName: c.businessName,
+        jurisdiction: c.jurisdiction,
+        activePermits: c.activePermits,
+        status: c.status as Client['status'],
+        lastActivity: c.lastActivity,
+        completionRate: c.completionRate,
+      }));
+
       try {
         const res = await fetch('/api/clients');
         if (res.ok) {
           const clientsData = await res.json();
+          const rawClients: Client[] = Array.isArray(clientsData)
+            ? clientsData
+            : Array.isArray(clientsData.clients) ? clientsData.clients : [];
           
-          // Fetch document counts for each client
-          const clientsWithDocs = await Promise.all(
-            clientsData.map(async (client: Client) => {
+          // Merge: DB clients first, then any mock clients not already present
+          const dbNames = new Set(rawClients.map((c) => c.businessName.toLowerCase()));
+          const extras = mockAsClients.filter((m) => !dbNames.has(m.businessName.toLowerCase()));
+          const merged = [...rawClients, ...extras];
+
+          // Fetch document counts for DB clients only (mock ones won't have docs)
+          const withDocs = await Promise.all(
+            merged.map(async (client) => {
+              // Skip doc fetch for mock-only clients (short ids)
+              if (client._id.length < 10) return client;
               try {
                 const docsRes = await fetch(`/api/documents?clientId=${client._id}`);
                 if (docsRes.ok) {
                   const docs = await docsRes.json();
                   const pendingDocs = docs.filter((d: any) => d.status === 'draft' || d.status === 'pending-review').length;
-                  return {
-                    ...client,
-                    pendingDocs,
-                    totalDocs: docs.length,
-                  };
+                  return { ...client, pendingDocs, totalDocs: docs.length };
                 }
               } catch {
-                // Ignore document fetch errors
+                // Ignore
               }
               return client;
             })
           );
-          
-          setClients(clientsWithDocs);
+
+          setClients(withDocs);
+        } else {
+          setClients(mockAsClients);
         }
       } catch (error) {
-        console.error('Failed to fetch clients:', error);
+        console.error('Failed to fetch clients from API:', error);
+        setClients(mockAsClients);
       } finally {
         setLoading(false);
       }

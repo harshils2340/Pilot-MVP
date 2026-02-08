@@ -3,6 +3,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { ClientPageClient } from './ClientPageClient';
+import { getClientById } from '../../lib/mockClients';
 
 interface Client {
   _id: string;
@@ -43,15 +44,28 @@ export default function ClientPage({ params }: ClientPageProps) {
           cache: 'no-store',
         });
 
-        if (!res.ok) {
-          setClient(null);
+        if (res.ok) {
+          const data: Client = await res.json();
+          setClient(data);
           return;
         }
-
-        const data: Client = await res.json();
-        setClient(data);
       } catch (err) {
-        console.error('Failed to fetch client:', err);
+        console.error('Failed to fetch client from API:', err);
+      }
+
+      // Fallback to local mock data (works even if MongoDB is down)
+      const mock = getClientById(clientId);
+      if (mock) {
+        setClient({
+          _id: mock.id,
+          businessName: mock.businessName,
+          jurisdiction: mock.jurisdiction,
+          activePermits: mock.activePermits,
+          status: mock.status as Client['status'],
+          lastActivity: mock.lastActivity,
+          completionRate: mock.completionRate,
+        });
+      } else {
         setClient(null);
       }
     };
