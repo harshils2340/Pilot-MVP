@@ -8,9 +8,10 @@ import { PermitDetailView } from '../../components/PermitDetailView';
 import { ClientBilling } from '../../components/ClientBilling';
 import { EnhancedDocumentsView } from '../../components/EnhancedDocumentsView';
 import { InviteClientModal } from '../../components/InviteClientModal';
-import { ListOrdered, Search, ArrowLeft, LogOut, DollarSign, FileText, UserPlus } from 'lucide-react';
+import { AiInsights } from '../../components/AiInsights';
+import { ListOrdered, Search, ArrowLeft, LogOut, DollarSign, FileText, UserPlus, Sparkles } from 'lucide-react';
 
-type Tab = 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents';
+type Tab = 'ai-insights' | 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents';
 
 interface Client {
   _id: string;
@@ -41,7 +42,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   // Sync tab with URL query params on mount and when URL changes
   useEffect(() => {
     const tab = searchParams.get('tab') as Tab | null;
-    if (tab && ['plan', 'discovery', 'permit-detail', 'billing', 'documents'].includes(tab)) {
+    if (tab && ['ai-insights', 'plan', 'discovery', 'permit-detail', 'billing', 'documents'].includes(tab)) {
       setActiveTab(tab);
     }
     const permitId = searchParams.get('permit');
@@ -57,6 +58,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   }, [searchParams]);
 
   const clientNavigation = [
+    { id: 'ai-insights' as Tab, label: 'AI Insights', icon: Sparkles, badge: 'Beta' },
     { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
     { id: 'discovery' as Tab, label: 'Permit Discovery', icon: Search },
     { id: 'documents' as Tab, label: 'Documents', icon: FileText },
@@ -96,6 +98,8 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
 
   const renderTab = () => {
     switch (activeTab) {
+      case 'ai-insights':
+        return <AiInsights clientName={client?.businessName} />;
       case 'discovery':
         return (
           <PermitDiscovery
@@ -222,18 +226,28 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         <nav className="flex-1 p-4">
           {clientNavigation.map((item) => {
             const Icon = item.icon;
+            const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
-                  activeTab === item.id
+                  isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-accent'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm">{item.label}</span>
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className="text-sm flex-1 text-left">{item.label}</span>
+                {'badge' in item && item.badge && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${
+                    isActive
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-primary/10 text-primary'
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
