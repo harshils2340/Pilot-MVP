@@ -5,6 +5,15 @@
 
 export const mockClients = [
   {
+    id: '6',
+    businessName: 'King West Kitchen & Bar',
+    jurisdiction: 'Toronto, ON',
+    activePermits: 5,
+    status: 'action-required',
+    lastActivity: '4 hours ago',
+    completionRate: 60,
+  },
+  {
     id: '1',
     businessName: 'Riverside Coffee Co.',
     jurisdiction: 'Portland, OR',
@@ -48,15 +57,6 @@ export const mockClients = [
     status: 'submitted',
     lastActivity: '12 hours ago',
     completionRate: 90,
-  },
-  {
-    id: '6',
-    businessName: 'King West Kitchen & Bar',
-    jurisdiction: 'Toronto, ON',
-    activePermits: 5,
-    status: 'action-required',
-    lastActivity: '4 hours ago',
-    completionRate: 60,
   },
 ];
 

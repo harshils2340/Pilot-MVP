@@ -60,7 +60,11 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
           // Merge: DB clients first, then any mock clients not already present
           const dbNames = new Set(rawClients.map((c) => c.businessName.toLowerCase()));
           const extras = mockAsClients.filter((m) => !dbNames.has(m.businessName.toLowerCase()));
-          const merged = [...rawClients, ...extras];
+          const merged = [...rawClients, ...extras].sort((a, b) => {
+            if (a.businessName === 'King West Kitchen & Bar') return -1;
+            if (b.businessName === 'King West Kitchen & Bar') return 1;
+            return 0;
+          });
 
           // Fetch document counts for DB clients only (mock ones won't have docs)
           const withDocs = await Promise.all(
