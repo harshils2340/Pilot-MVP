@@ -48,22 +48,44 @@ function ClientPortalContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get client info from URL params or localStorage
+    // Get client info from URL params (email is never in URL - we fetch it from API)
     const id = searchParams.get('clientId') || localStorage.getItem('clientId');
-    const email = searchParams.get('email') || localStorage.getItem('clientEmail');
     const name = searchParams.get('name') || localStorage.getItem('clientName') || 'Client';
 
     if (id) {
       setClientId(id);
       localStorage.setItem('clientId', id);
     }
-    if (email) {
-      setClientEmail(email);
-      localStorage.setItem('clientEmail', email);
-    }
     if (name) {
       setClientName(name);
       localStorage.setItem('clientName', name);
+    }
+
+    // Fetch email from API when we have clientId (keeps email out of the URL)
+    const fetchClientEmail = async (cid: string) => {
+      try {
+        const res = await fetch(`/api/clients/${encodeURIComponent(cid)}`);
+        if (res.ok) {
+          const client = await res.json();
+          const email = (client.contactInfo as { email?: string } | undefined)?.email;
+          if (email) {
+            setClientEmail(email);
+            localStorage.setItem(`clientEmail_${cid}`, email);
+          }
+        }
+      } catch {
+        const stored = localStorage.getItem(`clientEmail_${cid}`);
+        if (stored) setClientEmail(stored);
+      }
+    };
+
+    if (id) {
+      const storedEmail = localStorage.getItem(`clientEmail_${id}`);
+      if (storedEmail) {
+        setClientEmail(storedEmail);
+      } else {
+        fetchClientEmail(id);
+      }
     }
 
     setLoading(false);

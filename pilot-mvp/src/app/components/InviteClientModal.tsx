@@ -18,10 +18,9 @@ export function InviteClientModal({ clientId, clientName, clientEmail, onClose }
     const params = new URLSearchParams({
       clientId,
       name: clientName,
-      ...(clientEmail ? { email: clientEmail } : {}),
     });
     return origin ? `${origin}/client-portal?${params.toString()}` : '';
-  }, [clientId, clientName, clientEmail]);
+  }, [clientId, clientName]);
 
   const handleCopy = async () => {
     if (!inviteUrl) return;
