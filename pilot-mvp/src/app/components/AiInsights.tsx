@@ -198,10 +198,30 @@ interface Message {
 interface AiInsightsProps {
   clientId: string;
   clientName?: string;
+  clientAddress?: string;
 }
 
-export function AiInsights({ clientId, clientName }: AiInsightsProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+const STORAGE_KEY_PREFIX = 'aibi-chat-';
+
+function loadCachedMessages(clientId: string): Message[] {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PREFIX + clientId);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Message[];
+    return parsed.map((m) => ({ ...m, isStreaming: false }));
+  } catch { return []; }
+}
+
+function saveCachedMessages(clientId: string, messages: Message[]) {
+  try {
+    const finished = messages.filter((m) => !m.isStreaming);
+    if (finished.length === 0) return;
+    sessionStorage.setItem(STORAGE_KEY_PREFIX + clientId, JSON.stringify(finished));
+  } catch { /* quota exceeded — ignore */ }
+}
+
+export function AiInsights({ clientId, clientName, clientAddress }: AiInsightsProps) {
+  const [messages, setMessages] = useState<Message[]>(() => loadCachedMessages(clientId));
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [summaryData, setSummaryData] = useState<SummaryResponse | null>(null);
@@ -216,6 +236,10 @@ export function AiInsights({ clientId, clientName }: AiInsightsProps) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    saveCachedMessages(clientId, messages);
+  }, [clientId, messages]);
 
   const streamMessage = useCallback((id: string, response: BrainResponse) => {
     const { sentences, components, followUps } = response;
@@ -346,6 +370,48 @@ export function AiInsights({ clientId, clientName }: AiInsightsProps) {
       sendMessage(input);
     }
   };
+
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (
+      clientAddress &&
+      summaryData?.status === 'not_started' &&
+      !isScanning &&
+      !autoStarted.current
+    ) {
+      autoStarted.current = true;
+      setScanAddress(clientAddress);
+      const startScan = async () => {
+        setIsScanning(true);
+        setScanProgress({ stage: 'Starting scan...', progress: 0 });
+        const result = await runScan(clientId, clientAddress, (p) => setScanProgress(p));
+        setIsScanning(false);
+        if (result.success) {
+          setScanProgress({ stage: 'Complete!', progress: 100 });
+          const summary = await getSummary(clientId);
+          setSummaryData(summary);
+          const welcome = await getWelcomeResponse(clientId);
+          const id = `scan-done-${Date.now()}`;
+          const msg: Message = {
+            id,
+            role: 'assistant',
+            visibleText: '',
+            fullSentences: welcome.sentences,
+            sentenceIndex: 0,
+            components: [],
+            followUps: [],
+            isStreaming: true,
+          };
+          setMessages((prev) => [...prev, msg]);
+          streamMessage(id, welcome);
+          setTimeout(() => setScanProgress(null), 2000);
+        } else {
+          setScanProgress({ stage: 'Failed', progress: 0, error: result.error });
+        }
+      };
+      startScan();
+    }
+  }, [clientAddress, summaryData?.status, isScanning, clientId, streamMessage]);
 
   const handleInitialize = async () => {
     if (!scanAddress.trim() || isScanning) return;
@@ -552,7 +618,7 @@ export function AiInsights({ clientId, clientName }: AiInsightsProps) {
       )}
 
       {/* ── Initialization flow ── */}
-      {isNotStarted && !isScanning && (
+      {isNotStarted && !isScanning && !clientAddress && (
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="max-w-md w-full text-center space-y-6">
             <div className="p-3 rounded-2xl bg-primary/10 w-fit mx-auto">

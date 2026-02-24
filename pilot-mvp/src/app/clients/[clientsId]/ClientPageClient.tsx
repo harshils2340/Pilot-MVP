@@ -17,6 +17,7 @@ interface Client {
   _id: string;
   businessName: string;
   jurisdiction: string;
+  location?: string;
   activePermits: number;
   status: 'draft' | 'submitted' | 'approved' | 'action-required';
   lastActivity: string;
@@ -24,6 +25,15 @@ interface Client {
   contactInfo?: {
     email?: string;
     name?: string;
+  };
+  address?: {
+    streetNumber?: string;
+    streetName?: string;
+    suite?: string;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+    fullAddress?: string;
   };
 }
 
@@ -96,8 +106,6 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'ai-insights':
-        return <AiInsights clientId={clientId} clientName={client?.businessName} />;
       case 'discovery':
         return (
           <PermitDiscovery
@@ -277,7 +285,17 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-page-bg">{renderTab()}</main>
+      <main className="flex-1 overflow-auto bg-page-bg">
+        {/* AiInsights stays mounted to preserve chat history */}
+        <div className={activeTab === 'ai-insights' ? 'contents' : 'hidden'}>
+          <AiInsights
+            clientId={client?._id ?? clientId}
+            clientName={client?.businessName}
+            clientAddress={client?.address?.fullAddress || client?.location}
+          />
+        </div>
+        {activeTab !== 'ai-insights' && renderTab()}
+      </main>
 
       {/* Invite Client Modal */}
       {showInviteModal && (

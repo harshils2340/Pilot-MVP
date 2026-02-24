@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import {
   Upload, FileText, FileSpreadsheet, File, CheckCircle2,
-  AlertTriangle, X, Loader2, Sparkles,
+  AlertTriangle, X, Loader2, Sparkles, ChevronDown,
 } from 'lucide-react';
 
 interface MenuUploadProps {
@@ -34,6 +34,114 @@ const ACCEPTED_TYPES = {
 };
 
 const ACCEPTED_EXTENSIONS = '.csv,.json,.pdf';
+
+function CompetitorCombobox({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const lower = query.toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(lower));
+  }, [query, options]);
+
+  const handleSelect = (name: string) => {
+    setQuery(name);
+    onChange(name);
+    setOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setQuery(v);
+    onChange(v);
+    setOpen(true);
+  };
+
+  const handleBlur = (e: React.FocusEvent) => {
+    if (wrapperRef.current?.contains(e.relatedTarget as Node)) return;
+    setTimeout(() => setOpen(false), 150);
+  };
+
+  if (options.length === 0) {
+    return (
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">
+          Which competitor is this menu for?
+        </label>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); onChange(e.target.value); }}
+          placeholder="Type a restaurant name..."
+          className="w-full text-sm rounded-lg border border-border bg-input-background text-foreground px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary placeholder:text-muted-foreground"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1 relative" ref={wrapperRef}>
+      <label className="text-xs font-medium text-muted-foreground">
+        Which competitor is this menu for?
+      </label>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={handleInputChange}
+          onFocus={() => setOpen(true)}
+          onBlur={handleBlur}
+          placeholder="Type or select a competitor..."
+          className="w-full text-sm rounded-lg border border-border bg-input-background text-foreground px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary placeholder:text-muted-foreground"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => { setOpen(!open); inputRef.current?.focus(); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {open && (
+        <ul className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-surface shadow-lg">
+          {filtered.length > 0 ? (
+            filtered.map((name) => (
+              <li key={name}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(name)}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${
+                    name === value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'
+                  }`}
+                >
+                  {name}
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="px-3 py-2 text-xs text-muted-foreground">
+              No matches — &quot;{query}&quot; will be used as-is
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function MenuUpload({ clientId, competitorName: initialCompetitor, competitorNames, onUploadComplete, onClose }: MenuUploadProps) {
   const [state, setState] = useState<UploadState>('idle');
@@ -138,24 +246,12 @@ export function MenuUpload({ clientId, competitorName: initialCompetitor, compet
         )}
       </div>
 
-      {/* Competitor selector */}
-      {competitorNames && competitorNames.length > 0 && (
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Which competitor is this menu for?
-          </label>
-          <select
-            value={selectedCompetitor}
-            onChange={(e) => setSelectedCompetitor(e.target.value)}
-            className="w-full text-sm rounded-lg border border-border bg-input-background text-foreground px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          >
-            <option value="">— Select a competitor —</option>
-            {competitorNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Competitor selector — type-ahead combobox */}
+      <CompetitorCombobox
+        value={selectedCompetitor}
+        onChange={setSelectedCompetitor}
+        options={competitorNames ?? []}
+      />
 
       {/* Format pills */}
       <div className="flex gap-2">

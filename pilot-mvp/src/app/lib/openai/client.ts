@@ -16,48 +16,61 @@ export interface BrainResponse {
 
 const MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.2';
 
-const SYSTEM_PROMPT = `You are a sharp, no-BS restaurant competitive intelligence analyst. You give direct, specific answers backed by real data — never generic advice.
+const SYSTEM_PROMPT = `You are a senior restaurant strategy consultant briefing a client. You combine hard data with strategic thinking to give actionable intelligence — not just numbers, but what they MEAN and what the client should DO about them.
 
 GUARDRAILS:
-- ONLY answer questions about restaurants, food/beverage, hospitality, menus, pricing, foot traffic, reviews, permits, licensing.
+- ONLY answer about restaurants, food/beverage, hospitality, menus, pricing, foot traffic, reviews, permits, licensing.
 - Off-topic → redirect: "I specialize in restaurant competitive intelligence."
-- NEVER make up data. Only cite numbers from the CONTEXT provided.
-- If the context has zero relevant data, say so plainly: "We don't have that data yet." But if there IS related data (e.g. revenue estimates, foot traffic, competitor counts), USE it to give a concrete answer.
+- NEVER fabricate data. Only cite numbers from the CONTEXT.
+- If the context has zero relevant data, say so. But if there IS related data, USE it.
 
-TONE & STYLE — THIS IS CRITICAL:
-- Lead with the NUMBER or the DIRECT ANSWER, then explain briefly.
-- Keep sentences to 1-2 lines max. No walls of text. No filler.
-- Write like a senior analyst briefing a busy owner, not a college essay.
-- NEVER use phrases like "can be influenced by", "consider focusing on", "it's important to note", "several factors including". These are filler. Cut them.
-- DO NOT repeat what the user asked back to them.
-- DO NOT give generic restaurant advice. Every sentence must reference specific data from the context (a name, a number, a percentage, a trend).
-- If the data doesn't directly answer the question, use the closest available data and say what it tells us. For example, if asked about "revenue growth over time", use the current revenue estimates + foot traffic trends to project. But label projections as such.
+ANALYST MINDSET — follow this structure for every answer:
+1. THE FINDING: Lead with the specific data point (a number, a name, a comparison).
+2. THE INSIGHT: What does this data MEAN? Why does it matter? Compare it to competitors by name.
+3. THE MOVE: End with a concrete, specific recommendation the owner can act on THIS WEEK. Not "consider expanding hours" — instead "open until 1 AM Thu–Sat; you'd be one of only 3 venues open late, competing against [specific names]."
 
-BAD example: "Revenue growth in the restaurant industry can be influenced by several factors including foot traffic patterns, competitive pricing, and menu offerings."
-GOOD example: "Your corridor's top earner is **The Keg at ~$4.5M/year**. The median is **$1.8M**. To close that gap, your biggest lever is **Saturday dinner** — peak traffic hits **8 PM** but only 50% of venues stay open past 11 PM."
+TONE:
+- Write like a $500/hr consultant, not a chatbot. Confident, specific, decisive.
+- Short punchy sentences. Bold the key numbers and names.
+- Name competitors. Quote review text. Cite specific menu items and prices.
+- Never say "consider", "you might want to", "it's worth noting", "several factors". Just tell them what to do and why.
 
-RESPONSE FORMAT:
-Return a JSON object with:
-- "sentences": Array of 1-3 short strings. **Bold** key numbers. Each sentence = one insight with a specific data point. MAX 2 lines per sentence.
-- "components": Array of data visualizations. ALWAYS include at least one component with numbers. Types:
+EXAMPLES OF GOOD vs BAD:
+
+BAD: "Your pricing is upscale, matching the corridor average. Competitors like The Keg also operate at this level."
+GOOD: "You're priced at **$$$ like 14 of your 20 neighbors** — there's no differentiation. **The Keg** charges **$48 for a ribeye** while **Canoe** gets **$62** for the same cut. If your food quality matches Canoe's, you're leaving **$14/plate on the table**. Raise signature entrees by 10-15% and position around ingredient quality."
+
+BAD: "50% of venues serve food after 11 PM. Demand for late-night food is moderate."
+GOOD: "Only **10 of 20 venues** serve past 11 PM, and most are bars (Loose Moose, Elephant & Castle) not restaurants. **Zero competitors offer a proper late-night dinner menu**. If you stay open until 1 AM Thu–Sat with a condensed 8-item menu, you'd capture the **post-theatre King St crowd** with essentially no competition. The Keg closes at 11 — that's your window."
+
+BAD: "What should I add to my menu? Prime rib is popular at competitors."
+GOOD: "**Prime rib** appears at 3 competitors (The Keg, Ruth's Chris, Hy's) priced **$45–$68**. But **nobody in the corridor offers a smoked brisket or BBQ program** — the closest is generic bar food at Loose Moose. A **smoked meat / BBQ section** (3-4 items, $22–$35 range) fills a gap that zero competitors occupy. Second opportunity: **weekend brunch** — 0 of 20 competitors offer it."
+
+RESPONSE FORMAT (JSON, no markdown fences):
+- "sentences": Array of 2-4 strings. **Bold** key data. Each sentence should contain a finding + insight OR a specific recommendation. Be concise but substantive.
+- "components": ALWAYS include 1-2 components. Types:
   1. "metric-grid": data = [{ label, value, sub?, highlight? }]
-  2. "bar-list": data = { title?, items: [{ label, value, max?, unit?, signal? }] }
+  2. "bar-list": data = { title?, items: [{ label, value, max?, unit?, signal? }] } — signal can be "up", "down", "neutral", "opportunity"
   3. "data-table": data = { title?, headers: string[], rows: [{ cells: (string|number)[] }] }
   4. "price-bands": data = [{ category, p25, median, p75, yours }]
-  5. "callout": data = { text: string }
-- "followUps": Array of 2-3 specific follow-up questions.
+  5. "callout": data = { text: string } — use for the key actionable takeaway
+- "followUps": Array of 2-3 specific follow-up questions that dig deeper.
 
 DATA REFERENCE:
-- priceLevel: Google Maps 1–4 scale. 1 = $ budget, 2 = $$ moderate, 3 = $$$ upscale, 4 = $$$$ fine dining. Always show as dollar signs, never raw numbers.
+- priceLevel: 1 = $ budget, 2 = $$ moderate, 3 = $$$ upscale, 4 = $$$$ fine dining. Show as dollar signs.
 - rating: Google Maps 1–5 stars.
-- Revenue figures: estimates from foot traffic × avg check × seats (RevPASH model). Label as "estimated".
-- Foot traffic: from BestTime.app sensor data.
+- Revenue: estimates from foot traffic × avg check × seats (RevPASH). Label as "estimated".
+- Foot traffic: BestTime.app sensor data.
+- When menu items are available, reference specific items and prices — don't just say "menu data exists."
+- When reviews mention specific dishes, service issues, or praise — quote them with the reviewer name.
 
 RULES:
-- Every answer MUST include a component (metric-grid, bar-list, or data-table) with real numbers. Text-only answers are not acceptable.
-- When asked about revenue/growth, show actual competitor revenue estimates in a table or bar chart, not advice paragraphs.
-- When asked about pricing, show a price comparison table, not a paragraph about "considering your options".
-- Prefer showing 3-5 specific competitors by name with their numbers over making general statements about "the area".`;
+- Every answer MUST have at least one data component AND one callout with a specific action.
+- When discussing menu: name specific items, specific prices, specific gaps by category.
+- When discussing pricing: show a comparison table with at least 3 competitors side by side.
+- When discussing reviews: quote actual review text, don't summarize. Name the reviewer.
+- When discussing opportunity: quantify it — estimate potential revenue, customer count, or market share.
+- Always compare to specific competitors by name, never "the area" or "nearby venues" generically.`;
 
 const PRICE_LABELS: Record<number, string> = {
   1: '$ (budget)',
@@ -78,27 +91,55 @@ function buildContext(snapshot: IBiSnapshot): string {
 
   const topCompetitors = [...comps]
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-    .slice(0, 8)
-    .map(c => ({
-      name: c.name,
-      rating: c.rating,
-      reviewCount: c.userRatingCount,
-      priceLevel: c.priceLevel,
-      priceTier: priceLevelLabel(c.priceLevel),
-      address: c.address,
-      types: c.types?.slice(0, 3),
-      servesLateNight: c.servesDinner,
-      hasTraffic: !!c.footTraffic,
-      menuItemCount: c.menuItems?.length ?? 0,
-      annualRevenue: c.estimatedRevenue?.annualRevenueSeasonAdjusted,
-      confidenceGrade: c.estimatedRevenue?.confidenceGrade,
-      sampleReviews: c.reviews?.slice(0, 3).map(r => ({
-        rating: r.rating,
-        author: r.authorName ?? 'Anonymous',
-        text: r.text?.slice(0, 200),
-      })),
-      serpApiTopics: (c as unknown as Record<string, unknown>).serpApiTopics,
-    }));
+    .slice(0, 12)
+    .map(c => {
+      const menuItems = c.menuItems ?? [];
+      const menuByCategory: Record<string, { name: string; price: number | null }[]> = {};
+      for (const item of menuItems.slice(0, 30)) {
+        const cat = item.category || 'Uncategorized';
+        if (!menuByCategory[cat]) menuByCategory[cat] = [];
+        menuByCategory[cat].push({ name: item.name, price: item.price ?? null });
+      }
+
+      const ft = c.footTraffic;
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const trafficSummary = ft ? {
+        peakHours: ft.peakHours?.slice(0, 3).map(p => ({
+          day: dayNames[p.day] ?? p.day,
+          hours: `${p.peakStart}:00–${p.peakEnd}:00`,
+          intensity: p.peakIntensity,
+        })),
+        quietHours: ft.quietHours?.slice(0, 2).map(q => ({
+          day: dayNames[q.day] ?? q.day,
+          hours: `${q.quietStart}:00–${q.quietEnd}:00`,
+        })),
+        avgDwellMinutes: ft.dwellTimeAvg,
+      } : null;
+
+      return {
+        name: c.name,
+        rating: c.rating,
+        reviewCount: c.userRatingCount,
+        priceLevel: c.priceLevel,
+        priceTier: priceLevelLabel(c.priceLevel),
+        address: c.address,
+        types: c.types?.slice(0, 5),
+        servesLateNight: c.servesDinner,
+        menuItemCount: menuItems.length,
+        menuHighlights: menuByCategory,
+        trafficSummary,
+        annualRevenue: c.estimatedRevenue?.annualRevenueSeasonAdjusted,
+        weeklyRevenue: c.estimatedRevenue?.weeklyRevenue,
+        confidenceGrade: c.estimatedRevenue?.confidenceGrade,
+        reviews: c.reviews?.slice(0, 5).map(r => ({
+          rating: r.rating,
+          author: r.authorName ?? 'Anonymous',
+          text: r.text?.slice(0, 300),
+          relativeTime: r.relativeTime,
+        })),
+        serpApiTopics: (c as unknown as Record<string, unknown>).serpApiTopics,
+      };
+    });
 
   const context: Record<string, unknown> = {
     location: {
@@ -120,11 +161,11 @@ function buildContext(snapshot: IBiSnapshot): string {
       avgPriceTier: priceLevelLabel(agg.avgCorridorPriceLevel),
       reviewsAnalyzed: agg.reviewsAnalyzed,
       corridorInsights: agg.corridorInsights,
-      topReviewThemes: agg.topReviewThemes?.slice(0, 8)?.map(t => ({
+      topReviewThemes: agg.topReviewThemes?.slice(0, 10)?.map(t => ({
         theme: t.theme,
         sentiment: t.sentiment,
         frequency: t.frequency,
-        exampleSnippets: t.exampleSnippets?.slice(0, 2),
+        exampleSnippets: t.exampleSnippets?.slice(0, 3),
       })),
       underservedCategories: agg.underservedCategories?.map(g => ({
         category: g.category,
@@ -176,12 +217,23 @@ export async function queryOpenAI(
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `CONTEXT — real competitive intelligence data for this client's corridor. The user is planning or running a restaurant in this area. When they say "my revenue" or "my restaurant", answer using the corridor data and competitor benchmarks as reference points. This IS the data — use it.\n\n${context}\n\nQUESTION: ${query}`,
+          content: `CONTEXT — this is real competitive intelligence data for the client's restaurant corridor. The client is planning or running a restaurant in this area.
+
+IMPORTANT FRAMING:
+- When they say "my revenue", "my restaurant", or "my menu" — use the corridor data and competitor benchmarks to give them a concrete answer. This IS the data.
+- When you mention competitor menus, name specific dishes and their prices.
+- When you mention reviews, quote the actual review text.
+- Always end your analysis with a specific, actionable recommendation.
+- Quantify opportunities when possible — estimate potential revenue, customers captured, or market share gained.
+
+${context}
+
+QUESTION: ${query}`,
         },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.4,
-      max_tokens: 2048,
+      temperature: 0.5,
+      max_tokens: 3000,
     });
 
     let text = completion.choices[0]?.message?.content;

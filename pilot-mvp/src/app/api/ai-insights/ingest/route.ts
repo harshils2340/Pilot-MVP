@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
 
     // Determine which competitor to attach menu items to
     let competitorIndex = -1;
+    let isNewCompetitor = false;
     if (competitorName && typeof competitorName === 'string') {
       const searchName = competitorName.toLowerCase().trim();
       competitorIndex = snapshot.competitors.findIndex(
@@ -70,14 +71,23 @@ export async function POST(req: NextRequest) {
           || searchName.includes(c.name.toLowerCase()),
       );
       if (competitorIndex === -1) {
-        return NextResponse.json(
-          { error: `No competitor matching "${competitorName}" was found. Please select a valid competitor.` },
-          { status: 400 },
-        );
+        // Create a new competitor entry for custom names
+        snapshot.competitors.push({
+          name: competitorName.trim(),
+          placeId: `manual-${Date.now()}`,
+          address: '',
+          types: [],
+          menuItems: [],
+          menuCoverage: 'none',
+          reviews: [],
+          dataQuality: 'minimal',
+        });
+        competitorIndex = snapshot.competitors.length - 1;
+        isNewCompetitor = true;
       }
     } else if (snapshot.competitors.length > 0) {
       return NextResponse.json(
-        { error: 'Please select which competitor this menu belongs to.' },
+        { error: 'Please enter or select which competitor this menu belongs to.' },
         { status: 400 },
       );
     }
@@ -156,7 +166,7 @@ export async function POST(req: NextRequest) {
         trigger: 'data_ingest',
         summary: `Uploaded ${result.items.length} menu items from ${result.format.toUpperCase()} file "${file.name}"`,
         changes: {
-          competitorsAdded: 0,
+          competitorsAdded: isNewCompetitor ? 1 : 0,
           competitorsRemoved: 0,
           menusUpdated: 1,
           reviewsAdded: 0,

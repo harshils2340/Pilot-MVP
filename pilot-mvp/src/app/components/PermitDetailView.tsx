@@ -2426,7 +2426,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
     }
   };
 
-  const hiddenSections = new Set<Section>(['discussion', 'history']);
+  const hiddenSections = new Set<Section>(['discussion', 'history', 'review']);
 
   const sections = [
     { id: 'overview' as Section, label: 'Overview', icon: Eye },
