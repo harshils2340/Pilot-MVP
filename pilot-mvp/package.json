@@ -81,8 +81,8 @@
     "@types/selenium-webdriver": "^4.35.4",
     "chromedriver": "^143.0.4",
     "cross-env": "^10.1.0",
-    "eslint": "^10.0.2",
-    "eslint-config-next": "^12.0.4",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.1.6",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
