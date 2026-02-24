@@ -56,6 +56,9 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   const isCancelledRef = useRef<boolean>(false);
   const requestIdRef = useRef<string | null>(null);
 
+  // Structured location when selected from dropdown (has 2-char provinceCode)
+  const selectedLocationRef = useRef<{ display: string; city: string; province: string; country: string } | null>(null);
+
   // Dropdown refs for click-outside
   const businessTypeRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
@@ -117,7 +120,8 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   }, [permitKeywordsOpen, filteredPermitKeywords.length]);
 
   // Location suggestions from API (thousands of cities via country-state-city)
-  const [locationSuggestions, setLocationSuggestions] = useState<{ display: string }[]>([]);
+  type LocationSuggestion = { display: string; city: string; state: string; provinceCode: string; country: string };
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const locationDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -133,7 +137,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       try {
         const res = await fetch(`/api/locations/search?q=${encodeURIComponent(q)}&limit=15`);
         const data = await res.json();
-        setLocationSuggestions(Array.isArray(data) ? data : []);
+        setLocationSuggestions((Array.isArray(data) ? data : []) as LocationSuggestion[]);
       } catch {
         setLocationSuggestions([]);
       } finally {
@@ -221,55 +225,50 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     };
   }, []);
   // Helper to parse location string (e.g., "Ottawa, Ontario" or "San Francisco, CA")
+  // Always returns 2-char province code - required by permit search API
   const parseLocation = (locationStr: string): { country: string; province: string; city: string } => {
     const parts = locationStr.split(',').map(p => p.trim());
     let city = parts[0] || '';
-    let province = parts[1] || '';
-    let country = 'CA'; // Default to Canada
-    
-    // Handle US states
-    const usStates: { [key: string]: string } = {
-      'california': 'CA', 'ca': 'CA', 'calif': 'CA',
-      'new york': 'NY', 'ny': 'NY',
-      'texas': 'TX', 'tx': 'TX',
-      'florida': 'FL', 'fl': 'FL',
-    };
-    
+    let province = (parts[1] || '').trim();
+    let country = 'CA';
+
     const provinceLower = province.toLowerCase();
-    if (usStates[provinceLower]) {
+
+    // US states - full name to code
+    const usStates: Record<string, string> = {
+      alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO',
+      connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID',
+      illinois: 'IL', indiana: 'IN', iowa: 'IA', kansas: 'KS', kentucky: 'KY', louisiana: 'LA',
+      maine: 'ME', maryland: 'MD', massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS',
+      missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+      'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH',
+      oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+      'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT', virginia: 'VA',
+      washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY', 'district of columbia': 'DC',
+    };
+
+    // Canadian provinces
+    const canadianProvinces: Record<string, string> = {
+      ontario: 'ON', quebec: 'QC', 'british columbia': 'BC', alberta: 'AB', manitoba: 'MB',
+      saskatchewan: 'SK', 'nova scotia': 'NS', 'new brunswick': 'NB',
+      'newfoundland and labrador': 'NL', newfoundland: 'NL', labrador: 'NL',
+      'prince edward island': 'PE', 'northwest territories': 'NT', yukon: 'YT', nunavut: 'NU',
+    };
+
+    if (provinceLower in usStates) {
       country = 'US';
       province = usStates[provinceLower];
+    } else if (provinceLower in canadianProvinces) {
+      province = canadianProvinces[provinceLower];
     } else if (province.length === 2) {
-      // Assume 2-letter codes are US states
-      country = 'US';
-    } else {
-      // Canadian provinces
-      const canadianProvinces: { [key: string]: string } = {
-        'ontario': 'ON', 'on': 'ON',
-        'quebec': 'QC', 'qc': 'QC',
-        'british columbia': 'BC', 'bc': 'BC',
-        'alberta': 'AB', 'ab': 'AB',
-        'manitoba': 'MB', 'mb': 'MB',
-        'saskatchewan': 'SK', 'sk': 'SK',
-        'nova scotia': 'NS', 'ns': 'NS',
-        'new brunswick': 'NB', 'nb': 'NB',
-        'newfoundland': 'NL', 'nl': 'NL',
-        'prince edward island': 'PE', 'pe': 'PE',
-        'northwest territories': 'NT', 'nt': 'NT',
-        'yukon': 'YT', 'yt': 'YT',
-        'nunavut': 'NU', 'nu': 'NU',
-      };
-      
-      const provinceKey = provinceLower;
-      if (canadianProvinces[provinceKey]) {
-        province = canadianProvinces[provinceKey];
-      } else if (province.length === 2) {
-        // Assume it's already a 2-letter code
-        province = province.toUpperCase();
-      }
+      province = province.toUpperCase();
     }
-    
-    return { country, province: province.toUpperCase(), city };
+
+    if (province.length > 2 || !province) {
+      province = country === 'US' ? 'CA' : 'ON';
+    }
+
+    return { country, province: province.slice(0, 2).toUpperCase(), city };
   };
 
   const getPermitApplyUrl = (permit: Permit): string | null => {
@@ -338,17 +337,20 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     console.log('📋 Form data:', trimmedData);
     
     try {
-      // Parse location
-      const parsedLocation = parseLocation(trimmedData.location);
+      // Parse location - prefer structured selection from dropdown (guaranteed 2-char province)
+      const sel = selectedLocationRef.current;
+      const parsedLocation =
+        sel && sel.display === trimmedData.location
+          ? { country: sel.country, province: sel.province, city: sel.city }
+          : parseLocation(trimmedData.location);
       
-      // Convert permitKeywords to activities array
+      // Convert permitKeywords to activities - default to "all" when empty
       const activities = trimmedData.permitKeywords
-        ? trimmedData.permitKeywords.split(',').map(a => a.trim()).filter(a => a.length > 0)
-        : [trimmedData.businessType]; // Fallback to business type
+        ? trimmedData.permitKeywords.split(',').map((a) => a.trim()).filter((a) => a.length > 0)
+        : ['all'];
       
-      // If no activities, use business type as activity
       if (activities.length === 0) {
-        activities.push(trimmedData.businessType);
+        activities.push('all');
       }
       
       const payload = {
@@ -829,6 +831,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                     value={formData.location}
                     onChange={(e) => {
                       handleInputChange('location', e.target.value);
+                      selectedLocationRef.current = null;
                       setLocationOpen(true);
                     }}
                     onFocus={() => setLocationOpen(true)}
@@ -858,6 +861,12 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                           const selected = locationSuggestions[idx];
                           if (selected) {
                             handleInputChange('location', selected.display);
+                            selectedLocationRef.current = {
+                              display: selected.display,
+                              city: selected.city,
+                              province: selected.provinceCode,
+                              country: selected.country,
+                            };
                             setLocationOpen(false);
                           }
                           return;
@@ -884,6 +893,12 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                           key={`${loc.display}-${i}`}
                           onClick={() => {
                             handleInputChange('location', loc.display);
+                            selectedLocationRef.current = {
+                              display: loc.display,
+                              city: loc.city,
+                              province: loc.provinceCode,
+                              country: loc.country,
+                            };
                             setLocationOpen(false);
                           }}
                           className={`px-4 py-2 cursor-pointer hover:bg-accent text-sm ${

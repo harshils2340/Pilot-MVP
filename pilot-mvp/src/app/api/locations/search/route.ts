@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { City, State } from "country-state-city";
 
 // Cache built location list (City, State format) for US + Canada
-let cachedLocations: { display: string; city: string; state: string; country: string }[] | null = null;
+let cachedLocations: { display: string; city: string; state: string; provinceCode: string; country: string }[] | null = null;
 
 function buildLocationsList() {
   if (cachedLocations) return cachedLocations;
-  const results: { display: string; city: string; state: string; country: string }[] = [];
+  const results: { display: string; city: string; state: string; provinceCode: string; country: string }[] = [];
   const countryCodes = ["US", "CA"];
 
   for (const countryCode of countryCodes) {
@@ -19,6 +19,7 @@ function buildLocationsList() {
           display,
           city: city.name,
           state: state.name,
+          provinceCode: state.isoCode,
           country: countryCode,
         });
       }
