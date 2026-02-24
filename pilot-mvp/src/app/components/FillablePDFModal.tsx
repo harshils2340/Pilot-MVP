@@ -33,6 +33,8 @@ export interface FillablePDFModalProps {
   onClose: () => void;
   permitName?: string;
   clientName?: string;
+  clientId?: string; // REQUIRED: Used to fetch real client data from database
+  permitId?: string; // Optional: Used to fetch permit data
   formTitle?: string;
   /** Optional: URL to load an existing fillable PDF. When not provided, a sample form is created. */
   pdfUrl?: string;
@@ -80,6 +82,8 @@ export function FillablePDFModal({
   onClose,
   permitName,
   clientName,
+  clientId,
+  permitId,
   formTitle = 'Health Permit Application (Form EH-01)',
   pdfUrl,
   asPage = false,
@@ -119,7 +123,70 @@ export function FillablePDFModal({
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  const seedSharedContextDraft = useCallback(() => {
+  const seedSharedContextDraft = useCallback(async () => {
+    // ALWAYS fetch real client data from database if clientId is provided
+    if (clientId) {
+      try {
+        console.log('[FillablePDFModal] Fetching client data for:', clientId);
+        const clientRes = await fetch(`/api/clients/${encodeURIComponent(clientId)}`);
+        if (clientRes.ok) {
+          const client = await clientRes.json();
+          console.log('[FillablePDFModal] Client data received:', client);
+          
+          // Parse jurisdiction for city/province
+          const jurisdiction = client.jurisdiction || '';
+          const jurisdictionParts = jurisdiction.split(',').map((s: string) => s.trim());
+          const city = client.address?.city || jurisdictionParts[0] || '';
+          const province = client.address?.province || jurisdictionParts[1] || '';
+          
+          // Build address string
+          let address = '';
+          if (client.address?.fullAddress) {
+            address = client.address.fullAddress;
+          } else if (client.address) {
+            const parts = [
+              client.address.streetNumber,
+              client.address.streetName,
+              client.address.suite || client.address.unit,
+              city,
+              province,
+              client.address.postalCode || client.address.zipCode
+            ].filter(Boolean);
+            address = parts.join(', ');
+          }
+          
+          // Parse owner name
+          const ownerName = client.contactInfo?.name || client.ownerName || '';
+          
+          setSharedContextDraft({
+            businessName: client.businessName || client.name || '',
+            businessAddress: address,
+            contactEmail: client.contactInfo?.email || client.contactEmail || client.email || '',
+            contactPhone: client.contactInfo?.phone || client.contactPhone || client.phone || '',
+            ownerName: ownerName,
+            businessType: client.businessType || '',
+            city: city,
+            province: province,
+          });
+          console.log('[FillablePDFModal] Shared context set:', {
+            businessName: client.businessName || client.name || '',
+            businessAddress: address,
+            contactEmail: client.contactInfo?.email || client.contactEmail || client.email || '',
+            contactPhone: client.contactInfo?.phone || client.contactPhone || client.phone || '',
+            ownerName: ownerName,
+            city: city,
+            province: province,
+          });
+          return;
+        } else {
+          console.error('[FillablePDFModal] Failed to fetch client:', clientRes.status);
+        }
+      } catch (error) {
+        console.error('[FillablePDFModal] Failed to fetch client data:', error);
+      }
+    }
+
+    // Fallback: Use saved context from localStorage if available
     const saved = getBusinessContext();
     if (saved) {
       setSharedContextDraft({
@@ -138,56 +205,115 @@ export function FillablePDFModal({
       return;
     }
 
-    const fallback = buildBusinessContextFromPermit(permitName, clientName);
+    // Last resort: Show empty fields - NO FAKE DATA
     setSharedContextDraft({
-      businessName: fallback.businessName ?? '',
-      businessAddress:
-        typeof fallback.businessAddress === 'string'
-          ? fallback.businessAddress
-          : fallback.businessAddress?.full ?? '',
-      contactEmail: fallback.contactEmail ?? '',
-      contactPhone: fallback.contactPhone ?? '',
-      ownerName: fallback.ownerName ?? '',
-      businessType: fallback.businessType ?? '',
-      city: fallback.city ?? '',
-      province: fallback.province ?? '',
+      businessName: clientName || '',
+      businessAddress: '',
+      contactEmail: '',
+      contactPhone: '',
+      ownerName: '',
+      businessType: '',
+      city: '',
+      province: '',
     });
-  }, [permitName, clientName]);
+  }, [clientId, clientName]);
 
   const loadPDF = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
       if (pdfUrl) {
-        // Load from URL using form-filler integration (make it feel like an extension is "extracting fields")
-        setAiStatus('Downloading PDF…');
-        setAiProgress(10);
+        // Check if this is our fill-pdf API endpoint (pre-filled PDF)
+        const isFillPdfApi = pdfUrl.includes('/api/fill-pdf');
         
-        // Use proxy for external URLs to bypass CORS
-        const isExternal = pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://');
-        const fetchUrl = isExternal 
-          ? `/api/documents/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`
-          : pdfUrl;
-        
-        const res = await fetch(fetchUrl);
-        if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
-        await sleep(350);
-        const arrBuf = await res.arrayBuffer();
-        const bytes = new Uint8Array(arrBuf);
-        setAiStatus('Extracting form fields…');
-        setAiProgress(35);
-        await sleep(500);
-        const parsed = await parsePDFFormFields(bytes);
-        const names = parsed.map((f) => f.fieldName);
-        if (names.length === 0) throw new Error('No fillable fields found in PDF');
-        setAiStatus('Normalizing field names…');
-        setAiProgress(55);
-        await sleep(350);
-        setPdfBytes(bytes);
-        setFieldNames(names);
-        setFieldValues(names.reduce((acc, n) => ({ ...acc, [n]: '' }), {}));
-        setAiStatus(null);
-        setAiProgress(0);
+        if (isFillPdfApi && clientId && permitId) {
+          // Use AI-powered fill API - PDF comes pre-filled
+          setAiStatus('Analyzing permit requirements…');
+          setAiProgress(10);
+          await sleep(400);
+          
+          setAiStatus('Fetching your business information…');
+          setAiProgress(25);
+          await sleep(500);
+          
+          setAiStatus('Downloading government form…');
+          setAiProgress(40);
+          await sleep(300);
+          
+          const res = await fetch(pdfUrl);
+          if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
+          
+          setAiStatus('AI is filling form fields with your data…');
+          setAiProgress(60);
+          await sleep(600);
+          
+          const arrBuf = await res.arrayBuffer();
+          const bytes = new Uint8Array(arrBuf);
+          
+          setAiStatus('Extracting filled fields…');
+          setAiProgress(80);
+          await sleep(400);
+          
+          // Parse the filled PDF to show what was filled
+          const parsed = await parsePDFFormFields(bytes);
+          const names = parsed.map((f) => f.fieldName);
+          
+          // Load the PDF document to read filled values
+          const pdfDoc = await PDFDocument.load(bytes);
+          const form = pdfDoc.getForm();
+          const filledValues: Record<string, string> = {};
+          
+          for (const name of names) {
+            try {
+              const field = form.getTextField(name);
+              const value = field.getText();
+              if (value) filledValues[name] = value;
+            } catch {
+              // Not a text field, skip
+            }
+          }
+          
+          setAiStatus('Form filled successfully! ✨');
+          setAiProgress(100);
+          await sleep(500);
+          
+          setPdfBytes(bytes);
+          setFieldNames(names);
+          setFieldValues(filledValues);
+          setFilled(true); // Mark as already filled
+          setAiStatus(null);
+          setAiProgress(0);
+        } else {
+          // Regular PDF loading (external URL or blank form)
+          setAiStatus('Downloading PDF…');
+          setAiProgress(10);
+          
+          // Use proxy for external URLs to bypass CORS
+          const isExternal = pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://');
+          const fetchUrl = isExternal 
+            ? `/api/documents/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`
+            : pdfUrl;
+          
+          const res = await fetch(fetchUrl);
+          if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
+          await sleep(350);
+          const arrBuf = await res.arrayBuffer();
+          const bytes = new Uint8Array(arrBuf);
+          setAiStatus('Extracting form fields…');
+          setAiProgress(35);
+          await sleep(500);
+          const parsed = await parsePDFFormFields(bytes);
+          const names = parsed.map((f) => f.fieldName);
+          if (names.length === 0) throw new Error('No fillable fields found in PDF');
+          setAiStatus('Normalizing field names…');
+          setAiProgress(55);
+          await sleep(350);
+          setPdfBytes(bytes);
+          setFieldNames(names);
+          setFieldValues(names.reduce((acc, n) => ({ ...acc, [n]: '' }), {}));
+          setAiStatus(null);
+          setAiProgress(0);
+        }
       } else {
         const { bytes, fieldNames: names } = await createFillablePDF();
         setPdfBytes(bytes);
@@ -202,7 +328,7 @@ export function FillablePDFModal({
     } finally {
       setLoading(false);
     }
-  }, [pdfUrl]);
+  }, [pdfUrl, clientId, permitId]);
 
   useEffect(() => {
     if (isOpen || asPage) {
@@ -211,17 +337,8 @@ export function FillablePDFModal({
     }
   }, [isOpen, asPage, loadPDF, seedSharedContextDraft]);
 
-  // Auto-fill when PDF loads if it's from an external URL (Chrome extension-like behavior)
-  useEffect(() => {
-    if (pdfUrl && fieldNames.length > 0 && !filled && !loading && !filling && pdfUrl.startsWith('http')) {
-      // Small delay to let UI settle, then auto-fill
-      const timer = setTimeout(() => {
-        handleFill();
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfUrl, fieldNames.length, filled, loading, filling]);
+  // Don't auto-fill if PDF is already filled from API
+  // The fill-pdf API endpoint returns pre-filled PDFs, so we skip auto-fill
 
   const handleFill = async () => {
     setFilling(true);
@@ -244,8 +361,21 @@ export function FillablePDFModal({
             )
           : null;
 
-      const context = shared ?? buildBusinessContextFromPermit(permitName, clientName);
-      if (!shared) saveBusinessContext(context, { permitName, clientName });
+      // Use shared context (from real client data) - NO FAKE FALLBACKS
+      const context = shared || {
+        businessName: sharedContextDraft.businessName || clientName || '',
+        businessAddress: sharedContextDraft.businessAddress || '',
+        contactEmail: sharedContextDraft.contactEmail || '',
+        contactPhone: sharedContextDraft.contactPhone || '',
+        ownerName: sharedContextDraft.ownerName || '',
+        businessType: sharedContextDraft.businessType || '',
+        city: sharedContextDraft.city || '',
+        province: sharedContextDraft.province || '',
+      };
+      
+      if (shared) {
+        saveBusinessContext(context, { permitName, clientName });
+      }
 
       setAiStatus('Analyzing form structure…');
       setAiProgress(15);

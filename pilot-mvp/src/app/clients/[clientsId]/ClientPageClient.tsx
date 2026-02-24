@@ -124,6 +124,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
             permitId={selectedPermit || ''}
             onBack={handleBackToPlan}
             clientId={clientId}
+            clientName={client?.businessName || 'Client'}
           />
         );
       case 'billing':

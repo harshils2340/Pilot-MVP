@@ -1,6 +1,7 @@
 import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
+import { FillablePDFModal } from './FillablePDFModal';
 import { LiveFillModal } from './LiveFillModal';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { getPermitById } from '../lib/permits/demoData';
@@ -12,7 +13,7 @@ interface PermitDetailViewProps {
   permitId: string;
   onBack: () => void;
   clientName?: string;
-  clientId?: string;
+  clientId?: string; // Used for form filling and status persistence
 }
 
 interface Reply {
@@ -148,10 +149,16 @@ const mockComments: Comment[] = [
 ];
 
 export function PermitDetailView({ permitId, onBack, clientName, clientId }: PermitDetailViewProps) {
+  // Use clientId from URL if not provided as prop (for form filling)
+  const [effectiveClientId, setEffectiveClientId] = useState<string | undefined>(clientId);
+  useEffect(() => {
+    if (!effectiveClientId && typeof window !== 'undefined') {
+      const pathMatch = window.location.pathname.match(/\/clients\/([^\/\?]+)/);
+      if (pathMatch?.[1]) setEffectiveClientId(pathMatch[1]);
+    }
+  }, [effectiveClientId]);
   // Default to overview when the permit has a fillable form, otherwise city-feedback
-  const [activeSection, setActiveSection] = useState<Section>(
-    getPermitById(permitId)?.formUrl ? 'overview' : 'city-feedback'
-  );
+  const [activeSection, setActiveSection] = useState<Section>('overview');
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState<Comment[]>(mockComments);
   const [expandedFeedback, setExpandedFeedback] = useState<string>('1');
@@ -166,6 +173,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [showFillModal, setShowFillModal] = useState(false);
   const [showLiveFill, setShowLiveFill] = useState(false);
   const [localStatus, setLocalStatus] = useState<PermitStatus | null>(null);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -175,11 +183,11 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
   // Look up permit by ID from shared demo data (or API in production)
   const permitData = useMemo(() => getPermitById(permitId), [permitId]);
 
-  // Fetch permit from API when clientId + permitId (persists status)
+  // Fetch permit status from API when clientId + permitId (persists status)
   useEffect(() => {
-    if (!clientId || !permitId) return;
+    if (!effectiveClientId || !permitId) return;
     const abort = new AbortController();
-    fetch(`/api/permits/management?clientId=${encodeURIComponent(clientId)}&limit=200`, {
+    fetch(`/api/permits/management?clientId=${encodeURIComponent(effectiveClientId)}&limit=200`, {
       signal: abort.signal,
     })
       .then((r) => r.ok ? r.json() : [])
@@ -191,7 +199,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
       })
       .catch(() => {});
     return () => abort.abort();
-  }, [clientId, permitId]);
+  }, [effectiveClientId, permitId]);
   const effectiveStatus = localStatus ?? (permitData?.status as PermitStatus | undefined) ?? 'not-started';
   const permit = permitData
     ? {
@@ -205,6 +213,11 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         lastUpdated: permitData.lastActivityDate,
         blockedBy: permitData.blockedBy ?? null,
         blocks: permitData.blocks ?? [],
+        formUrl: (permitData as { applyUrl?: string; sourceUrl?: string; formUrl?: string }).applyUrl
+          || (permitData as { sourceUrl?: string }).sourceUrl
+          || permitData.formUrl,
+        formTitle: permitData.formTitle,
+        formCode: permitData.formCode,
         assignee: permitData.assignee ?? {
           name: 'Sarah Chen',
           initials: 'SC',
@@ -347,7 +360,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
     setShowStatusMenu(false);
     if (newStatus === effectiveStatus) return;
     setLocalStatus(newStatus);
-    if (clientId && permitId) {
+    if ((effectiveClientId || clientId) && permitId) {
       setSavingStatus(true);
       try {
         const res = await fetch(`/api/permits/management/${permitId}`, {
@@ -847,36 +860,25 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                       </div>
                     </div>
                   </div>
-                  {permitData?.formUrl ? (
-                    <>
-                      <a
-                        href={permitData.formUrl?.startsWith('/api/fill-pdf') ? undefined! : permitData.formUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={permitData.formUrl?.startsWith('/api/fill-pdf') ? (e: React.MouseEvent) => { e.preventDefault(); setShowLiveFill(true); } : undefined}
-                        className="flex items-center gap-2 px-4 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-all flex-shrink-0 cursor-pointer"
-                      >
-                        <FileText className="w-4 h-4" />
-                        View Form
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                      <button
-                        onClick={() => setShowLiveFill(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Fill with AI
-                      </button>
-                    </>
-                  ) : (
+                  {/* Always show Fill with AI button - navigates to separate page */}
+                  <a
+                    href={`/fill-form?clientId=${encodeURIComponent(effectiveClientId || clientId || '')}&permitId=${encodeURIComponent(permitId)}&permitName=${encodeURIComponent(permit.name)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}`}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0 cursor-pointer"
+                    style={{ opacity: (effectiveClientId || clientId) ? 1 : 0.5 }}
+                    title={(effectiveClientId || clientId) ? 'Fill form with AI using your business data' : 'Client ID required - please refresh'}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Fill with AI
+                  </a>
+                  {permitData?.formUrl && !permitData.formUrl.startsWith('/api/fill-pdf') && (
                     <a
-                      href={`/fill-form?permitId=${encodeURIComponent(permitId)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}&permitName=${encodeURIComponent(permit.name)}&pdfUrl=${encodeURIComponent(`/api/documents/sample-form?permitId=${encodeURIComponent(permitId)}`)}`}
+                      href={permitData.formUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0"
+                      className="flex items-center gap-2 px-4 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-all flex-shrink-0"
                     >
-                      <Sparkles className="w-4 h-4" />
-                      Fill with AI
+                      <FileText className="w-4 h-4" />
+                      View Form
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
@@ -2448,19 +2450,26 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         />
       )}
 
-      {/* Live Fill Modal — shows the real gov PDF and fills fields in real-time */}
-      <LiveFillModal
-        isOpen={showLiveFill}
-        onClose={() => setShowLiveFill(false)}
-        pdfSourceUrl={SIDEWALK_CAFE_PDF_URL}
-        formTitle={
-          permitData?.formTitle && permitData?.formCode
-            ? `${permitData.formTitle} (${permitData.formCode})`
-            : permitData?.formTitle || permit.name
-        }
-        fillSteps={SIDEWALK_CAFE_FILL_STEPS}
-        downloadFilename="sidewalk-cafe-permit-king-west-kitchen.pdf"
-      />
+      {/* Fillable PDF Modal - uses AI-powered fill-pdf API */}
+      {showFillModal && (
+        <FillablePDFModal
+          isOpen={showFillModal}
+          onClose={() => {
+            console.log('[PermitDetailView] Closing Fill with AI modal');
+            setShowFillModal(false);
+          }}
+          permitName={permit.name}
+          clientName={clientName}
+          clientId={effectiveClientId || clientId}
+          permitId={permitId}
+          formTitle={
+            permitData?.formTitle && permitData?.formCode
+              ? `${permitData.formTitle} (${permitData.formCode})`
+              : permitData?.formTitle || permit.name
+          }
+          pdfUrl={(effectiveClientId || clientId) ? `/api/fill-pdf?clientId=${encodeURIComponent(effectiveClientId || clientId || '')}&permitId=${encodeURIComponent(permitId)}` : undefined}
+        />
+      )}
 
     </div>
   );
