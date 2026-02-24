@@ -340,8 +340,20 @@ export function AiInsights({ clientId, clientName, clientAddress }: AiInsightsPr
       if (cancelled) return;
       setSummaryData(summary);
 
-      // Pass the already-fetched summary directly — no second API call
-      const welcome = await getWelcomeResponse(summary);
+      // If we have address and not started, auto-start will run — don't show "click Initialize"
+      let welcome: Awaited<ReturnType<typeof getWelcomeResponse>>;
+      if (summary.status === 'not_started' && clientAddress) {
+        welcome = {
+          sentences: [
+            'Loading AI Insights for your location...',
+            'Scanning the competitive landscape — this may take a moment.',
+          ],
+          components: [],
+          followUps: [],
+        };
+      } else {
+        welcome = await getWelcomeResponse(summary);
+      }
       if (cancelled) return;
 
       const welcomeId = 'welcome';
@@ -362,7 +374,7 @@ export function AiInsights({ clientId, clientName, clientAddress }: AiInsightsPr
     init();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, clientAddress]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -390,7 +402,7 @@ export function AiInsights({ clientId, clientName, clientAddress }: AiInsightsPr
           setScanProgress({ stage: 'Complete!', progress: 100 });
           const summary = await getSummary(clientId);
           setSummaryData(summary);
-          const welcome = await getWelcomeResponse(clientId);
+          const welcome = await getWelcomeResponse(summary);
           const id = `scan-done-${Date.now()}`;
           const msg: Message = {
             id,
@@ -402,7 +414,7 @@ export function AiInsights({ clientId, clientName, clientAddress }: AiInsightsPr
             followUps: [],
             isStreaming: true,
           };
-          setMessages((prev) => [...prev, msg]);
+          setMessages([msg]);
           streamMessage(id, welcome);
           setTimeout(() => setScanProgress(null), 2000);
         } else {
