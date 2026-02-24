@@ -37,7 +37,7 @@ function buildBusinessContextFromClient(client: any): {
 } {
   // Parse jurisdiction to extract city/province
   const jurisdiction = client.jurisdiction || '';
-  const jurisdictionParts = jurisdiction.split(',').map(s => s.trim());
+  const jurisdictionParts = jurisdiction.split(',').map((s: string) => s.trim());
   const city = jurisdictionParts[0] || client.address?.city || '';
   const province = jurisdictionParts[1] || client.address?.province || '';
   
