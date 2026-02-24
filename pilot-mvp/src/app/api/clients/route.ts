@@ -100,6 +100,7 @@ export async function GET(request: Request) {
           ...c,
           status,
           activePermits,
+          totalPermits: permit ? (permit.total || 0) : 0,
           completionRate,
           lastActivity: lastActivity ?? c.lastActivity,
           pendingDocs: docCount?.pendingDocs ?? 0,

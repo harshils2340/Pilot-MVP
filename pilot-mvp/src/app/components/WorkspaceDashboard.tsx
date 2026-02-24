@@ -13,6 +13,7 @@ interface Client {
   completionRate: number;
   pendingDocs?: number;
   totalDocs?: number;
+  totalPermits?: number;
   pendingReview?: number;
 }
 
@@ -54,6 +55,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             completionRate: c.completionRate ?? 0,
             pendingDocs: c.pendingDocs ?? 0,
             totalDocs: c.totalDocs ?? 0,
+            totalPermits: c.totalPermits ?? 0,
             pendingReview: c.pendingReview ?? 0,
             lastActivity: c.lastActivity ?? '',
           }));
@@ -569,7 +571,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                 }}
               >
                 <span className="text-sm text-neutral-700">
-                  {client.activePermits} active
+                  {client.totalPermits ?? client.activePermits ?? 0} permits
                 </span>
               </div>
               <div 
@@ -660,9 +662,9 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             <p className="text-foreground font-semibold">{filteredClients.length}</p>
           </div>
           <div className="bg-surface rounded-lg border border-border p-5">
-            <p className="text-muted-foreground text-sm mb-1">Active Permits</p>
+            <p className="text-muted-foreground text-sm mb-1">Total Permits</p>
             <p className="text-foreground font-semibold">
-              {filteredClients.reduce((sum, c) => sum + (c.activePermits ?? 0), 0)}
+              {filteredClients.reduce((sum, c) => sum + (c.totalPermits ?? c.activePermits ?? 0), 0)}
             </p>
           </div>
           <div className="bg-surface rounded-lg border border-border p-5">
