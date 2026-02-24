@@ -135,7 +135,7 @@ export function FillablePDFModal({
           
           // Parse jurisdiction for city/province
           const jurisdiction = client.jurisdiction || '';
-          const jurisdictionParts = jurisdiction.split(',').map(s => s.trim());
+          const jurisdictionParts = jurisdiction.split(',').map((s: string) => s.trim());
           const city = client.address?.city || jurisdictionParts[0] || '';
           const province = client.address?.province || jurisdictionParts[1] || '';
           
