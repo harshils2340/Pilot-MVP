@@ -50,7 +50,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       }));
 
       try {
-        const res = await fetch('/api/clients');
+        const res = await fetch('/api/clients?includeDocCounts=1');
         if (res.ok) {
           const clientsData = await res.json();
           const rawClients: Client[] = Array.isArray(clientsData)
@@ -66,24 +66,12 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             return 0;
           });
 
-          // Fetch document counts for DB clients only (mock ones won't have docs)
-          const withDocs = await Promise.all(
-            merged.map(async (client) => {
-              // Skip doc fetch for mock-only clients (short ids)
-              if (client._id.length < 10) return client;
-              try {
-                const docsRes = await fetch(`/api/documents?clientId=${client._id}`);
-                if (docsRes.ok) {
-                  const docs = await docsRes.json();
-                  const pendingDocs = docs.filter((d: any) => d.status === 'draft' || d.status === 'pending-review').length;
-                  return { ...client, pendingDocs, totalDocs: docs.length };
-                }
-              } catch {
-                // Ignore
-              }
-              return client;
-            })
-          );
+          // Doc counts come from API when includeDocCounts=1; mock clients get zeros
+          const withDocs = merged.map((client) => ({
+            ...client,
+            pendingDocs: client.pendingDocs ?? 0,
+            totalDocs: client.totalDocs ?? 0,
+          }));
 
           setClients(withDocs);
         } else {

@@ -9,18 +9,24 @@ if (!MONGODB_URI) {
   );
 }
 
-// SSL/TLS options to fix connection errors
-const sslOptions = {
-  tlsAllowInvalidCertificates: true, // For development - allows self-signed certificates
-  tlsAllowInvalidHostnames: true, // For development
-};
+const isDev = process.env.NODE_ENV === "development";
 
-// Mongoose connection options (for connectToDB)
-const mongooseOptions = {
-  // Mongoose accepts these options directly
+// DEV: allow self-signed certs for local MongoDB. PROD: Atlas rejects tlsAllowInvalid* — causes ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR
+const devSslOptions = {
   tlsAllowInvalidCertificates: true,
   tlsAllowInvalidHostnames: true,
 };
+
+// PROD: Fix MongoDB Atlas + Vercel serverless TLS handshake (ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR)
+const prodOptions = {
+  autoSelectFamily: false,
+};
+
+const mongooseOptions = isDev
+  ? { tlsAllowInvalidCertificates: true, tlsAllowInvalidHostnames: true }
+  : prodOptions;
+
+const mongoClientOptions = isDev ? devSslOptions : prodOptions;
 
 // Mongoose connection (for connectToDB)
 let cached = (global as any).mongoose;
@@ -51,16 +57,13 @@ declare global {
 }
 
 if (process.env.NODE_ENV === "development") {
-  // In development mode, use a global variable so that the value
-  // is preserved across module reloads caused by HMR (Hot Module Replacement).
   if (!global._mongoClientPromise) {
-    client = new MongoClient(MONGODB_URI, sslOptions);
+    client = new MongoClient(MONGODB_URI, mongoClientOptions);
     global._mongoClientPromise = client.connect();
   }
   clientPromise = global._mongoClientPromise;
 } else {
-  // In production mode, it's best to not use a global variable.
-  client = new MongoClient(MONGODB_URI, sslOptions);
+  client = new MongoClient(MONGODB_URI, mongoClientOptions);
   clientPromise = client.connect();
 }
 

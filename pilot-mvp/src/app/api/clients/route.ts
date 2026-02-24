@@ -1,7 +1,8 @@
 // src/app/api/clients/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import connectToDB from "@/app/lib/mongodb";
-import ClientModel from "../../models/client"; // create this model
+import ClientModel from "../../models/client";
+import DocumentModel from "@/app/lib/documents/schema";
 import { PermitManagement } from "@/app/lib/permits/managementSchema";
 
 // Helper to convert _id to string
@@ -16,14 +17,40 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const limitParam = url.searchParams.get('limit');
     const limit = limitParam ? parseInt(limitParam, 10) : undefined;
-    
+    const includeDocCounts = url.searchParams.get('includeDocCounts') === '1';
+
     let queryBuilder = ClientModel.find();
     if (limit && limit > 0) {
       queryBuilder = queryBuilder.limit(limit);
     }
-    
-    const clients = await queryBuilder.lean(); // lean() returns plain JS objects
-    const clientsWithStringId = clients.map(serializeClient);
+
+    const clients = await queryBuilder.lean();
+    let clientsWithStringId = clients.map(serializeClient);
+
+    if (includeDocCounts && clientsWithStringId.length > 0) {
+      const clientIds = clientsWithStringId.map((c) => c._id);
+      const docCounts = await DocumentModel.aggregate([
+        { $match: { clientId: { $in: clientIds } } },
+        {
+          $group: {
+            _id: '$clientId',
+            totalDocs: { $sum: 1 },
+            pendingDocs: {
+              $sum: { $cond: [{ $in: ['$status', ['draft', 'pending-review']] }, 1, 0] },
+            },
+          },
+        },
+      ]);
+      const countsMap = Object.fromEntries(
+        docCounts.map((d) => [d._id, { totalDocs: d.totalDocs, pendingDocs: d.pendingDocs }])
+      );
+      clientsWithStringId = clientsWithStringId.map((c) => ({
+        ...c,
+        totalDocs: countsMap[c._id]?.totalDocs ?? 0,
+        pendingDocs: countsMap[c._id]?.pendingDocs ?? 0,
+      }));
+    }
+
     return NextResponse.json(clientsWithStringId, { status: 200 });
   } catch (err: any) {
     console.error("GET /clients error:", err);

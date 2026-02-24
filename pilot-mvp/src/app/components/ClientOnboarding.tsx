@@ -752,7 +752,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
 
   if (showPermits) {
     return (
-      <div className="h-full flex flex-col bg-surface">
+      <div className="h-full w-full min-w-0 flex flex-col bg-surface">
         {/* Header */}
         <div className="border-b border-border px-8 py-6 bg-surface">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -765,7 +765,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
 
         {/* Permits List */}
         <div className="flex-1 overflow-auto p-8 bg-surface">
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full max-w-7xl mx-auto">
             <div className="bg-muted/50 border border-border rounded-lg p-5 mb-6">
               <div className="flex gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
