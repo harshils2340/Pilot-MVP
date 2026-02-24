@@ -72,7 +72,7 @@ export function ClientBilling({ clientName, viewMode = 'consultant' }: ClientBil
               </div>
               <div className="flex items-center gap-6">
                 {invoice.status === 'due' ? (
-                  <span className="text-xs font-medium text-amber-950 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-500/20 font-semibold px-2 py-1 rounded-full">
+                  <span className="text-xs font-medium text-muted-foreground bg-muted font-semibold px-2 py-1 rounded-full">
                     Due {invoice.dueDate}
                   </span>
                 ) : (

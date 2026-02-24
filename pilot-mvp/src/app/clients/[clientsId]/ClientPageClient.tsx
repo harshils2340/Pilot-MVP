@@ -123,6 +123,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           <PermitDetailView
             permitId={selectedPermit || ''}
             onBack={handleBackToPlan}
+            clientId={clientId}
           />
         );
       case 'billing':
@@ -162,6 +163,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           permitId={selectedPermit || ''}
           onBack={handleBackToPlan}
           clientName={client?.businessName}
+          clientId={clientId}
         />
         {/* Invite Client Modal */}
         {showInviteModal && (

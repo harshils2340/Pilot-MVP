@@ -140,7 +140,7 @@ function findFolderNode(nodes: FolderNode[], path: string): FolderNode | null {
 // Tag colors like GitHub labels
 const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'urgent': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
-  'needs-review': { bg: 'bg-amber-200/80 dark:bg-amber-500/20', text: 'text-amber-950 dark:text-amber-200', border: 'border-amber-400 dark:border-amber-500/40' },
+  'needs-review': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
   'approved': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'signed': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'draft': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
@@ -495,9 +495,9 @@ export function DocumentsView({
 
                   {node.children.length > 0 || creatingFolderIn === node.path ? (
                     isExpanded ? (
-                      <FolderOpen className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                      <FolderOpen className="w-4 h-4 text-muted-foreground" />
                     ) : (
-                      <Folder className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                      <Folder className="w-4 h-4 text-muted-foreground" />
                     )
                   ) : (
                     <Folder className="w-4 h-4 text-muted-foreground" />

@@ -438,7 +438,7 @@ export function PermitDiscovery({ clientId, clientName, onAddPermits }: PermitDi
                             <p className="text-xs font-medium text-foreground mb-2">Dependencies:</p>
                             <div className="flex flex-wrap gap-2">
                               {permit.dependencies.map((dep, idx) => (
-                                <span key={idx} className="px-2 py-1 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 text-xs font-semibold rounded border border-amber-400 dark:border-amber-500/40">
+                                <span key={idx} className="px-2 py-1 bg-muted text-muted-foreground text-xs font-semibold rounded border border-border">
                                   Requires: {dep}
                                 </span>
                               ))}

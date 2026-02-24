@@ -87,13 +87,13 @@ export function ReviewPermitModal({
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-amber-800 dark:text-amber-400';
+    if (score >= 60) return 'text-muted-foreground';
     return 'text-red-600';
   };
 
   const getScoreBgColor = (score: number) => {
     if (score >= 80) return 'bg-green-50 border-green-200';
-    if (score >= 60) return 'bg-amber-100 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/40';
+    if (score >= 60) return 'bg-muted border-border';
     return 'bg-red-50 border-red-200';
   };
 
@@ -153,7 +153,7 @@ export function ReviewPermitModal({
                   <div className={`text-3xl font-bold ${getScoreColor(reviewResult.score)}`}>
                     {reviewResult.score}%
                   </div>
-                  <div className="text-xs text-neutral-600 mt-1">Completeness Score</div>
+                  <div className="text-xs text-muted-foreground mt-1">Completeness Score</div>
                 </div>
               </div>
 
@@ -169,7 +169,7 @@ export function ReviewPermitModal({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-800 dark:text-amber-400" />
+                  <AlertTriangle className="w-5 h-5 text-muted-foreground" />
                   <span className="text-sm font-medium">
                     {reviewResult.warnings.length} Warning{reviewResult.warnings.length !== 1 ? 's' : ''}
                   </span>
@@ -218,13 +218,13 @@ export function ReviewPermitModal({
 
             {/* Warnings Section */}
             {reviewResult.warnings.length > 0 && (
-              <div className="border border-amber-300 dark:border-amber-500/40 rounded-lg bg-amber-100 dark:bg-amber-500/20">
-                <div className="bg-amber-100 dark:bg-amber-500/20 px-4 py-3 border-b border-amber-300 dark:border-amber-500/40 rounded-t-lg">
-                  <h4 className="font-semibold text-amber-950 dark:text-amber-200 flex items-center gap-2">
+              <div className="border border-border rounded-lg bg-muted">
+                <div className="bg-muted px-4 py-3 border-b border-border rounded-t-lg">
+                  <h4 className="font-semibold text-muted-foreground flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5" />
                     Warnings ({reviewResult.warnings.length})
                   </h4>
-                  <p className="text-xs text-amber-950 dark:text-amber-200 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     These should be addressed for better completeness
                   </p>
                 </div>
@@ -232,20 +232,20 @@ export function ReviewPermitModal({
                   {reviewResult.warnings.map((warning, index) => (
                     <div
                       key={index}
-                      className="bg-surface border border-amber-300 dark:border-amber-500/40 rounded-lg p-4"
+                      className="bg-surface border border-border rounded-lg p-4"
                     >
                       <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-800 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium text-amber-800 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded">
+                            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">
                               {warning.field}
                             </span>
-                            <span className="text-xs text-amber-800 dark:text-amber-400">Warning</span>
+                            <span className="text-xs text-muted-foreground">Warning</span>
                           </div>
-                          <p className="font-medium text-neutral-900 mb-1">{warning.message}</p>
+                          <p className="font-medium text-foreground mb-1">{warning.message}</p>
                           {warning.suggestion && (
-                            <p className="text-sm text-neutral-600">{warning.suggestion}</p>
+                            <p className="text-sm text-muted-foreground">{warning.suggestion}</p>
                           )}
                         </div>
                       </div>
@@ -257,14 +257,14 @@ export function ReviewPermitModal({
 
             {/* Success State */}
             {reviewResult.isValid && reviewResult.warnings.length === 0 && (
-              <div className="border border-green-200 rounded-lg bg-green-50 p-6">
+              <div className="border border-border rounded-lg bg-muted p-6">
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-8 h-8 text-green-600" />
+                  <CheckCircle2 className="w-8 h-8 text-primary" />
                   <div>
-                    <h4 className="font-semibold text-green-900 mb-1">
+                    <h4 className="font-semibold text-foreground mb-1">
                       Permit is Ready for Submission
                     </h4>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-muted-foreground">
                       All required fields are complete and validated. You can proceed with submission.
                     </p>
                   </div>

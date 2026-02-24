@@ -1,4 +1,4 @@
-import { Lock, Clock, CheckCircle2, AlertCircle, Send, ChevronRight, Plus, Search, Building2, User, Sparkles, X, Loader2 } from 'lucide-react';
+import { Lock, Clock, CheckCircle2, AlertCircle, Send, ChevronRight, Plus, Search, Building2, User, Sparkles, X, Loader2, Info } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 type PermitStatus = 'not-started' | 'in-progress' | 'submitted' | 'action-required' | 'approved';
@@ -352,6 +352,15 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
       {/* Permit List */}
       <div className="flex-1 overflow-auto">
         <div className="p-4 space-y-1.5">
+          {!loading && filteredPermits.length > 0 && (
+            <div className="flex items-start gap-2 px-2 py-2 mb-2 bg-muted/30 border border-border rounded-lg">
+              <Info className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">0</span> = any order — these can be done in parallel.
+                {' '}<span className="font-semibold text-foreground">1, 2, 3…</span> = sequential — each step requires the previous one to be completed first.
+              </p>
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -380,11 +389,13 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
                 <div className="p-3">
                   <div className="flex items-start gap-3">
                     {/* Order Number */}
-                    <div className="flex-shrink-0">
-                      <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                    <div className="flex-shrink-0" title={permit.order === 0 ? 'Can be done in any order' : `Requires step ${permit.order - 1} to be completed first`}>
+                      <div className={`rounded flex items-center justify-center text-xs font-semibold ${
+                        permit.order === 0 ? 'min-w-8 px-1.5' : 'min-w-6 px-1'
+                      } ${
                         isBlocked ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'
-                      }`}>
-                        {permit.order}
+                      } h-6`}>
+                        {permit.order === 0 ? 'Any' : permit.order}
                       </div>
                     </div>
 

@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
       font-family: monospace;
     }
     .redirect-uri {
-      background: #fff3cd;
-      border: 2px solid #ffc107;
+      background: #e2e8f0;
+      border: 2px solid #94a3b8;
       padding: 15px;
       border-radius: 4px;
       margin: 20px 0;

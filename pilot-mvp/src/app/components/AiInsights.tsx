@@ -132,7 +132,7 @@ function PriceBands({ bands }: { bands: PriceBand[] }) {
             </div>
             <div className="space-y-1">
               <div className="relative h-1.5 bg-muted rounded-full">
-                <div className="absolute inset-0 bg-linear-to-r from-emerald-300 via-amber-300 to-red-300 rounded-full opacity-40" />
+                <div className="absolute inset-0 bg-linear-to-r from-emerald-300 via-slate-400 to-red-300 rounded-full opacity-40" />
                 <div
                   className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-foreground border-2 border-surface shadow-sm z-10"
                   style={{ left: `${pct}%` }}

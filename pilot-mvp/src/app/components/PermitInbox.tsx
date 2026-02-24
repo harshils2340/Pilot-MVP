@@ -293,7 +293,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
       case 'high':
         return 'bg-red-50 text-red-700 border-red-200';
       case 'medium':
-        return 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40';
+        return 'bg-muted text-muted-foreground border-border';
       case 'low':
         return 'bg-neutral-50 text-neutral-600 border-neutral-200';
     }
@@ -627,7 +627,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
               onClick={() => setFilterPriority('medium')}
               className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
                 filterPriority === 'medium'
-                  ? 'bg-amber-700 dark:bg-amber-600 text-white border-amber-700 dark:border-amber-600'
+                  ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-white text-neutral-600 border-neutral-300 hover:bg-neutral-50'
               }`}
             >
@@ -942,7 +942,7 @@ export function PermitInbox({ onSelectPermit }: PermitInboxProps) {
                       </div>
                     )}
                     <div className="flex-shrink-0">
-                      <AlertCircle className="w-8 h-8 text-amber-700 dark:text-amber-400" />
+                      <AlertCircle className="w-8 h-8 text-muted-foreground" />
                     </div>
 
                     <div className="flex-1 min-w-0">

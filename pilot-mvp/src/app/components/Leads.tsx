@@ -83,7 +83,7 @@ const TAG_COLORS = [
   'bg-violet-100 text-violet-700',
   'bg-red-100 text-red-700',
   'bg-blue-100 text-blue-700',
-  'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200',
+  'bg-muted text-muted-foreground',
   'bg-emerald-100 text-emerald-700',
   'bg-sky-100 text-sky-700',
 ];
@@ -947,7 +947,7 @@ export function Leads({ addLeadPrefill = null, onClearAddLeadPrefill, onBackToDa
                               <Star
                                 key={i}
                                 className={`w-3.5 h-3.5 ${
-                                  i <= stars ? 'fill-amber-500 text-amber-500' : 'text-muted'
+                                  i <= stars ? 'fill-primary text-primary' : 'text-muted'
                                 }`}
                               />
                             ))}

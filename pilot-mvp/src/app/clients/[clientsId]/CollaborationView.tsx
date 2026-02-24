@@ -135,7 +135,7 @@ export function CollaborationView({ permitId, clientId }: CollaborationViewProps
             <p className="text-neutral-600 text-sm">Comments and discussions</p>
           </div>
           {mockFields.find(f => f.id === selectedField)?.locked && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40 rounded-lg">
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted text-muted-foreground border border-border rounded-lg">
               <Lock className="w-4 h-4" />
               <span className="text-sm font-medium">Locked - Form Submitted</span>
             </div>

@@ -106,7 +106,7 @@ export function StatusTracking({ clientId, client, onEditPermit }: StatusTrackin
   const getPriorityColor = (priority: Permit['priority']) => {
     switch (priority) {
       case 'high': return 'bg-red-100 text-red-700 border-red-200';
-      case 'medium': return 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40';
+      case 'medium': return 'bg-muted text-muted-foreground border-border';
       case 'low': return 'bg-muted text-muted-foreground border-border';
     }
   };

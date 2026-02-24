@@ -384,7 +384,7 @@ export default function PermitManagementPage() {
                           ? 'bg-red-100 text-red-700'
                               : p.complexity === 'Low'
                               ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200'
+                          : 'bg-muted text-muted-foreground'
                       }`}
                     >
                           {p.complexity || 'Medium'}
