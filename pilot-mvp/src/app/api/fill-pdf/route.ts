@@ -48,7 +48,7 @@ function buildBusinessContextFromClient(client: any): {
   
   // Try fullAddress first
   if (client.address?.fullAddress) {
-    const addressParts = client.address.fullAddress.split(',').map(s => s.trim());
+    const addressParts = client.address.fullAddress.split(',').map((s: string) => s.trim());
     const streetAddress = addressParts[0] || '';
     const streetMatch = streetAddress.match(/^(\d+)\s+(.+)$/);
     if (streetMatch) {
