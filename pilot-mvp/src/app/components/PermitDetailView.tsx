@@ -1,15 +1,19 @@
 import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
-import { useState, useEffect, useMemo } from 'react';
 import { FillablePDFModal } from './FillablePDFModal';
-// All fake/demo data removed - using real client data from database
+import { LiveFillModal } from './LiveFillModal';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { getPermitById } from '../lib/permits/demoData';
+import { SIDEWALK_CAFE_FILL_STEPS, SIDEWALK_CAFE_PDF_URL } from '../lib/permits/liveFillData';
+
+type PermitStatus = 'not-started' | 'in-progress' | 'submitted' | 'action-required' | 'approved';
 
 interface PermitDetailViewProps {
   permitId: string;
   onBack: () => void;
   clientName?: string;
-  clientId?: string; // REQUIRED: Used to fetch real client data for form filling
+  clientId?: string; // Used for form filling and status persistence
 }
 
 interface Reply {
@@ -145,21 +149,14 @@ const mockComments: Comment[] = [
 ];
 
 export function PermitDetailView({ permitId, onBack, clientName, clientId }: PermitDetailViewProps) {
-  // Try to get clientId from URL if not provided as prop
+  // Use clientId from URL if not provided as prop (for form filling)
   const [effectiveClientId, setEffectiveClientId] = useState<string | undefined>(clientId);
-  
   useEffect(() => {
     if (!effectiveClientId && typeof window !== 'undefined') {
-      // Try to extract clientId from URL: /clients/[clientId]
       const pathMatch = window.location.pathname.match(/\/clients\/([^\/\?]+)/);
-      if (pathMatch && pathMatch[1]) {
-        const urlClientId = pathMatch[1];
-        console.log('[PermitDetailView] Extracted clientId from URL:', urlClientId);
-        setEffectiveClientId(urlClientId);
-      }
+      if (pathMatch?.[1]) setEffectiveClientId(pathMatch[1]);
     }
   }, [effectiveClientId]);
-  
   // Default to overview when the permit has a fillable form, otherwise city-feedback
   const [activeSection, setActiveSection] = useState<Section>('overview');
   const [newComment, setNewComment] = useState('');
@@ -177,64 +174,48 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ id: string; name: string; email: string } | null>(null);
   const [showFillModal, setShowFillModal] = useState(false);
+  const [showLiveFill, setShowLiveFill] = useState(false);
+  const [localStatus, setLocalStatus] = useState<PermitStatus | null>(null);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
 
   // Look up permit by ID from shared demo data (or API in production)
-  // Fetch permit data from API (no demo data)
-  const [permitData, setPermitData] = useState<any>(null);
-  
+  const permitData = useMemo(() => getPermitById(permitId), [permitId]);
+
+  // Fetch permit status from API when clientId + permitId (persists status)
   useEffect(() => {
-    if (permitId) {
-      // First try permit management (client-specific permit plan)
-      fetch(`/api/permits/management/${encodeURIComponent(permitId)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && !data.error) {
-            setPermitData(data);
-            // Also fetch catalog data if permitId exists to get form URLs
-            if (data.permitId && !data.applyUrl) {
-              fetch(`/api/permits/${encodeURIComponent(data.permitId)}`)
-                .then(res => res.json())
-                .then(catalogData => {
-                  if (catalogData && !catalogData.error) {
-                    setPermitData({ ...data, ...catalogData, applyUrl: catalogData.applyUrl || data.applyUrl, sourceUrl: catalogData.sourceUrl || data.sourceUrl });
-                  } else {
-                    setPermitData(data);
-                  }
-                })
-                .catch(() => {
-                  setPermitData(data);
-                });
-            } else {
-              setPermitData(data);
-            }
-          } else {
-            // Try catalog directly
-            fetch(`/api/permits/${encodeURIComponent(permitId)}`)
-              .then(res => res.json())
-              .then(data => {
-                if (data && !data.error) {
-                  setPermitData(data);
-                }
-              })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
-    }
-  }, [permitId]);
+    if (!effectiveClientId || !permitId) return;
+    const abort = new AbortController();
+    fetch(`/api/permits/management?clientId=${encodeURIComponent(effectiveClientId)}&limit=200`, {
+      signal: abort.signal,
+    })
+      .then((r) => r.ok ? r.json() : [])
+      .then((permits: { id?: string; _id?: string; status?: string }[]) => {
+        const found = permits.find((p) => (p.id || p._id) === permitId);
+        if (found?.status) {
+          setLocalStatus(found.status as PermitStatus);
+        }
+      })
+      .catch(() => {});
+    return () => abort.abort();
+  }, [effectiveClientId, permitId]);
+  const effectiveStatus = localStatus ?? (permitData?.status as PermitStatus | undefined) ?? 'not-started';
   const permit = permitData
     ? {
         id: permitData.id,
         name: permitData.name,
         department: permitData.authority,
         municipality: permitData.municipality,
-        status: permitData.status,
+        status: effectiveStatus,
         order: permitData.order,
         submittedDate: 'December 15, 2024',
         lastUpdated: permitData.lastActivityDate,
         blockedBy: permitData.blockedBy ?? null,
         blocks: permitData.blocks ?? [],
-        formUrl: permitData.applyUrl || permitData.sourceUrl || permitData.formUrl,
+        formUrl: (permitData as { applyUrl?: string; sourceUrl?: string; formUrl?: string }).applyUrl
+          || (permitData as { sourceUrl?: string }).sourceUrl
+          || permitData.formUrl,
         formTitle: permitData.formTitle,
         formCode: permitData.formCode,
         assignee: permitData.assignee ?? {
@@ -250,7 +231,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         name: permitId ? 'Unknown Permit' : 'Loading...',
         department: '',
         municipality: '',
-        status: 'not-started' as const,
+        status: effectiveStatus,
         order: 0,
         submittedDate: '',
         lastUpdated: '',
@@ -345,12 +326,19 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
           label: 'Submitted',
           className: 'bg-muted text-foreground border-border',
         };
+      case 'in-progress':
+        return {
+          icon: <Clock className="w-4 h-4" />,
+          label: 'In Progress',
+          className: 'bg-muted text-foreground border-border',
+        };
       case 'action-required':
         return {
           icon: <AlertCircle className="w-4 h-4" />,
           label: 'Action Required',
           className: 'bg-red-50 text-red-700 border-red-200',
         };
+      case 'not-started':
       default:
         return {
           icon: <Clock className="w-4 h-4" />,
@@ -359,6 +347,50 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         };
     }
   };
+
+  const STATUS_OPTIONS: { value: PermitStatus; label: string }[] = [
+    { value: 'not-started', label: 'Not Started' },
+    { value: 'in-progress', label: 'In Progress' },
+    { value: 'submitted', label: 'Submitted' },
+    { value: 'action-required', label: 'Action Required' },
+    { value: 'approved', label: 'Approved' },
+  ];
+
+  const handleStatusChange = async (newStatus: PermitStatus) => {
+    setShowStatusMenu(false);
+    if (newStatus === effectiveStatus) return;
+    setLocalStatus(newStatus);
+    if ((effectiveClientId || clientId) && permitId) {
+      setSavingStatus(true);
+      try {
+        const res = await fetch(`/api/permits/management/${permitId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        if (!res.ok) {
+          setLocalStatus(effectiveStatus);
+          const err = await res.json();
+          alert(err.error || 'Failed to update status');
+        }
+      } catch {
+        setLocalStatus(effectiveStatus);
+        alert('Failed to update status');
+      } finally {
+        setSavingStatus(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const getFeedbackStatusConfig = (status: CityFeedbackItem['status']) => {
     switch (status) {
@@ -735,9 +767,9 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                     <p className="text-xs font-medium text-muted-foreground mb-2">This permit is blocking:</p>
                     <div className="space-y-2">
                       {permit.blocks.map((blocked, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-3 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg">
-                          <Lock className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                          <span className="text-sm text-amber-950 dark:text-amber-200 font-medium">{blocked}</span>
+                        <div key={idx} className="flex items-center gap-2 p-3 bg-muted border border-border rounded-lg">
+                          <Lock className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground font-medium">{blocked}</span>
                         </div>
                       ))}
                     </div>
@@ -809,7 +841,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                         <h4 className="text-sm font-semibold text-foreground">
                           {permitData?.formTitle || permit.name} {permitData?.formCode && `(${permitData.formCode})`}
                         </h4>
-                        <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40 rounded text-xs font-semibold">
+                        <span className="px-2 py-0.5 bg-muted text-muted-foreground border border-border rounded text-xs font-semibold">
                           Required
                         </span>
                       </div>
@@ -1014,7 +1046,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                                     email.priority === 'high' 
                                       ? 'bg-red-50 text-red-700 border-red-200'
                                       : email.priority === 'medium'
-                                      ? 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40'
+                                      ? 'bg-muted text-muted-foreground border-border'
                                       : 'bg-muted/50 text-muted-foreground border-border'
                                   }`}>
                                     {email.priority}
@@ -1740,7 +1772,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                     comment.resolved 
                       ? 'border-border opacity-60' 
                       : comment.pinned 
-                      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-100 dark:bg-amber-500/20'
+                      ? 'border-border bg-muted'
                       : 'border-border'
                   }`}
                 >
@@ -1758,7 +1790,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                           )}
                           <span className="text-xs text-muted-foreground">{comment.fullTimestamp}</span>
                           {comment.pinned && (
-                            <Pin className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 fill-amber-700 dark:fill-amber-400" />
+                            <Pin className="w-3.5 h-3.5 text-muted-foreground fill-muted-foreground" />
                           )}
                         </div>
                         {comment.linkedTo && (
@@ -2069,7 +2101,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="text-sm font-semibold text-foreground">{request.title}</h4>
                               {isPending && (
-                                <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40 rounded text-xs font-semibold flex items-center gap-1">
+                                <span className="px-2 py-0.5 bg-muted text-muted-foreground border border-border rounded text-xs font-semibold flex items-center gap-1">
                                   <Mail className="w-3 h-3" />
                                   Waiting for Upload
                                 </span>
@@ -2211,7 +2243,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                     <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${
                       submission.status === 'Under Review' 
                         ? 'bg-muted text-foreground'
-                        : 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200'
+                        : 'bg-muted text-muted-foreground'
                     }`}>
                       {submission.status}
                     </span>
@@ -2322,131 +2354,33 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
               <p className="text-sm text-muted-foreground">{permit.department}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border ${statusConfig.className}`}>
+          <div className="flex items-center gap-3 relative" ref={statusMenuRef}>
+            <button
+              onClick={() => setShowStatusMenu(!showStatusMenu)}
+              disabled={savingStatus}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors hover:opacity-90 ${statusConfig.className} ${savingStatus ? 'opacity-60' : ''}`}
+            >
               {statusConfig.icon}
               {statusConfig.label}
-            </span>
-            <button className="p-2 hover:bg-accent rounded-lg transition-colors">
-              <MoreVertical className="w-5 h-5 text-muted-foreground" />
+              <ChevronDown className={`w-4 h-4 transition-transform ${showStatusMenu ? 'rotate-180' : ''}`} />
             </button>
+            {showStatusMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                {STATUS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleStatusChange(opt.value)}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-accent transition-colors ${
+                      opt.value === effectiveStatus ? 'bg-accent font-medium' : ''
+                    }`}
+                  >
+                    {getStatusConfig(opt.value).icon}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
-          <button 
-            disabled={!allFeedbackAddressed}
-            onClick={async () => {
-              try {
-                // Find the most recent city email to reply to
-                const mostRecentCityEmail = cityEmails
-                  .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime())[0];
-
-                if (!mostRecentCityEmail && cityEmails.length === 0) {
-                  alert('No city email found to reply to. Please ensure you have received feedback from the city.');
-                  return;
-                }
-
-                // Collect all responses
-                const responses: string[] = [];
-                
-                // Add responses from city emails
-                cityEmails.forEach((email) => {
-                  const response = cityEmailResponses[email._id];
-                  if (response && response.trim()) {
-                    responses.push(`Response to: ${email.subject}\n${response}`);
-                  }
-                });
-
-                // Add responses from mock feedback items
-                cityFeedback.forEach((feedback) => {
-                  const response = cityEmailResponses[feedback.id] || feedback.consultantResponse;
-                  if (response && response.trim()) {
-                    responses.push(`Response to: ${feedback.comment.substring(0, 50)}...\n${response}`);
-                  }
-                });
-
-                if (responses.length === 0) {
-                  alert('Please add responses to city feedback before resubmitting.');
-                  return;
-                }
-
-                // Compile the email body
-                const emailBody = `Dear City Official,
-
-We have addressed all the feedback items and are resubmitting our permit application.
-
-${responses.join('\n\n---\n\n')}
-
-Please review our updated submission. We believe all concerns have been addressed.
-
-Thank you,
-${permit.assignee.name || 'Permit Consultant'}`;
-
-                // Send email reply to the most recent city email
-                const targetEmail = mostRecentCityEmail || cityEmails[0];
-                const recipientEmail = targetEmail?.from?.email;
-
-                if (!recipientEmail) {
-                  alert('Cannot resubmit: No city email address found.');
-                  return;
-                }
-
-                const response = await fetch('/api/emails/send', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    permitId: permitId,
-                    permitName: permit.name,
-                    subject: `Re: ${targetEmail?.subject || 'Permit Resubmission'} - ${permit.name}`,
-                    to: recipientEmail,
-                    body: emailBody,
-                    direction: 'outbound',
-                    inReplyTo: targetEmail?.metadata?.messageId || targetEmail?._id,
-                    threadId: targetEmail?.threadId || targetEmail?._id
-                  })
-                });
-
-                if (response.ok) {
-                  const result = await response.json();
-                  alert('Resubmission email sent successfully to the city!');
-                  
-                  // Mark all city emails as read
-                  for (const email of cityEmails) {
-                    if (email.status === 'unread') {
-                      await handleMarkCityEmailAsRead(email._id);
-                    }
-                  }
-                } else {
-                  const error = await response.json();
-                  alert(`Failed to send resubmission: ${error.error || 'Unknown error'}`);
-                }
-              } catch (error) {
-                console.error('Error sending resubmission:', error);
-                alert('Failed to send resubmission email. Please try again.');
-              }
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              allFeedbackAddressed
-                ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm'
-                : 'bg-muted text-muted-foreground cursor-not-allowed'
-            }`}
-          >
-            <Send className="w-4 h-4" />
-            Resubmit to City
-          </button>
-          <button className="px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-colors text-xs font-medium text-foreground">
-            Add City Feedback
-          </button>
-          <button className="px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-colors text-xs font-medium text-foreground">
-            Mark Approved
-          </button>
-          {!allFeedbackAddressed && (
-            <p className="text-xs text-muted-foreground ml-auto">
-              Address all city feedback items to enable resubmission
-            </p>
-          )}
         </div>
       </div>
 

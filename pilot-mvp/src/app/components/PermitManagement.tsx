@@ -351,7 +351,7 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
       case 'low':
         return 'bg-green-50 text-green-700 border-green-200';
       case 'medium':
-        return 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40';
+        return 'bg-muted text-muted-foreground border-border';
       case 'high':
         return 'bg-red-50 text-red-700 border-red-200';
     }
@@ -1142,8 +1142,8 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                   <h4 className="text-sm font-semibold text-neutral-700 uppercase tracking-wider mb-4">
                     Additional Notes
                   </h4>
-                  <div className="p-4 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg">
-                    <p className="text-sm text-amber-950 dark:text-amber-200">{viewingPermit.additionalNotes}</p>
+                  <div className="p-4 bg-muted border border-border rounded-lg">
+                    <p className="text-sm text-muted-foreground">{viewingPermit.additionalNotes}</p>
                   </div>
                 </div>
               )}

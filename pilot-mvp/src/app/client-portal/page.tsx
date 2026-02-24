@@ -338,7 +338,7 @@ function DocumentRequestCard({ request }: { request: any }) {
           <p className="text-sm text-muted-foreground">{request.description}</p>
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-          request.status === 'pending' ? 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200' : 'bg-green-100 text-green-700'
+          request.status === 'pending' ? 'bg-muted text-muted-foreground' : 'bg-muted text-muted-foreground'
         }`}>
           {request.status}
         </span>

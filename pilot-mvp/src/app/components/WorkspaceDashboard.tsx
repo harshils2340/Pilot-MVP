@@ -50,7 +50,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       }));
 
       try {
-        const res = await fetch('/api/clients');
+        const res = await fetch('/api/clients?includeDocCounts=1');
         if (res.ok) {
           const clientsData = await res.json();
           const rawClients: Client[] = Array.isArray(clientsData)
@@ -66,24 +66,12 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             return 0;
           });
 
-          // Fetch document counts for DB clients only (mock ones won't have docs)
-          const withDocs = await Promise.all(
-            merged.map(async (client) => {
-              // Skip doc fetch for mock-only clients (short ids)
-              if (client._id.length < 10) return client;
-              try {
-                const docsRes = await fetch(`/api/documents?clientId=${client._id}`);
-                if (docsRes.ok) {
-                  const docs = await docsRes.json();
-                  const pendingDocs = docs.filter((d: any) => d.status === 'draft' || d.status === 'pending-review').length;
-                  return { ...client, pendingDocs, totalDocs: docs.length };
-                }
-              } catch {
-                // Ignore
-              }
-              return client;
-            })
-          );
+          // Doc counts come from API when includeDocCounts=1; mock clients get zeros
+          const withDocs = merged.map((client) => ({
+            ...client,
+            pendingDocs: client.pendingDocs ?? 0,
+            totalDocs: client.totalDocs ?? 0,
+          }));
 
           setClients(withDocs);
         } else {
@@ -114,7 +102,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       case 'submitted':
         return <Clock className="w-4 h-4 text-blue-600" />;
       case 'action-required':
-        return <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />;
+        return <AlertCircle className="w-4 h-4 text-destructive" />;
       case 'draft':
         return <FileText className="w-4 h-4 text-muted-foreground" />;
     }
@@ -140,7 +128,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       case 'submitted':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'action-required':
-        return 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40 ';
+        return 'bg-destructive/10 text-destructive border-border';
       case 'draft':
         return 'bg-muted text-muted-foreground border-border';
     }

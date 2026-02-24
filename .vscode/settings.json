@@ -1,0 +1,5 @@
+{
+  "terminal.integrated.env.osx": {
+    "PATH": "${env.HOME}/.nvm/versions/node/v22.17.1/bin:${env.HOME}/.nvm/versions/node/v20.19.6/bin:${env.HOME}/.nvm/versions/node/v18.20.8/bin:/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
+  }
+}

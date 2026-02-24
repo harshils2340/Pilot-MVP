@@ -1,9 +1,27 @@
-import { Lock, Clock, CheckCircle2, AlertCircle, Send, ChevronRight, Plus, Search, Building2, User, Sparkles, X, Loader2 } from 'lucide-react';
+import { Lock, Clock, CheckCircle2, AlertCircle, Send, ChevronRight, Plus, Search, Building2, User, Sparkles, X, Loader2, Info } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { JURISDICTION_PERMITS, getPermitsForJurisdiction, type DemoPermit } from '../lib/permits/demoData';
-import { getClientById } from '../lib/mockClients';
 
-type Permit = DemoPermit;
+type PermitStatus = 'not-started' | 'in-progress' | 'submitted' | 'action-required' | 'approved';
+
+interface Permit {
+  id: string;
+  name: string;
+  authority: string;
+  municipality: string;
+  status: PermitStatus;
+  order: number;
+  blockedBy?: string;
+  blocks: string[];
+  lastActivity: string;
+  lastActivityDate: string;
+  daysInState: number;
+  assignee?: {
+    name: string;
+    initials: string;
+    color: string;
+  };
+  priority?: 'high' | 'medium' | 'low';
+}
 
 interface DiscoveredPermit {
   id: string;
@@ -14,9 +32,6 @@ interface DiscoveredPermit {
   description: string;
   reason: string;
 }
-
-// Legacy mock permits for backwards compatibility
-const mockPermits: Permit[] = JURISDICTION_PERMITS['San Francisco'];
 
 interface PermitPlanProps {
   clientId: string | null;
@@ -34,44 +49,97 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
   const [permits, setPermits] = useState<Permit[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch permits based on client's jurisdiction
+  // Fetch permits from Mongo for this client
   useEffect(() => {
     const fetchPermits = async () => {
       if (!clientId) {
+        setPermits([]);
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        console.log(`🔍 PermitPlan: Fetching permits for client ${clientId}`);
-        
-        // First, fetch client info to get jurisdiction
-        const clientRes = await fetch(`/api/clients/${clientId}`);
-        let clientJurisdiction = 'San Francisco'; // Default
-        
-        if (clientRes.ok) {
-          const clientData = await clientRes.json();
-          clientJurisdiction = clientData.jurisdiction || clientData.client?.jurisdiction || 'San Francisco';
-          console.log(`📍 Client jurisdiction: ${clientJurisdiction}`);
-        } else {
-          // Fallback to local mock data (works without MongoDB)
-          const mock = getClientById(clientId);
-          if (mock) {
-            clientJurisdiction = mock.jurisdiction;
-            console.log(`📍 Using mock jurisdiction: ${clientJurisdiction}`);
-          }
+        console.log(`Fetching permit plan from Mongo for client ${clientId}`);
+
+        const response = await fetch(`/api/permits/management?clientId=${encodeURIComponent(clientId)}`);
+        if (!response.ok) {
+          throw new Error(`Permit fetch failed with status ${response.status}`);
         }
-        
-        // Get hardcoded permits for this jurisdiction
-        const jurisdictionPermits = getPermitsForJurisdiction(clientJurisdiction);
-        console.log(`✅ Using ${jurisdictionPermits.length} hardcoded permits for ${clientJurisdiction}`);
-        setPermits(jurisdictionPermits);
-        
+
+        const payload: unknown = await response.json();
+        const apiPermits = Array.isArray(payload) ? payload : [];
+
+        const normalized: Permit[] = apiPermits
+          .map((permit: any, index: number) => {
+            const rawStatus = typeof permit.status === 'string' ? permit.status : 'not-started';
+            const status: PermitStatus =
+              rawStatus === 'not-started' ||
+              rawStatus === 'in-progress' ||
+              rawStatus === 'submitted' ||
+              rawStatus === 'action-required' ||
+              rawStatus === 'approved'
+                ? rawStatus
+                : 'not-started';
+
+            const timestamp =
+              typeof permit.lastActivityDate === 'string' || permit.lastActivityDate instanceof Date
+                ? new Date(permit.lastActivityDate)
+                : null;
+            const hasValidTimestamp = Boolean(timestamp && !Number.isNaN(timestamp.getTime()));
+
+            const daysInState = hasValidTimestamp
+              ? Math.max(
+                  0,
+                  Math.floor((Date.now() - (timestamp as Date).getTime()) / (1000 * 60 * 60 * 24))
+                )
+              : 0;
+
+            const priority: 'high' | 'medium' | 'low' =
+              status === 'action-required' ? 'high' : status === 'approved' ? 'low' : 'medium';
+
+            return {
+              id:
+                typeof permit.id === 'string'
+                  ? permit.id
+                  : typeof permit._id === 'string'
+                    ? permit._id
+                    : `permit-${index}`,
+              name: typeof permit.name === 'string' ? permit.name : 'Unnamed Permit',
+              authority: typeof permit.authority === 'string' ? permit.authority : 'Unknown Authority',
+              municipality: typeof permit.municipality === 'string' ? permit.municipality : 'Unknown',
+              status,
+              order: typeof permit.order === 'number' ? permit.order : index + 1,
+              blockedBy: typeof permit.blockedBy === 'string' ? permit.blockedBy : undefined,
+              blocks: Array.isArray(permit.blocks)
+                ? permit.blocks.filter((block: unknown): block is string => typeof block === 'string')
+                : [],
+              lastActivity:
+                typeof permit.lastActivity === 'string'
+                  ? permit.lastActivity
+                  : status === 'approved'
+                    ? 'Approved'
+                    : status === 'action-required'
+                      ? 'Action Required'
+                      : 'Not Started',
+              lastActivityDate: hasValidTimestamp
+                ? (timestamp as Date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : 'N/A',
+              daysInState,
+              priority,
+            };
+          })
+          .sort((a, b) => a.order - b.order);
+
+        setPermits(normalized);
+        console.log(`Loaded ${normalized.length} permit(s) for client ${clientId}`);
       } catch (error) {
         console.error('Error fetching permits:', error);
-        // Fall back to default SF permits
-        setPermits(mockPermits);
+        setPermits([]);
       } finally {
         setLoading(false);
       }
@@ -284,6 +352,15 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
       {/* Permit List */}
       <div className="flex-1 overflow-auto">
         <div className="p-4 space-y-1.5">
+          {!loading && filteredPermits.length > 0 && (
+            <div className="flex items-start gap-2 px-2 py-2 mb-2 bg-muted/30 border border-border rounded-lg">
+              <Info className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">0</span> = any order — these can be done in parallel.
+                {' '}<span className="font-semibold text-foreground">1, 2, 3…</span> = sequential — each step requires the previous one to be completed first.
+              </p>
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -312,11 +389,13 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
                 <div className="p-3">
                   <div className="flex items-start gap-3">
                     {/* Order Number */}
-                    <div className="flex-shrink-0">
-                      <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                    <div className="flex-shrink-0" title={permit.order === 0 ? 'Can be done in any order' : `Requires step ${permit.order - 1} to be completed first`}>
+                      <div className={`rounded flex items-center justify-center text-xs font-semibold ${
+                        permit.order === 0 ? 'min-w-8 px-1.5' : 'min-w-6 px-1'
+                      } ${
                         isBlocked ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'
-                      }`}>
-                        {permit.order}
+                      } h-6`}>
+                        {permit.order === 0 ? 'Any' : permit.order}
                       </div>
                     </div>
 
@@ -391,3 +470,4 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
     </div>
   );
 }
+

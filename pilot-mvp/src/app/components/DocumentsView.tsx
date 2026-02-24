@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { 
   FileText, Upload, Folder, FolderOpen, Search, MoreVertical, 
   Share2, Download, Trash2, Calendar, User, 
-  CheckCircle2, Plus, X, Loader2, Send, ChevronRight, ChevronDown, File, Eye, GitPullRequest
+  CheckCircle2, Plus, X, Loader2, Send, ChevronRight, ChevronDown, File, Eye, GitPullRequest, FolderPlus
 } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { DocumentReviewModal } from './DocumentReviewModal';
@@ -51,10 +51,7 @@ interface FolderNode {
   children: FolderNode[];
 }
 
-// No mock documents - show empty state until real documents are uploaded
-
-// Folder structure - simple nested tree
-const FOLDER_STRUCTURE: FolderNode[] = [
+const DEFAULT_FOLDERS: FolderNode[] = [
   {
     name: 'General',
     path: 'General',
@@ -87,10 +84,63 @@ const FOLDER_STRUCTURE: FolderNode[] = [
   },
 ];
 
+function loadFolders(clientId: string): FolderNode[] {
+  if (typeof window === 'undefined') return DEFAULT_FOLDERS;
+  try {
+    const stored = localStorage.getItem(`doc-folders-${clientId}`);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return DEFAULT_FOLDERS;
+}
+
+function saveFolders(clientId: string, folders: FolderNode[]) {
+  try {
+    localStorage.setItem(`doc-folders-${clientId}`, JSON.stringify(folders));
+  } catch { /* ignore */ }
+}
+
+function addFolderToTree(nodes: FolderNode[], parentPath: string | null, name: string): FolderNode[] {
+  if (!parentPath) {
+    return [...nodes, { name, path: name, children: [] }];
+  }
+  return nodes.map((node) => {
+    if (node.path === parentPath) {
+      const newPath = `${parentPath}/${name}`;
+      return { ...node, children: [...node.children, { name, path: newPath, children: [] }] };
+    }
+    if (node.children.length > 0) {
+      return { ...node, children: addFolderToTree(node.children, parentPath, name) };
+    }
+    return node;
+  });
+}
+
+function removeFolderFromTree(nodes: FolderNode[], targetPath: string): FolderNode[] {
+  return nodes
+    .filter((node) => node.path !== targetPath)
+    .map((node) => ({
+      ...node,
+      children: removeFolderFromTree(node.children, targetPath),
+    }));
+}
+
+function collectFolderPaths(node: FolderNode): string[] {
+  return [node.path, ...node.children.flatMap(collectFolderPaths)];
+}
+
+function findFolderNode(nodes: FolderNode[], path: string): FolderNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    const found = findFolderNode(node.children, path);
+    if (found) return found;
+  }
+  return null;
+}
+
 // Tag colors like GitHub labels
 const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'urgent': { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
-  'needs-review': { bg: 'bg-amber-200/80 dark:bg-amber-500/20', text: 'text-amber-950 dark:text-amber-200', border: 'border-amber-400 dark:border-amber-500/40' },
+  'needs-review': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
   'approved': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'signed': { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   'draft': { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
@@ -123,6 +173,10 @@ export function DocumentsView({
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [reviewingDocument, setReviewingDocument] = useState<Document | null>(null);
   const lastDocumentIdsRef = useRef<Set<string>>(new Set());
+  const [folderStructure, setFolderStructure] = useState<FolderNode[]>(() => loadFolders(clientId));
+  const [creatingFolderIn, setCreatingFolderIn] = useState<string | '__root__' | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -322,69 +376,179 @@ export function DocumentsView({
     setViewingDocument(null);
   };
 
-  // Recursive folder tree component
-  const FolderTree = ({ nodes, depth = 0 }: { nodes: FolderNode[]; depth?: number }) => {
+  const handleCreateFolder = () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed) {
+      setCreatingFolderIn(null);
+      setNewFolderName('');
+      return;
+    }
+    const parentPath = creatingFolderIn === '__root__' ? null : creatingFolderIn;
+    const updated = addFolderToTree(folderStructure, parentPath, trimmed);
+    setFolderStructure(updated);
+    saveFolders(clientId, updated);
+    if (parentPath) {
+      setExpandedFolders((prev) => new Set([...prev, parentPath]));
+    }
+    toast.success('Folder created', {
+      description: parentPath ? `"${trimmed}" added inside ${parentPath}` : `"${trimmed}" folder created`,
+      duration: 3000,
+    });
+    setCreatingFolderIn(null);
+    setNewFolderName('');
+  };
+
+  const handleDeleteFolder = (folderPath: string) => {
+    const node = findFolderNode(folderStructure, folderPath);
+    if (!node) return;
+
+    const allPaths = collectFolderPaths(node);
+    const docsInFolder = documents.filter(
+      (doc) => doc.folder && allPaths.some((p) => doc.folder!.startsWith(p)),
+    );
+
+    const message = docsInFolder.length > 0
+      ? `Delete "${node.name}" and its subfolders? ${docsInFolder.length} file(s) inside will be moved to "General".`
+      : `Delete "${node.name}"${node.children.length > 0 ? ` and its ${node.children.length} subfolder(s)` : ''}?`;
+
+    if (!confirm(message)) return;
+
+    const updated = removeFolderFromTree(folderStructure, folderPath);
+    setFolderStructure(updated);
+    saveFolders(clientId, updated);
+
+    if (selectedPath && allPaths.includes(selectedPath)) {
+      setSelectedPath(null);
+    }
+
+    toast.success('Folder deleted', {
+      description: `"${node.name}" has been removed`,
+      duration: 3000,
+    });
+  };
+
+  useEffect(() => {
+    if (creatingFolderIn !== null && newFolderInputRef.current) {
+      newFolderInputRef.current.focus();
+    }
+  }, [creatingFolderIn]);
+
+  const renderNewFolderInput = (parentPath: string | '__root__') => {
+    if (creatingFolderIn !== parentPath) return null;
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 ml-0">
+        <FolderPlus className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <input
+          key={`new-folder-${parentPath}`}
+          ref={newFolderInputRef}
+          type="text"
+          value={newFolderName}
+          onChange={(e) => setNewFolderName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleCreateFolder();
+            if (e.key === 'Escape') { setCreatingFolderIn(null); setNewFolderName(''); }
+          }}
+          onBlur={handleCreateFolder}
+          placeholder="Folder name…"
+          className="flex-1 min-w-0 bg-background border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+    );
+  };
+
+  const renderFolderTree = (nodes: FolderNode[], depth = 0): React.ReactNode => {
     return (
       <div className={depth > 0 ? 'ml-4' : ''}>
         {nodes.map((node) => {
           const isExpanded = expandedFolders.has(node.path);
           const isSelected = selectedPath === node.path;
-          const hasChildren = node.children.length > 0;
+          const hasChildren = node.children.length > 0 || creatingFolderIn === node.path;
           const docCount = getDocumentCountForPath(node.path);
 
           return (
             <div key={node.path}>
-              <button
-                onClick={() => {
-                  if (hasChildren) {
-                    toggleFolder(node.path);
-                  }
-                  setSelectedPath(isSelected ? null : node.path);
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 group ${
-                  isSelected
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-foreground hover:bg-accent'
-                }`}
-              >
-                {/* Expand/collapse chevron */}
-                <span className="w-4 h-4 flex items-center justify-center">
-                  {hasChildren ? (
-                    isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              <div className="relative group/folder">
+                <button
+                  onClick={() => {
+                    if (node.children.length > 0 || creatingFolderIn === node.path) {
+                      toggleFolder(node.path);
+                    }
+                    setSelectedPath(isSelected ? null : node.path);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-foreground hover:bg-accent'
+                  }`}
+                >
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    {hasChildren ? (
+                      isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      )
                     ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="w-3.5" />
+                    )}
+                  </span>
+
+                  {node.children.length > 0 || creatingFolderIn === node.path ? (
+                    isExpanded ? (
+                      <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <Folder className="w-4 h-4 text-muted-foreground" />
                     )
                   ) : (
-                    <span className="w-3.5" />
+                    <Folder className="w-4 h-4 text-muted-foreground" />
                   )}
-                </span>
 
-                {/* Folder icon */}
-                {hasChildren ? (
-                  isExpanded ? (
-                    <FolderOpen className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                  ) : (
-                    <Folder className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                  )
-                ) : (
-                  <Folder className="w-4 h-4 text-muted-foreground" />
-                )}
+                  <span className="flex-1 text-left truncate">{node.name}</span>
 
-                {/* Folder name */}
-                <span className="flex-1 text-left truncate">{node.name}</span>
+                  {docCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs bg-muted/80 text-muted-foreground rounded-md font-medium group-hover/folder:hidden">
+                      {docCount}
+                    </span>
+                  )}
+                </button>
 
-                {/* Document count badge */}
-                {docCount > 0 && (
-                  <span className="px-2 py-0.5 text-xs bg-muted/80 text-muted-foreground rounded-md font-medium">
-                    {docCount}
-                  </span>
-                )}
-              </button>
+                {/* Folder action buttons on hover (replace doc count) */}
+                <div className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover/folder:opacity-100 transition-opacity`}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedFolders((prev) => new Set([...prev, node.path]));
+                      setCreatingFolderIn(node.path);
+                      setNewFolderName('');
+                    }}
+                    className={`p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent ${
+                      isSelected ? 'text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/20' : ''
+                    }`}
+                    title="New subfolder"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteFolder(node.path);
+                    }}
+                    className={`p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 ${
+                      isSelected ? 'text-primary-foreground/70 hover:text-red-300 hover:bg-red-500/20' : ''
+                    }`}
+                    title="Delete folder"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
 
-              {/* Children */}
+              {/* Children + inline new-folder input */}
               {hasChildren && isExpanded && (
-                <FolderTree nodes={node.children} depth={depth + 1} />
+                <div className="ml-4">
+                  {renderFolderTree(node.children, depth + 1)}
+                  {renderNewFolderInput(node.path)}
+                </div>
               )}
             </div>
           );
@@ -460,7 +624,22 @@ export function DocumentsView({
           <div className="h-px bg-border my-3" />
 
           {/* Folder tree */}
-          <FolderTree nodes={FOLDER_STRUCTURE} />
+          {renderFolderTree(folderStructure)}
+
+          {/* Inline root-level new folder input */}
+          {renderNewFolderInput('__root__')}
+
+          {/* New Folder button */}
+          <button
+            onClick={() => {
+              setCreatingFolderIn('__root__');
+              setNewFolderName('');
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 mt-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200"
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>New Folder</span>
+          </button>
         </aside>
 
         {/* Main Content - File List */}
@@ -667,12 +846,16 @@ function DocumentRow({
       
       if (res.ok) {
         onDelete(document.id);
+        toast.success('File deleted', {
+          description: `"${document.name}" has been removed`,
+          duration: 3000,
+        });
       } else {
-        alert('Failed to delete document');
+        toast.error('Failed to delete document');
       }
     } catch (error) {
       console.error('Delete error:', error);
-      alert('Failed to delete document');
+      toast.error('Failed to delete document');
     } finally {
       setDeleting(false);
       setShowMenu(false);
@@ -837,6 +1020,7 @@ function DocumentViewer({
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
 
   const handleDownload = () => {
     const link = window.document.createElement('a');
@@ -847,11 +1031,43 @@ function DocumentViewer({
     window.document.body.removeChild(link);
   };
 
+  const isTextFile = ['txt', 'md', 'json', 'xml', 'csv', 'log'].includes(
+    document.fileType?.toLowerCase() || ''
+  );
+
+  useEffect(() => {
+    if (!isTextFile) return;
+    const url = document.fileUrl;
+    if (url.startsWith('data:')) {
+      try {
+        const base64 = url.split(',')[1];
+        if (base64) {
+          setTextContent(atob(base64));
+        } else {
+          setTextContent(decodeURIComponent(url.split(',')[1] || ''));
+        }
+      } catch {
+        setTextContent('Unable to decode file content.');
+      }
+      setLoading(false);
+    } else {
+      fetch(url)
+        .then((r) => r.text())
+        .then((t) => {
+          setTextContent(t);
+          setLoading(false);
+        })
+        .catch(() => {
+          setError('Failed to load file');
+          setLoading(false);
+        });
+    }
+  }, [document.fileUrl, isTextFile]);
+
   const getFileViewer = () => {
     const fileType = document.fileType?.toLowerCase();
     const fileUrl = document.fileUrl;
 
-    // PDF viewer
     if (fileType === 'pdf') {
       return (
         <iframe
@@ -866,7 +1082,6 @@ function DocumentViewer({
       );
     }
 
-    // Image viewer
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileType || '')) {
       return (
         <div className="flex items-center justify-center h-full bg-muted">
@@ -884,24 +1099,18 @@ function DocumentViewer({
       );
     }
 
-    // Text files
-    if (['txt', 'md', 'json', 'xml', 'csv', 'log'].includes(fileType || '')) {
+    if (isTextFile && textContent !== null) {
       return (
-        <iframe
-          src={fileUrl}
-          className="w-full h-full border-0"
-          onLoad={() => setLoading(false)}
-          onError={() => {
-            setError('Failed to load file');
-            setLoading(false);
-          }}
-        />
+        <div className="w-full h-full overflow-auto bg-surface p-6">
+          <pre className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+            {textContent}
+          </pre>
+        </div>
       );
     }
 
-    // For other file types, show download option
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-muted/50 p-8">
+      <div className="flex flex-col items-center justify-center h-full bg-surface p-8">
         <FileText className="w-16 h-16 text-muted-foreground mb-4" />
         <p className="text-lg font-medium text-foreground mb-2">
           {document.name}
@@ -921,18 +1130,18 @@ function DocumentViewer({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex flex-col">
+    <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex flex-col">
       {/* Header */}
-      <div className="flex-shrink-0 bg-primary text-primary-foreground px-6 py-4 flex items-center justify-between shadow-lg">
+      <div className="flex-shrink-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1 min-w-0">
-          <FileText className="w-5 h-5 flex-shrink-0" />
+          <FileText className="w-5 h-5 flex-shrink-0 text-foreground" />
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold truncate">{document.name}</h2>
-            <div className="flex items-center gap-4 text-sm text-primary-foreground/80 mt-1">
+            <h2 className="text-lg font-semibold truncate text-foreground">{document.name}</h2>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
               <span>From: {document.uploadedBy?.userName || 'Unknown'}</span>
-              <span>•</span>
+              <span>·</span>
               <span>{new Date(document.createdAt).toLocaleDateString()}</span>
-              <span>•</span>
+              <span>·</span>
               <span>{document.fileType?.toUpperCase() || 'FILE'}</span>
             </div>
           </div>
@@ -940,14 +1149,14 @@ function DocumentViewer({
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownload}
-            className="p-2 hover:bg-primary-foreground/20 rounded-lg transition-all duration-200"
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-all duration-200"
             title="Download"
           >
             <Download className="w-5 h-5" />
           </button>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-accent rounded-lg transition-colors"
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -958,7 +1167,7 @@ function DocumentViewer({
       {/* Document Content */}
       <div className="flex-1 relative overflow-hidden">
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-surface">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Loading document...</p>
@@ -966,9 +1175,9 @@ function DocumentViewer({
           </div>
         )}
         {error ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-surface">
             <div className="text-center">
-              <p className="text-red-600 mb-4">{error}</p>
+              <p className="text-red-500 mb-4">{error}</p>
               <button
                 onClick={handleDownload}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors mx-auto"

@@ -169,9 +169,9 @@ export function CityFeedbackSection() {
               <span className="text-sm font-medium text-green-700">Ready to Resubmit</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-              <span className="text-sm font-medium text-amber-950 dark:text-amber-200">{totalItems - completedItems} items remaining</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted border border-border rounded-lg">
+              <AlertCircle className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">{totalItems - completedItems} items remaining</span>
             </div>
           )}
         </div>

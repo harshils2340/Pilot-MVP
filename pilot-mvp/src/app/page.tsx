@@ -325,8 +325,9 @@ export default function App() {
   // Show client onboarding if triggered
   if (showClientOnboarding) {
     return (
-      <div className="flex h-screen bg-page-bg">
-        <ClientOnboarding
+      <div className="flex h-screen w-full bg-page-bg">
+        <div className="flex-1 min-w-0 flex flex-col">
+          <ClientOnboarding
           onComplete={(clientData) => {
             // Client created successfully
             setShowClientOnboarding(false);
@@ -342,6 +343,7 @@ export default function App() {
             setShowClientOnboarding(false);
           }}
         />
+        </div>
       </div>
     );
   }

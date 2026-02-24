@@ -159,6 +159,13 @@ html.theme-blue {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --page-bg: #0a0a0a;
+  --surface: #141414;
+  --surface-border: #262626;
+  --text-primary: #fafafa;
+  --text-muted: #a3a3a3;
+  --input-background: #171717;
+  --switch-background: #404040;
 }
 
 @theme inline {

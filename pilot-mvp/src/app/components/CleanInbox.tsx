@@ -442,7 +442,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'permit':
         return <Calendar className={`${classes} text-emerald-600`} />;
       case 'email':
-        return <Mail className={`${classes} text-amber-700 dark:text-amber-400`} />;
+        return <Mail className={`${classes} text-muted-foreground`} />;
       case 'deadline':
         return <Clock className={`${classes} text-rose-600`} />;
       default:
@@ -459,7 +459,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'permit':
         return 'bg-emerald-100';
       case 'email':
-        return 'bg-amber-100 dark:bg-amber-500/20';
+        return 'bg-muted';
       case 'deadline':
         return 'bg-rose-100';
       default:
@@ -472,7 +472,7 @@ export function CleanInbox({ onAddLeadFromEmail }: CleanInboxProps) {
       case 'urgent':
         return 'border-l-rose-500 bg-rose-50/50';
       case 'high':
-        return 'border-l-amber-500 bg-amber-100/50 dark:bg-amber-500/10';
+        return 'border-l-border bg-muted';
       case 'medium':
         return 'border-l-sky-500 bg-sky-50/50';
       default:
@@ -886,7 +886,7 @@ Common Issues:
                                   </span>
                                 )}
                                 {showClient && (
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 font-medium">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-muted-foreground font-medium">
                                     <span className="truncate max-w-[120px]">{m.clientName}</span>
                                   </span>
                                 )}
@@ -900,7 +900,7 @@ Common Issues:
                                 </span>
                               )}
                               {notification.priority === 'high' && (
-                                <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-500/40 rounded-lg font-semibold">
+                                <span className="px-2 py-0.5 bg-muted text-muted-foreground border border-border rounded-lg font-semibold">
                                   High
                                 </span>
                               )}

@@ -581,7 +581,7 @@ export function ReviewSection({ reviews: initialReviews, onUpdateReview }: Revie
                                     </>
                                   ) : (
                                     <>
-                                      <Dot className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                                      <Dot className="w-3.5 h-3.5 text-muted-foreground" />
                                       <span className="text-xs text-neutral-600">Review requested</span>
                                     </>
                                   )}

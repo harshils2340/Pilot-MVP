@@ -33,7 +33,7 @@ const TAG_COLORS = [
   'bg-violet-100 text-violet-700',
   'bg-red-100 text-red-700',
   'bg-blue-100 text-blue-700',
-  'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200',
+  'bg-muted text-muted-foreground',
   'bg-emerald-100 text-emerald-700',
   'bg-sky-100 text-sky-700',
 ];
@@ -233,7 +233,7 @@ export function LeadDetailView({
                 )}
                 {lead.company && (
                   <div className="flex items-center gap-3 text-sm">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                       <Building2 className="w-4 h-4" />
                     </div>
                     <span className="text-foreground">{lead.company}</span>
@@ -257,7 +257,7 @@ export function LeadDetailView({
                   </span>
                 )}
                 {lead.probability != null && (
-                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 text-sm">
+                  <span className="inline-flex px-2.5 py-1 rounded-lg bg-muted text-muted-foreground text-sm">
                     {lead.probability}% probability
                   </span>
                 )}

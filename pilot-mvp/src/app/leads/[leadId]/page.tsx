@@ -15,7 +15,7 @@ export default function LeadDetailPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-page-bg px-4">
       <div className="text-center max-w-md">
-        <Construction className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+        <Construction className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-foreground mb-2">Leads is Coming Soon</h2>
         <p className="text-muted-foreground mb-6">
           Our lead wizards are still in training. We&apos;re cooking up something great — check back soon!
