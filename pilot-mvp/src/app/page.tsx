@@ -15,7 +15,7 @@ import { PermitManagement } from './components/PermitManagement';
 import { PermitDetailView } from './components/PermitDetailView';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { Leads } from './components/Leads';
-import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, Bell, Database, UserPlus } from 'lucide-react';
+import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, Bell, Database, UserPlus, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 type ClientScreen = 'discovery' | 'plan' | 'permit-detail';
@@ -67,9 +67,12 @@ export default function App() {
           setUserName(storedName);
         }
       }
-      // Restore view from URL (e.g. /?view=leads when returning from lead detail)
+      // Restore view from URL (leads is currently disabled)
       const view = params.get('view');
-      if (view === 'leads') setCurrentView('leads');
+      if (view === 'leads') {
+        setCurrentView('dashboard');
+        window.history.replaceState({}, '', '/');
+      }
     }
   }, []);
 
@@ -251,11 +254,14 @@ export default function App() {
               <span className="text-sm">Clients</span>
             </button>
             <button
-              onClick={() => setCurrentView('leads')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+              aria-disabled="true"
+              onClick={() => toast('🚧 Leads is coming soon!', { description: 'We\'re building something great — check back shortly.' })}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg opacity-40 cursor-not-allowed text-muted-foreground transition-colors"
             >
               <UserPlus className="w-5 h-5" />
               <span className="text-sm">Leads</span>
+              <Lock className="w-3.5 h-3.5 ml-auto" />
+              <span className="sr-only">Coming soon</span>
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
@@ -369,8 +375,8 @@ export default function App() {
 
   // Show dashboard or leads (shared layout)
   if (currentView === 'dashboard' || currentView === 'leads') {
-    const isDashboard = currentView === 'dashboard';
-    const isLeads = currentView === 'leads';
+    const isDashboard = true;
+    const isLeads = false;
     return (
       <div className="flex h-screen bg-page-bg">
         {/* Sidebar */}
@@ -401,13 +407,14 @@ export default function App() {
               <span className="text-sm">Clients</span>
             </button>
             <button
-              onClick={() => setCurrentView('leads')}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                isLeads ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-              }`}
+              aria-disabled="true"
+              onClick={() => toast('🚧 Leads is coming soon!', { description: 'We\'re building something great — check back shortly.' })}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg opacity-40 cursor-not-allowed text-muted-foreground transition-colors"
             >
               <UserPlus className="w-5 h-5" />
               <span className="text-sm">Leads</span>
+              <Lock className="w-3.5 h-3.5 ml-auto" />
+              <span className="sr-only">Coming soon</span>
             </button>
             <button
               onClick={() => setCurrentView('inbox')}

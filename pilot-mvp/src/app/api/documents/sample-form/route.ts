@@ -156,7 +156,6 @@ export async function GET() {
 
     const bytes = await pdfDoc.save();
     const responseBytes = new Uint8Array(bytes);
-
     return new NextResponse(responseBytes, {
       headers: {
         'Content-Type': 'application/pdf',
