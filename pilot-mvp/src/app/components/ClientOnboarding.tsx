@@ -54,6 +54,47 @@ interface Permit {
   category?: string;
 }
 
+const DISCOVERY_STEPS = [
+  'Analyzing business requirements',
+  'Searching government sources',
+  'Identifying required permits',
+  'Verifying jurisdiction rules',
+  'Building your permit list',
+];
+
+function DiscoveringPermitsLoader({ location }: { location: string }) {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setStepIndex((i) => (i + 1) % DISCOVERY_STEPS.length);
+    }, 2500);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="mt-8 bg-muted/50 border border-border rounded-xl p-6">
+      <div className="flex items-center gap-4">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-border border-t-primary animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Search className="w-5 h-5 text-primary" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-semibold text-foreground mb-1">Discovering Permits...</p>
+          <p className="text-sm text-muted-foreground transition-opacity duration-300">
+            {DISCOVERY_STEPS[stepIndex]} for {location}
+          </p>
+          <div className="mt-3 w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div className="h-full w-1/4 bg-primary rounded-full animate-progress-slide" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps) {
   const [step, setStep] = useState(1);
   const [showPermits, setShowPermits] = useState(false);
@@ -1375,25 +1416,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
 
             {/* Loading State */}
             {loading && (
-              <div className="mt-8 bg-muted/50 border border-border rounded-xl p-6">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full border-4 border-border border-t-primary animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Search className="w-5 h-5 text-primary" />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-base font-semibold text-foreground mb-1">Discovering Permits...</p>
-                    <p className="text-sm text-muted-foreground">
-                      Analyzing business requirements for {formData.location || 'your location'}
-                    </p>
-                    <div className="mt-3 w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <DiscoveringPermitsLoader location={formData.location || 'your location'} />
             )}
           </div>
         </div>
