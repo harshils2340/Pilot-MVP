@@ -15,7 +15,7 @@ import { PermitManagement } from './components/PermitManagement';
 import { PermitDetailView } from './components/PermitDetailView';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { Leads } from './components/Leads';
-import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, Bell, Database, UserPlus, Lock } from 'lucide-react';
+import { Users, ArrowLeft, Settings, ListOrdered, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 type ClientScreen = 'discovery' | 'plan' | 'permit-detail';
@@ -254,33 +254,6 @@ export default function App() {
               <span className="text-sm">Clients</span>
             </button>
             <button
-              aria-disabled="true"
-              onClick={() => toast('🚧 Leads is coming soon!', { description: 'We\'re building something great — check back shortly.' })}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg opacity-40 cursor-not-allowed text-muted-foreground transition-colors"
-            >
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm">Leads</span>
-              <Lock className="w-3.5 h-3.5 ml-auto" />
-              <span className="sr-only">Coming soon</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('inbox')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-              <div className="flex items-center justify-between flex-1">
-                <span className="text-sm">Notifications</span>
-                <span className="px-2 py-0.5 bg-red-500 text-white rounded text-xs font-medium">4</span>
-              </div>
-            </button>
-            <button
-              onClick={() => router.push('/permit-management')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-            >
-              <Database className="w-5 h-5" />
-              <span className="text-sm">Permit Database</span>
-            </button>
-            <button
               onClick={() => router.push('/settings')}
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
             >
@@ -405,33 +378,6 @@ export default function App() {
             >
               <Users className="w-5 h-5" />
               <span className="text-sm">Clients</span>
-            </button>
-            <button
-              aria-disabled="true"
-              onClick={() => toast('🚧 Leads is coming soon!', { description: 'We\'re building something great — check back shortly.' })}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg opacity-40 cursor-not-allowed text-muted-foreground transition-colors"
-            >
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm">Leads</span>
-              <Lock className="w-3.5 h-3.5 ml-auto" />
-              <span className="sr-only">Coming soon</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('inbox')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-              <div className="flex items-center justify-between flex-1">
-                <span className="text-sm">Notifications</span>
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">4</span>
-              </div>
-            </button>
-            <button
-              onClick={() => router.push('/permit-management')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-            >
-              <Database className="w-5 h-5" />
-              <span className="text-sm">Permit Database</span>
             </button>
             <button
               onClick={() => router.push('/settings')}
