@@ -94,10 +94,7 @@ export async function POST(request: NextRequest) {
           domain: MAILGUN_DOMAIN,
           from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
           to: toEmail,
-          subject: subject,
-          hasApiKey: !!MAILGUN_API_KEY,
-          apiKeyLength: MAILGUN_API_KEY?.length,
-          apiKeyFormat: MAILGUN_API_KEY?.substring(0, 20) + '...'
+          subject: subject
         });
 
         // Prepare email data
