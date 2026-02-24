@@ -9,8 +9,7 @@ import { ClientBilling } from '../../components/ClientBilling';
 import { EnhancedDocumentsView } from '../../components/EnhancedDocumentsView';
 import { InviteClientModal } from '../../components/InviteClientModal';
 import { AiInsights } from '../../components/AiInsights';
-import { ListOrdered, Search, ArrowLeft, LogOut, DollarSign, FileText, UserPlus, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { ListOrdered, ArrowLeft, LogOut, FileText, UserPlus, Sparkles } from 'lucide-react';
 
 type Tab = 'ai-insights' | 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents';
 
@@ -61,9 +60,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const clientNavigation = [
     { id: 'ai-insights' as Tab, label: 'AI Insights', icon: Sparkles, badge: 'Beta' },
     { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
-    { id: 'discovery' as Tab, label: 'Permit Discovery', icon: Search, disabled: true, comingSoon: true },
     { id: 'documents' as Tab, label: 'Documents', icon: FileText },
-    { id: 'billing' as Tab, label: 'Billing', icon: DollarSign, disabled: true, comingSoon: true },
   ];
 
   const handleLogout = () => {
@@ -228,32 +225,19 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           {clientNavigation.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            const isDisabled = 'disabled' in item && item.disabled;
             return (
               <button
                 key={item.id}
-                onClick={() => isDisabled
-                  ? toast(`🚧 ${item.label} is coming soon!`, { description: 'We\'re building something great — check back shortly.' })
-                  : handleTabChange(item.id)
-                }
-                aria-disabled={isDisabled || undefined}
+                onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
-                  isDisabled
-                    ? 'opacity-40 cursor-not-allowed text-muted-foreground'
-                    : isActive
+                  isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-accent'
                 }`}
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 <span className="text-sm flex-1 text-left">{item.label}</span>
-                {'comingSoon' in item && item.comingSoon && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full leading-none bg-muted text-muted-foreground border border-border">
-                    Soon
-                  </span>
-                )}
-                {isDisabled && <span className="sr-only">Coming soon</span>}
-                {'badge' in item && item.badge && !isDisabled && (
+                {'badge' in item && item.badge && (
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${
                     isActive
                       ? 'bg-primary-foreground/20 text-primary-foreground'
