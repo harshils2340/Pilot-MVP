@@ -1,8 +1,9 @@
-import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye } from 'lucide-react';
+import { ArrowLeft, FileText, MessageSquare, Clock, AlertCircle, Edit3, Lock, Send, MoreVertical, Info, Paperclip, Download, ExternalLink, CheckCircle2, Building2, Calendar, User2, Hash, CheckCircle, Circle, Plus, Upload, ChevronDown, ChevronRight, AtSign, Smile, MoreHorizontal, Pin, X, MessageCircle, Mail, User, Trash2, Link2, Copy, GitPullRequest, Sparkles, FileEdit, DollarSign, Eye, Loader2 } from 'lucide-react';
 import { RequestDocumentModal } from './RequestDocumentModal';
 import { ReviewSection } from './ReviewSection';
 import { FillablePDFModal } from './FillablePDFModal';
 import { LiveFillModal } from './LiveFillModal';
+import { toast } from 'sonner';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { getPermitById } from '../lib/permits/demoData';
 import { SIDEWALK_CAFE_FILL_STEPS, SIDEWALK_CAFE_PDF_URL } from '../lib/permits/liveFillData';
@@ -102,52 +103,6 @@ interface ClientEmail {
   };
 }
 
-const mockComments: Comment[] = [
-  {
-    id: '1',
-    author: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500', role: 'consultant' },
-    message: '@Michael can you handle the water supply calculations? Inspector Martinez specifically called this out and we need it before resubmission.',
-    timestamp: '2h ago',
-    fullTimestamp: 'Today at 2:15 PM',
-    linkedTo: 'City Feedback: Floor Plan Revisions',
-    resolved: false,
-    reactions: [
-      { emoji: '👍', count: 2, userReacted: false },
-      { emoji: '✅', count: 1, userReacted: true },
-    ],
-    replies: [
-      {
-        id: 'r1',
-        author: { name: 'Michael Park', initials: 'MP', color: 'bg-primary/100' },
-        message: 'On it. Should have this done by EOD Thursday. Do we have the sink specs yet?',
-        timestamp: '1h ago',
-        reactions: [{ emoji: '👍', count: 1, userReacted: false }],
-      },
-      {
-        id: 'r2',
-        author: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
-        message: 'Not yet - waiting on architect. Will send as soon as I get them.',
-        timestamp: '45m ago',
-      },
-    ],
-  },
-  {
-    id: '2',
-    author: { name: 'Michael Park', initials: 'MP', color: 'bg-primary/100', role: 'consultant' },
-    message: 'FYI - Inspector mentioned this might also affect the fire inspection requirements. Worth checking with the fire dept before resubmission to avoid another round of revisions.',
-    timestamp: 'Yesterday',
-    fullTimestamp: 'Jan 10 at 3:45 PM',
-    resolved: false,
-    pinned: true,
-    reactions: [
-      { emoji: '⚠️', count: 3, userReacted: true },
-    ],
-    attachments: [
-      { name: 'fire_dept_requirements.pdf', size: '145 KB' },
-    ],
-  },
-];
-
 export function PermitDetailView({ permitId, onBack, clientName, clientId }: PermitDetailViewProps) {
   // Use clientId from URL if not provided as prop (for form filling)
   const [effectiveClientId, setEffectiveClientId] = useState<string | undefined>(clientId);
@@ -160,7 +115,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
   // Default to overview when the permit has a fillable form, otherwise city-feedback
   const [activeSection, setActiveSection] = useState<Section>('overview');
   const [newComment, setNewComment] = useState('');
-  const [comments, setComments] = useState<Comment[]>(mockComments);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [expandedFeedback, setExpandedFeedback] = useState<string>('1');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -179,9 +134,129 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement>(null);
+  const [requiredDocuments, setRequiredDocuments] = useState<{ name: string; description: string }[]>([]);
+  const [loadingRequiredDocs, setLoadingRequiredDocs] = useState(false);
+  const [totalPermitsInPlan, setTotalPermitsInPlan] = useState<number | null>(null);
+  const [managementPermitData, setManagementPermitData] = useState<{
+    id?: string;
+    name?: string;
+    authority?: string;
+    municipality?: string;
+    lastActivityDate?: string | Date;
+    order?: number;
+    requirements?: string[];
+    fees?: string;
+    estimatedTime?: string;
+    blocks?: string[];
+    blockedBy?: string;
+    [k: string]: unknown;
+  } | null>(null);
 
   // Look up permit by ID from shared demo data (or API in production)
-  const permitData = useMemo(() => getPermitById(permitId), [permitId]);
+  const demoPermitData = useMemo(() => getPermitById(permitId), [permitId]);
+
+  // Prefer demo data; fallback to management fetch when demo returns null (e.g. management doc ids)
+  const permitData = demoPermitData ?? managementPermitData;
+
+  // Fetch permit list from management (for total count + permit details when demo returns null)
+  useEffect(() => {
+    if (!effectiveClientId || !permitId) return;
+    fetch(`/api/permits/management?clientId=${encodeURIComponent(effectiveClientId)}&limit=500`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((permits: unknown[]) => {
+        const list = Array.isArray(permits) ? permits : [];
+        setTotalPermitsInPlan(list.length);
+        const found = list.find((p: unknown) => {
+          const x = p as { id?: string; _id?: string };
+          return (x.id || x._id) === permitId;
+        });
+        if (found && typeof found === 'object') {
+          const f = found as Record<string, unknown>;
+          setManagementPermitData({
+            id: (f.id || f._id || permitId) as string,
+            name: f.name as string,
+            authority: f.authority as string,
+            municipality: f.municipality as string,
+            lastActivityDate: f.lastActivityDate as string | Date | undefined,
+            order: f.order as number | undefined,
+            requirements: f.requirements as string[] | undefined,
+            fees: f.fees as string | undefined,
+            estimatedTime: f.estimatedTime as string | undefined,
+            blocks: (f.blocks as string[]) || [],
+            blockedBy: f.blockedBy as string | undefined,
+          });
+        } else {
+          setManagementPermitData(null);
+        }
+      })
+      .catch(() => {});
+  }, [effectiveClientId, permitId]);
+
+  // Fetch required documents from LLM when permit loads
+  useEffect(() => {
+    if (!permitId) return;
+    const pd = permitData;
+    const name = pd?.name || '';
+    const authority = pd?.authority || (pd as { department?: string })?.department || '';
+    const municipality = pd?.municipality || '';
+    if (!name) {
+      setRequiredDocuments([]);
+      return;
+    }
+    setLoadingRequiredDocs(true);
+    setRequiredDocuments([]);
+    fetch('/api/permits/required-documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        permitName: name,
+        authority,
+        municipality,
+      }),
+    })
+      .then((r) => r.json())
+      .then((data: { documents?: Array<{ name?: string; description?: string }> }) => {
+        const docs = Array.isArray(data?.documents)
+          ? data.documents
+              .filter((d) => d && typeof d.name === 'string')
+              .map((d) => ({
+                name: String(d.name).trim(),
+                description: typeof d.description === 'string' ? d.description.trim() : '',
+              }))
+          : [];
+        setRequiredDocuments(docs);
+      })
+      .catch(() => setRequiredDocuments([]))
+      .finally(() => setLoadingRequiredDocs(false));
+  }, [permitId, permitData?.name, permitData?.authority, permitData?.municipality]);
+
+  const fetchRequiredDocuments = () => {
+    const pd = permitData;
+    const name = pd?.name;
+    const authority = pd?.authority || (pd as { department?: string })?.department;
+    const municipality = pd?.municipality;
+    if (!name) return;
+    setLoadingRequiredDocs(true);
+    fetch('/api/permits/required-documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permitName: name, authority, municipality }),
+    })
+      .then((r) => r.json())
+      .then((data: { documents?: Array<{ name?: string; description?: string }> }) => {
+        const docs = Array.isArray(data?.documents)
+          ? data.documents
+              .filter((d) => d && typeof d.name === 'string')
+              .map((d) => ({
+                name: String(d.name).trim(),
+                description: typeof d.description === 'string' ? d.description.trim() : '',
+              }))
+          : [];
+        setRequiredDocuments(docs);
+      })
+      .catch(() => setRequiredDocuments([]))
+      .finally(() => setLoadingRequiredDocs(false));
+  };
 
   // Fetch permit status from API when clientId + permitId (persists status)
   useEffect(() => {
@@ -201,6 +276,13 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
     return () => abort.abort();
   }, [effectiveClientId, permitId]);
   const effectiveStatus = localStatus ?? (permitData?.status as PermitStatus | undefined) ?? 'not-started';
+  const pd = permitData as unknown as {
+    applicationNumber?: string;
+    governmentFee?: number;
+    fees?: string;
+    estimatedTime?: string;
+    lastActivityDate?: string | Date;
+  } | undefined;
   const permit = permitData
     ? {
         id: permitData.id,
@@ -209,8 +291,13 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         municipality: permitData.municipality,
         status: effectiveStatus,
         order: permitData.order,
-        submittedDate: 'December 15, 2024',
-        lastUpdated: permitData.lastActivityDate,
+        submittedDate: (permitData as { submittedDate?: string }).submittedDate ?? '',
+        lastUpdated: (() => {
+          const lad = pd?.lastActivityDate;
+          if (typeof lad === 'string') return lad;
+          if (lad && typeof lad === 'object' && 'toLocaleDateString' in lad) return (lad as Date).toLocaleDateString?.() ?? '';
+          return '';
+        })(),
         blockedBy: permitData.blockedBy ?? null,
         blocks: permitData.blocks ?? [],
         formUrl: (permitData as { applyUrl?: string; sourceUrl?: string; formUrl?: string }).applyUrl
@@ -219,12 +306,13 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         formTitle: permitData.formTitle,
         formCode: permitData.formCode,
         assignee: permitData.assignee ?? {
-          name: 'Sarah Chen',
-          initials: 'SC',
-          color: 'bg-green-500',
+          name: 'Unassigned',
+          initials: '—',
+          color: 'bg-muted',
         },
-        applicationNumber: 'HP-2024-12345',
-        governmentFee: 1250,
+        applicationNumber: pd?.applicationNumber ?? '',
+        governmentFee: typeof pd?.governmentFee === 'number' ? pd.governmentFee : (pd?.fees ? parseInt(String(pd.fees).replace(/\D/g, ''), 10) || 0 : 0),
+        estimatedTime: pd?.estimatedTime ?? '',
       }
     : {
         id: permitId,
@@ -237,80 +325,15 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         lastUpdated: '',
         blockedBy: null,
         blocks: [] as string[],
-        assignee: { name: 'Sarah Chen', initials: 'SC', color: 'bg-green-500' },
+        assignee: { name: 'Unassigned', initials: '—', color: 'bg-muted' },
         applicationNumber: '',
         governmentFee: 0,
+        estimatedTime: '',
       };
 
-  const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([
-    {
-      id: '1',
-      date: 'December 18, 2024',
-      time: '10:34 AM',
-      type: 'revision_required',
-      author: 'Inspector J. Martinez',
-      department: 'Plan Review Department',
-      subject: 'Floor Plan Revisions Required',
-      comment: 'Floor plan does not show required 3-compartment sink dimensions. Please revise to include precise measurements (minimum 18"x18" per compartment) and resubmit.\n\nAdditionally, please provide:\n- Updated equipment schedule\n- Sink specifications from manufacturer\n- Water supply calculations',
-      attachments: [
-        { name: 'rejection_notice_121824.pdf', size: '245 KB', type: 'pdf' },
-        { name: 'marked_up_floor_plan.pdf', size: '1.2 MB', type: 'pdf' },
-      ],
-      status: 'in_progress',
-      requiredDocuments: [
-        'Updated floor plan with sink dimensions',
-        'Equipment schedule',
-        'Sink specifications',
-        'Water supply calculations'
-      ],
-      uploadedDocuments: [
-        { name: 'floor_plan_revised_v2.pdf', size: '1.8 MB', uploadedBy: 'Sarah Chen', uploadedAt: 'Jan 11 at 9:15 AM' }
-      ],
-      consultantResponse: 'We have updated the floor plan to include the 3-compartment sink with dimensions of 18"x18" per compartment as specified. The sink specifications from the manufacturer are attached.\n\nWe are finalizing the water supply calculations and will upload by end of day Thursday.'
-    },
-    {
-      id: '2',
-      date: 'December 16, 2024',
-      time: '2:15 PM',
-      type: 'comment',
-      author: 'Plan Review Department',
-      department: 'SF Dept. of Public Health',
-      subject: 'Initial Review Complete',
-      comment: 'Initial review complete. Equipment layout meets spacing requirements. Minor revisions needed for sink specifications. Overall plan looks good - should be straightforward once sink details are added.',
-      attachments: [],
-      status: 'addressed',
-    },
-  ]);
+  const [cityFeedback, setCityFeedback] = useState<CityFeedbackItem[]>([]);
 
-  const history = [
-    {
-      id: '1',
-      date: 'December 18, 2024',
-      time: '10:34 AM',
-      action: 'Revision Requested',
-      details: 'City requested floor plan updates for 3-compartment sink dimensions',
-      actor: 'Inspector J. Martinez',
-      type: 'city' as const,
-    },
-    {
-      id: '2',
-      date: 'December 16, 2024',
-      time: '2:15 PM',
-      action: 'Initial Review Completed',
-      details: 'Plan review department completed first pass',
-      actor: 'Plan Review Department',
-      type: 'city' as const,
-    },
-    {
-      id: '3',
-      date: 'December 15, 2024',
-      time: '9:00 AM',
-      action: 'Submitted to City',
-      details: 'Initial plan submitted for health department review',
-      actor: 'Sarah Chen',
-      type: 'team' as const,
-    },
-  ];
+  const [history] = useState<Array<{ id: string; date: string; time: string; action: string; details: string; actor: string; type: 'city' | 'team' }>>([]);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -420,7 +443,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
     
     const comment: Comment = {
       id: String(comments.length + 1),
-      author: { name: 'John Doe', initials: 'JD', color: 'bg-purple-500', role: 'consultant' },
+      author: { name: 'You', initials: 'You', color: 'bg-purple-500', role: 'consultant' },
       message: newComment,
       timestamp: 'Just now',
       fullTimestamp: 'Today at ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
@@ -438,7 +461,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
       if (comment.id === commentId) {
         const newReply: Reply = {
           id: `r${(comment.replies?.length || 0) + 1}`,
-          author: { name: 'John Doe', initials: 'JD', color: 'bg-purple-500' },
+          author: { name: 'You', initials: 'You', color: 'bg-purple-500' },
           message: replyText,
           timestamp: 'Just now',
         };
@@ -576,7 +599,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
       fetchDocumentRequests();
       fetchDocuments();
     }
-  }, [activeSection, permitId]);
+  }, [activeSection, permitId, effectiveClientId]);
 
   const fetchDocumentRequests = async () => {
     setLoadingRequests(true);
@@ -595,7 +618,9 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
 
   const fetchDocuments = async () => {
     try {
-      const res = await fetch(`/api/documents?permitId=${permitId}`);
+      const params = new URLSearchParams({ permitId, workspace: 'permits' });
+      if (effectiveClientId) params.set('clientId', effectiveClientId);
+      const res = await fetch(`/api/documents?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setDocuments(Array.isArray(data) ? data : data?.documents || []);
@@ -698,12 +723,17 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                   <p className="text-xs font-medium text-muted-foreground mb-1">Application Number</p>
                   <div className="flex items-center gap-2">
                     <Hash className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm text-foreground font-mono">{permit.applicationNumber}</p>
+                    <p className="text-sm text-foreground font-mono">
+                      {permit.applicationNumber || '—'}
+                    </p>
                   </div>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Order in Plan</p>
-                  <p className="text-sm text-foreground">#{permit.order} of 6</p>
+                  <p className="text-sm text-foreground">
+                    #{permit.order}
+                    {totalPermitsInPlan != null ? ` of ${totalPermitsInPlan}` : ''}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Issuing Authority</p>
@@ -720,23 +750,33 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                   <p className="text-xs font-medium text-muted-foreground mb-1">Submitted</p>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm text-foreground">{permit.submittedDate}</p>
+                    <p className="text-sm text-foreground">{permit.submittedDate || '—'}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Last Updated</p>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm text-foreground">{permit.lastUpdated}</p>
+                    <p className="text-sm text-foreground">{permit.lastUpdated || '—'}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Assigned To</p>
                   <div className="flex items-center gap-2">
-                    <div className={`w-5 h-5 rounded-full ${permit.assignee.color} text-white text-xs font-medium flex items-center justify-center`}>
-                      {permit.assignee.initials}
-                    </div>
-                    <p className="text-sm text-foreground">{permit.assignee.name}</p>
+                    {(() => {
+                      const a = (permit.assignee as { name?: string; initials?: string; color?: string } | undefined);
+                      const safe = a && typeof a.name === 'string' && typeof a.initials === 'string' && typeof a.color === 'string'
+                        ? a
+                        : { name: 'Unassigned', initials: '—', color: 'bg-muted' };
+                      return (
+                        <>
+                          <div className={`w-5 h-5 rounded-full ${safe.color} text-white text-xs font-medium flex items-center justify-center`}>
+                            {safe.initials}
+                          </div>
+                          <p className="text-sm text-foreground">{safe.name}</p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div>
@@ -778,40 +818,52 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
               </div>
             )}
 
-            {/* Required Documents */}
+            {/* Required Documents - dynamic from LLM */}
             <div className="bg-surface border border-border rounded-lg p-6">
               <h3 className="text-sm font-semibold text-foreground mb-4">Required Documents</h3>
-              <p className="text-sm text-muted-foreground mb-4">Documents needed to complete this permit application</p>
-              <div className="space-y-2">
-                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
-                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Floor Plan with Equipment Layout</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Detailed floor plan showing all equipment placement and dimensions</p>
-                  </div>
+              {loadingRequiredDocs ? (
+                <div className="flex items-center gap-3 py-6">
+                  <Loader2 className="w-5 h-5 text-muted-foreground animate-spin flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    Finding documents typically needed for this permit…
+                  </p>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
-                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Equipment Specifications</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Manufacturer specs for all food service equipment</p>
+              ) : requiredDocuments.length > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    These are the documents we think you&apos;ll need for this permit application.
+                  </p>
+                  <div className="space-y-2">
+                    {requiredDocuments.map((doc, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
+                        <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground">{doc.name}</p>
+                          {doc.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{doc.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-start gap-3">
+                  <p className="text-sm text-muted-foreground">No documents listed for this permit.</p>
+                  <button
+                    onClick={fetchRequiredDocuments}
+                    disabled={loadingRequiredDocs || !permit.name}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingRequiredDocs ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    Find required documents
+                  </button>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
-                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Menu & Food Handling Procedures</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Description of food prep, storage, and handling processes</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-lg">
-                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Proof of Lease or Ownership</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Legal documentation of property rights</p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* AI Form Filling */}
@@ -839,30 +891,32 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="text-sm font-semibold text-foreground">
-                          {permitData?.formTitle || permit.name} {permitData?.formCode && `(${permitData.formCode})`}
+                          {(permitData as { formTitle?: string })?.formTitle || permit.name || 'Form'} {(permitData as { formCode?: string })?.formCode && `(${(permitData as { formCode: string }).formCode})`}
                         </h4>
                         <span className="px-2 py-0.5 bg-muted text-muted-foreground border border-border rounded text-xs font-semibold">
                           Required
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        Primary application form for {permit.name.toLowerCase()}
+                        Primary application form for {(permit.name || 'permit').toLowerCase()}
                       </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Building2 className="w-3.5 h-3.5" />
                           {permit.department}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          ~15 min to complete
-                        </span>
+                        {(permit as { estimatedTime?: string }).estimatedTime && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {(permit as { estimatedTime: string }).estimatedTime} to complete
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                   {/* Always show Fill with AI button - navigates to separate page */}
                   <a
-                    href={`/fill-form?clientId=${encodeURIComponent(effectiveClientId || clientId || '')}&permitId=${encodeURIComponent(permitId)}&permitName=${encodeURIComponent(permit.name)}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent(permitData?.formTitle && permitData?.formCode ? `${permitData.formTitle} (${permitData.formCode})` : permitData?.formTitle || permit.name)}`}
+                    href={`/fill-form?clientId=${encodeURIComponent(effectiveClientId || clientId || '')}&permitId=${encodeURIComponent(permitId)}&permitName=${encodeURIComponent(permit.name || '')}&clientName=${encodeURIComponent(clientName || '')}&formTitle=${encodeURIComponent((permitData as { formTitle?: string; formCode?: string })?.formTitle && (permitData as { formCode?: string })?.formCode ? `${(permitData as { formTitle: string }).formTitle} (${(permitData as { formCode: string }).formCode})` : (permitData as { formTitle?: string })?.formTitle || permit.name || '')}`}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow flex-shrink-0 cursor-pointer"
                     style={{ opacity: (effectiveClientId || clientId) ? 1 : 0.5 }}
                     title={(effectiveClientId || clientId) ? 'Fill form with AI using your business data' : 'Client ID required - please refresh'}
@@ -870,9 +924,9 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                     <Sparkles className="w-4 h-4" />
                     Fill with AI
                   </a>
-                  {permitData?.formUrl && !permitData.formUrl.startsWith('/api/fill-pdf') && (
+                  {(permitData as { formUrl?: string })?.formUrl && typeof (permitData as { formUrl?: string }).formUrl === 'string' && !(permitData as { formUrl: string }).formUrl.startsWith('/api/fill-pdf') && (
                     <a
-                      href={permitData.formUrl}
+                      href={(permitData as { formUrl: string }).formUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 px-4 py-2 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-50 transition-all flex-shrink-0"
@@ -1727,8 +1781,8 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
             {/* Add Comment */}
             <div className="bg-surface border border-border rounded-lg p-4">
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-sm font-medium flex-shrink-0 text-white">
-                  JD
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium flex-shrink-0 text-muted-foreground">
+                  You
                 </div>
                 <div className="flex-1">
                   <textarea
@@ -1949,7 +2003,13 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
           <div className="bg-surface border border-border rounded-lg p-6">
             <h3 className="text-sm font-semibold text-foreground mb-6">Activity Timeline</h3>
             <div className="space-y-1">
-              {history.map((event, index) => (
+              {history.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Clock className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                  <p className="text-sm">No activity yet</p>
+                  <p className="text-xs mt-1">Activity will appear here as you submit and receive updates.</p>
+                </div>
+              ) : history.map((event, index) => (
                 <div key={event.id} className="flex gap-4 group">
                   <div className="flex flex-col items-center pt-1">
                     <div className={`w-2 h-2 rounded-full ${
@@ -1998,10 +2058,15 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
         const pendingRequests = documentRequests.filter(r => r.status === 'pending').length;
         const uploadedRequests = documentRequests.filter(r => r.status === 'fulfilled').length;
 
-        const handleCopyLink = (requestId: string) => {
-          const uploadUrl = `${window.location.origin}/client-portal?requestId=${requestId}`;
+        const handleCopyLink = (req: { id: string; clientId?: string; clientName?: string }) => {
+          const params = new URLSearchParams({ requestId: req.id });
+          const cid = req.clientId || effectiveClientId || clientInfo?.id;
+          const cname = req.clientName || clientInfo?.name || clientName;
+          if (cid) params.set('clientId', cid);
+          if (cname) params.set('name', cname);
+          const uploadUrl = `${window.location.origin}/client-portal?${params.toString()}`;
           navigator.clipboard.writeText(uploadUrl);
-          // You could add a toast notification here
+          toast.success('Copied');
         };
 
         return (
@@ -2037,9 +2102,9 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                         for (const file of Array.from(files)) {
                           const formData = new FormData();
                           formData.append('file', file);
-                          formData.append('clientId', clientInfo?.id || '');
+                          formData.append('clientId', effectiveClientId || clientInfo?.id || '');
                           formData.append('permitId', permitId);
-                          formData.append('permitName', permit.name);
+                          formData.append('permitName', permit.name || '');
                           formData.append('workspace', 'permits');
                           
                           try {
@@ -2132,7 +2197,7 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
                                 className="flex-1 px-3 py-2 bg-surface border border-border rounded text-sm text-foreground"
                               />
                               <button
-                                onClick={() => handleCopyLink(request.id)}
+                                onClick={() => handleCopyLink(request)}
                                 className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground text-sm font-medium rounded hover:opacity-90 transition-colors"
                               >
                                 <Link2 className="w-4 h-4" />
@@ -2158,42 +2223,84 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
               <div className="mb-6">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Required Documents</p>
                 <div className="space-y-2">
-                  {[
-                    { name: 'Permit Application Form', required: true, uploaded: true, uploadedBy: 'Sarah Chen', uploadedAt: 'Dec 10, 2024' },
-                    { name: 'Site Plan / Floor Plan', required: true, uploaded: true, uploadedBy: 'Michael Park', uploadedAt: 'Dec 12, 2024' },
-                    { name: 'Equipment Specifications', required: true, uploaded: false },
-                    { name: 'Insurance Certificate', required: true, uploaded: false },
-                  ].map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors">
-                      <div className="flex items-center gap-3">
-                        {doc.uploaded ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-muted-foreground/60" />
-                        )}
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{doc.name}</p>
-                          {doc.uploaded && (
-                            <p className="text-xs text-muted-foreground">{doc.uploadedBy} • {doc.uploadedAt}</p>
-                          )}
-                        </div>
-                      </div>
-                      {doc.uploaded ? (
-                        <div className="flex items-center gap-2">
-                          <button className="p-1.5 text-muted-foreground hover:text-muted-foreground transition-colors">
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button className="px-3 py-1 text-xs font-medium text-foreground border border-border rounded-md hover:bg-accent transition-colors">
-                          Upload
-                        </button>
-                      )}
+                  {loadingRequiredDocs ? (
+                    <div className="flex items-center gap-2 py-4 text-muted-foreground text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading required documents…
                     </div>
-                  ))}
+                  ) : requiredDocuments.length === 0 ? (
+                    <div className="py-6 text-center text-muted-foreground text-sm">
+                      No required documents listed for this permit. You can upload documents above.
+                    </div>
+                  ) : requiredDocuments.map((reqDoc, idx) => {
+                    const matchDoc = documents.find((d) => {
+                      const reqLower = reqDoc.name.toLowerCase();
+                      const docName = (d.name || '').toLowerCase();
+                      const docCategory = (d.metadata?.category || '').toLowerCase();
+                      return docName.includes(reqLower) || docCategory.includes(reqLower) || reqLower.includes(docName);
+                    });
+                    const uploaded = !!matchDoc;
+                    const uploadedBy = matchDoc?.uploadedBy?.userName || '';
+                    const uploadedAt = matchDoc?.createdAt
+                      ? new Date(matchDoc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : '';
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors">
+                        <div className="flex items-center gap-3">
+                          {uploaded ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Circle className="w-5 h-5 text-muted-foreground/60" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{reqDoc.name}</p>
+                            {uploaded && uploadedBy && (
+                              <p className="text-xs text-muted-foreground">{uploadedBy} • {uploadedAt}</p>
+                            )}
+                          </div>
+                        </div>
+                        {uploaded ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => matchDoc?.fileUrl && window.open(matchDoc.fileUrl)}
+                              className="p-1.5 text-muted-foreground hover:text-muted-foreground transition-colors"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.onchange = async (e) => {
+                                const files = (e.target as HTMLInputElement).files;
+                                if (!files?.[0]) return;
+                                const formData = new FormData();
+                                formData.append('file', files[0]);
+                                formData.append('clientId', effectiveClientId || clientInfo?.id || '');
+                                formData.append('permitId', permitId);
+                                formData.append('permitName', permit.name || '');
+                                formData.append('workspace', 'permits');
+                                formData.append('metadata', JSON.stringify({ category: reqDoc.name }));
+                                try {
+                                  const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
+                                  if (res.ok) fetchDocuments();
+                                } catch (err) { console.error(err); }
+                              };
+                              input.click();
+                            }}
+                            className="px-3 py-1 text-xs font-medium text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+                          >
+                            Upload
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2201,28 +2308,49 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Additional Documents</p>
                 <div className="space-y-2">
-                  {[
-                    { name: 'City Feedback Response - Dec 15.pdf', size: '245 KB', uploadedBy: 'Sarah Chen', uploadedAt: 'Dec 16, 2024' },
-                    { name: 'Revised Floor Plan v2.pdf', size: '1.2 MB', uploadedBy: 'Michael Park', uploadedAt: 'Dec 18, 2024' },
-                  ].map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors">
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-primary" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{doc.name}</p>
-                          <p className="text-xs text-muted-foreground">{doc.size} • {doc.uploadedBy} • {doc.uploadedAt}</p>
+                  {(() => {
+                    const matchesRequired = (d: any) => requiredDocuments.some((r) => {
+                      const reqLower = r.name.toLowerCase();
+                      const docName = (d.name || '').toLowerCase();
+                      const docCategory = (d.metadata?.category || '').toLowerCase();
+                      return docName.includes(reqLower) || docCategory.includes(reqLower) || reqLower.includes(docName);
+                    });
+                    const additionalDocs = documents.filter((d) => !matchesRequired(d));
+                    if (additionalDocs.length === 0) {
+                      return (
+                        <div className="text-center py-6 text-muted-foreground text-sm">
+                          No additional documents yet. Upload optional documents above.
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button className="p-1.5 text-muted-foreground hover:text-muted-foreground transition-colors">
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    }
+                    return additionalDocs.map((doc) => {
+                      const sizeStr = doc.fileSize ? `${(doc.fileSize / 1024).toFixed(doc.fileSize > 1024 * 1024 ? 1 : 0)} ${doc.fileSize > 1024 * 1024 ? 'MB' : 'KB'}` : '';
+                      const uploadedBy = doc.uploadedBy?.userName || '';
+                      const uploadedAt = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                      return (
+                        <div key={doc.id || doc._id} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors">
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{doc.name}</p>
+                              <p className="text-xs text-muted-foreground">{[sizeStr, uploadedBy, uploadedAt].filter(Boolean).join(' • ')}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => doc.fileUrl && window.open(doc.fileUrl)}
+                              className="p-1.5 text-muted-foreground hover:text-muted-foreground transition-colors"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>
@@ -2231,82 +2359,67 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
             <div className="bg-surface border border-border rounded-lg p-6">
               <h3 className="text-sm font-semibold text-foreground mb-4">Submission History</h3>
               <div className="space-y-3">
-                {[
-                  { version: 'Initial Submission', date: 'Dec 10, 2024', status: 'Revision Required', files: 3 },
-                  { version: 'Resubmission #1', date: 'Dec 18, 2024', status: 'Under Review', files: 5 },
-                ].map((submission, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{submission.version}</p>
-                      <p className="text-xs text-muted-foreground">{submission.date} • {submission.files} files</p>
-                    </div>
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${
-                      submission.status === 'Under Review' 
-                        ? 'bg-muted text-foreground'
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {submission.status}
-                    </span>
-                  </div>
-                ))}
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
+                  <p className="text-sm">No submissions yet</p>
+                  <p className="text-xs mt-1">Submission history will appear here once you submit this permit.</p>
+                </div>
               </div>
             </div>
           </div>
         );
 
       case 'review':
-        const documentReviews = [
-          {
-            id: '1',
-            documentName: 'floor_plan_revised_v2.pdf',
-            documentType: 'Floor Plan',
-            uploadedBy: 'Sarah Chen',
-            uploadedAt: 'Jan 11 at 9:15 AM',
-            size: '1.8 MB',
-            status: 'changes_requested' as const,
-            reviewers: [
-              {
-                name: 'Michael Park',
-                initials: 'MP',
-                color: 'bg-blue-600',
-                status: 'changes_requested' as const,
-                reviewedAt: 'Jan 11 at 11:30 AM',
-              },
-            ],
-            comments: [
-              {
-                id: 'rc1',
-                author: { name: 'Michael Park', initials: 'MP', color: 'bg-blue-600' },
-                message: 'The 3-compartment sink dimensions look good now, but I noticed the water supply line routing isn\'t shown. Can you add that detail before we submit?',
-                timestamp: 'Jan 11 at 11:30 AM',
-                type: 'change_request' as const,
-                documentName: 'floor_plan_revised_v2.pdf',
-              },
-            ],
-          },
-          {
-            id: '2',
-            documentName: 'sink_specifications_kohler.pdf',
-            documentType: 'Equipment Specification',
-            uploadedBy: 'Sarah Chen',
-            uploadedAt: 'Jan 11 at 10:00 AM',
-            size: '456 KB',
-            status: 'pending_review' as const,
-            reviewers: [],
-            comments: [],
-          },
-          {
-            id: '3',
-            documentName: 'water_supply_calculations.pdf',
-            documentType: 'Engineering Calculation',
-            uploadedBy: 'Michael Park',
-            uploadedAt: 'Jan 11 at 2:00 PM',
-            size: '234 KB',
-            status: 'pending_review' as const,
-            reviewers: [],
-            comments: [],
-          },
-        ];
+        const documentReviews = documents.map((doc) => {
+          const sizeStr = doc.fileSize ? `${(doc.fileSize / 1024).toFixed(doc.fileSize > 1024 * 1024 ? 1 : 0)} ${doc.fileSize > 1024 * 1024 ? 'MB' : 'KB'}` : '';
+          const uploadedAt = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+          const reviewers = (doc.workflow?.reviewedBy || []).map((r: { userName?: string; reviewedAt?: Date; status?: string }) => {
+            const name = r.userName || 'Reviewer';
+            const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+            return {
+              name,
+              initials,
+              color: 'bg-blue-600',
+              status: (r.status as 'pending' | 'approved' | 'changes_requested') || 'pending',
+              reviewedAt: r.reviewedAt ? new Date(r.reviewedAt).toLocaleString('en-US') : undefined,
+            };
+          });
+          const comments = (doc.workflow?.reviewedBy || [])
+            .filter((r: { comments?: string }) => r.comments)
+            .map((r: { userName?: string; comments?: string; reviewedAt?: Date }, i: number) => ({
+              id: `rc-${doc.id}-${i}`,
+              author: { name: r.userName || 'Reviewer', initials: (r.userName || 'R').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(), color: 'bg-blue-600' },
+              message: r.comments || '',
+              timestamp: r.reviewedAt ? new Date(r.reviewedAt).toLocaleString('en-US') : '',
+              type: 'change_request' as const,
+              documentName: doc.name,
+            }));
+          const status = (doc.workflow?.reviewedBy?.some((r: { status?: string }) => r.status === 'needs-revision' || r.status === 'rejected')
+            ? 'changes_requested'
+            : doc.workflow?.reviewedBy?.some((r: { status?: string }) => r.status === 'approved')
+              ? 'approved'
+              : 'pending_review') as 'pending_review' | 'approved' | 'changes_requested';
+          return {
+            id: doc.id || doc._id,
+            documentName: doc.name || doc.fileName,
+            documentType: doc.metadata?.category || 'Document',
+            uploadedBy: doc.uploadedBy?.userName || 'Unknown',
+            uploadedAt,
+            size: sizeStr,
+            status,
+            reviewers,
+            comments,
+          };
+        });
+        if (documentReviews.length === 0) {
+          return (
+            <div className="bg-surface border border-border rounded-lg p-12 text-center">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+              <h3 className="text-sm font-semibold text-foreground mb-2">No documents to review</h3>
+              <p className="text-sm text-muted-foreground">Upload documents in the Documents tab. Documents requiring review will appear here.</p>
+            </div>
+          );
+        }
         return (
           <ReviewSection reviews={documentReviews} />
         );
@@ -2463,9 +2576,11 @@ export function PermitDetailView({ permitId, onBack, clientName, clientId }: Per
           clientId={effectiveClientId || clientId}
           permitId={permitId}
           formTitle={
-            permitData?.formTitle && permitData?.formCode
-              ? `${permitData.formTitle} (${permitData.formCode})`
-              : permitData?.formTitle || permit.name
+            (() => {
+              const pd = permitData as { formTitle?: string; formCode?: string } | undefined;
+              if (pd?.formTitle && pd?.formCode) return `${pd.formTitle} (${pd.formCode})`;
+              return typeof pd?.formTitle === 'string' ? pd.formTitle : (permit.name || '');
+            })()
           }
           pdfUrl={(effectiveClientId || clientId) ? `/api/fill-pdf?clientId=${encodeURIComponent(effectiveClientId || clientId || '')}&permitId=${encodeURIComponent(permitId)}` : undefined}
         />

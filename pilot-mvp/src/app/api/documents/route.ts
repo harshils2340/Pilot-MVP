@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     
     const url = new URL(request.url);
     const clientId = url.searchParams.get('clientId');
+    const permitId = url.searchParams.get('permitId');
     const consultantId = url.searchParams.get('consultantId');
     const workspace = url.searchParams.get('workspace');
     const status = url.searchParams.get('status');
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
       // Return ALL documents for this client (both consultant and client uploaded)
       // Don't filter by consultantId - we want to see all documents regardless of who uploaded
       query.clientId = clientId;
+    }
+    if (permitId) {
+      query['metadata.permitId'] = permitId;
     }
     // Note: consultantId filter removed - we want all documents for the client
     // Both consultant and client portals should see all documents

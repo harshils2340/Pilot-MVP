@@ -13,9 +13,24 @@ export async function GET(request: NextRequest) {
   try {
     await connectToDB();
     const url = new URL(request.url);
+    const requestId = url.searchParams.get('requestId');
     const clientId = url.searchParams.get('clientId');
     const permitId = url.searchParams.get('permitId');
-    const status = url.searchParams.get('status') || 'pending';
+    const status = url.searchParams.get('status');
+
+    // Fetch single request by ID (e.g. when client opens link with only requestId)
+    if (requestId) {
+      const doc = await DocumentRequest.findById(requestId).lean();
+      if (!doc) {
+        return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+      }
+      const r = doc as any;
+      return NextResponse.json({
+        id: r._id.toString(),
+        _id: r._id.toString(),
+        ...r,
+      });
+    }
 
     const query: Record<string, unknown> = {};
     if (clientId) query.clientId = clientId;
@@ -105,7 +120,11 @@ export async function POST(request: NextRequest) {
     // Send email to client if email is available
     if (clientEmail) {
       try {
-        const uploadUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://pilot-mvp.vercel.app'}/client-portal?requestId=${doc._id.toString()}`;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pilot-mvp.vercel.app';
+        const params = new URLSearchParams({ requestId: doc._id.toString() });
+        if (clientId) params.set('clientId', clientId);
+        if (clientName) params.set('name', clientName);
+        const uploadUrl = `${baseUrl}/client-portal?${params.toString()}`;
         
         const mailgun = new Mailgun(FormData);
         const mg = mailgun.client({

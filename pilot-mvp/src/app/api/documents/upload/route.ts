@@ -10,6 +10,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const clientId = formData.get('clientId') as string;
+    const permitId = formData.get('permitId') as string | null;
+    const permitName = formData.get('permitName') as string | null;
     const consultantId = formData.get('consultantId') as string | null;
     const folder = formData.get('folder') as string || 'General';
     const workspace = formData.get('workspace') as string || folder.split('/')[0]?.toLowerCase() || 'general';
@@ -90,6 +92,8 @@ export async function POST(request: NextRequest) {
       },
       metadata: {
         ...metadata,
+        permitId: permitId || metadata.permitId,
+        permitName: permitName || metadata.permitName,
         source: metadata.source || (uploadedBy.isClient ? 'client' : 'consultant'),
         receivedVia: metadata.receivedVia || (requestId ? 'request' : 'upload'),
         requestId: requestId || undefined,

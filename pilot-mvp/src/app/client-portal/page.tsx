@@ -8,26 +8,6 @@ import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle } from 'lucid
 
 type Tab = 'documents' | 'requests' | 'shared' | 'billing';
 
-const MOCK_REQUESTS = [
-  {
-    id: 'req-1',
-    title: 'Updated floor plan with sink dimensions',
-    description: 'Please upload the revised floor plan showing 3-compartment sink dimensions.',
-    status: 'pending',
-    createdAt: '2026-01-12T12:00:00.000Z',
-    expiresAt: '2026-02-05T12:00:00.000Z',
-  },
-  {
-    id: 'req-2',
-    title: 'Equipment schedule',
-    description: 'Provide the updated equipment schedule for the plan review resubmission.',
-    status: 'pending',
-    createdAt: '2026-01-14T09:30:00.000Z',
-  },
-];
-
-// No mock shared documents - will fetch real ones from API
-
 const getLocalRequests = (clientId: string) => {
   try {
     const stored = JSON.parse(localStorage.getItem('pilotDocumentRequests') || '[]');
@@ -48,30 +28,29 @@ function ClientPortalContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get client info from URL params (email is never in URL - we fetch it from API)
-    const id = searchParams.get('clientId') || localStorage.getItem('clientId');
-    const name = searchParams.get('name') || localStorage.getItem('clientName') || 'Client';
+    const idFromUrl = searchParams.get('clientId');
+    const nameFromUrl = searchParams.get('name');
+    const requestIdFromUrl = searchParams.get('requestId');
 
-    if (id) {
-      setClientId(id);
-      localStorage.setItem('clientId', id);
-    }
-    if (name) {
-      setClientName(name);
-      localStorage.setItem('clientName', name);
-    }
+    const applyClient = (cid: string, cname: string) => {
+      setClientId(cid);
+      setClientName(cname || 'Client');
+      localStorage.setItem('clientId', cid);
+      if (cname) localStorage.setItem('clientName', cname);
+    };
 
-    // Fetch email from API when we have clientId (keeps email out of the URL)
     const fetchClientEmail = async (cid: string) => {
       try {
         const res = await fetch(`/api/clients/${encodeURIComponent(cid)}`);
         if (res.ok) {
           const client = await res.json();
           const email = (client.contactInfo as { email?: string } | undefined)?.email;
+          const bizName = client.businessName || clientName;
           if (email) {
             setClientEmail(email);
             localStorage.setItem(`clientEmail_${cid}`, email);
           }
+          if (bizName && !nameFromUrl) setClientName(bizName);
         }
       } catch {
         const stored = localStorage.getItem(`clientEmail_${cid}`);
@@ -79,16 +58,38 @@ function ClientPortalContent() {
       }
     };
 
-    if (id) {
-      const storedEmail = localStorage.getItem(`clientEmail_${id}`);
-      if (storedEmail) {
-        setClientEmail(storedEmail);
+    const run = async () => {
+      if (idFromUrl) {
+        applyClient(idFromUrl, nameFromUrl || 'Client');
+        const storedEmail = localStorage.getItem(`clientEmail_${idFromUrl}`);
+        if (storedEmail) setClientEmail(storedEmail);
+        else await fetchClientEmail(idFromUrl);
+      } else if (requestIdFromUrl) {
+        try {
+          const res = await fetch(`/api/documents/requests?requestId=${encodeURIComponent(requestIdFromUrl)}`);
+          if (res.ok) {
+            const req = await res.json();
+            const cid = req.clientId;
+            const cname = req.clientName || 'Client';
+            if (cid) {
+              applyClient(cid, cname);
+              const storedEmail = localStorage.getItem(`clientEmail_${cid}`);
+              if (storedEmail) setClientEmail(storedEmail);
+              else await fetchClientEmail(cid);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to resolve request:', e);
+        }
       } else {
-        fetchClientEmail(id);
+        const storedId = localStorage.getItem('clientId');
+        const storedName = localStorage.getItem('clientName') || 'Client';
+        if (storedId) applyClient(storedId, storedName);
       }
-    }
+      setLoading(false);
+    };
 
-    setLoading(false);
+    run();
   }, [searchParams]);
 
   if (loading) {
@@ -204,20 +205,20 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const res = await fetch(`/api/documents/requests?clientId=${clientId}&status=pending`);
+        const res = await fetch(`/api/documents/requests?clientId=${clientId}`);
         if (res.ok) {
           const data = await res.json();
+          const apiRequests = Array.isArray(data) ? data : [];
           const localRequests = getLocalRequests(clientId);
-          const merged = [...localRequests, ...data];
-          setRequests(merged.length > 0 ? merged : MOCK_REQUESTS);
+          const seen = new Set(apiRequests.map((r: any) => r.id || r._id));
+          const extra = localRequests.filter((r: any) => !seen.has(r.id || r._id));
+          setRequests([...apiRequests, ...extra]);
         } else {
-          const localRequests = getLocalRequests(clientId);
-          setRequests(localRequests.length > 0 ? localRequests : MOCK_REQUESTS);
+          setRequests(getLocalRequests(clientId));
         }
       } catch (error) {
         console.error('Failed to fetch requests:', error);
-        const localRequests = getLocalRequests(clientId);
-        setRequests(localRequests.length > 0 ? localRequests : MOCK_REQUESTS);
+        setRequests(getLocalRequests(clientId));
       } finally {
         setLoading(false);
       }
@@ -234,11 +235,18 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
     );
   }
 
+  const pendingCount = requests.filter((r: any) => r.status === 'pending').length;
+  const fulfilledCount = requests.filter((r: any) => r.status === 'fulfilled').length;
+
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-foreground mb-2">Document Requests</h1>
-        <p className="text-muted-foreground">Requests from your consultant</p>
+        <p className="text-muted-foreground">
+          {requests.length === 0
+            ? 'Requests from your consultant'
+            : `${requests.length} total • ${pendingCount} requested • ${fulfilledCount} sent`}
+        </p>
       </div>
 
       {requests.length === 0 ? (
@@ -249,7 +257,7 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (
-            <DocumentRequestCard key={request.id} request={request} />
+            <DocumentRequestCard key={request.id} request={request} clientId={clientId} />
           ))}
         </div>
       )}
@@ -257,7 +265,7 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
   );
 }
 
-function DocumentRequestCard({ request }: { request: any }) {
+function DocumentRequestCard({ request, clientId }: { request: any; clientId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -268,7 +276,8 @@ function DocumentRequestCard({ request }: { request: any }) {
   };
 
   const handleUpload = async (file: File) => {
-    if (!request.clientId) {
+    const cid = request.clientId || clientId;
+    if (!cid) {
       alert('Client ID is missing. Please refresh the page and try again.');
       return;
     }
@@ -290,7 +299,7 @@ function DocumentRequestCard({ request }: { request: any }) {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('clientId', request.clientId);
+      formData.append('clientId', cid);
       formData.append('folder', 'General'); // Default folder for requested documents
       formData.append('uploadedBy', JSON.stringify({
         userId: request.clientId,
@@ -320,7 +329,7 @@ function DocumentRequestCard({ request }: { request: any }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            clientId: request.clientId,
+            clientId: cid,
             documentId: newDoc.id,
             requestId: requestId,
           }),
@@ -331,12 +340,10 @@ function DocumentRequestCard({ request }: { request: any }) {
 
         if (fulfillRes.ok && fulfillData.modified > 0) {
           alert('Document uploaded successfully! The request has been marked as fulfilled.');
-          // Refresh requests to show updated status
           window.location.reload();
         } else {
           console.error('Failed to fulfill request:', fulfillData);
           alert(`Document uploaded but failed to mark request as fulfilled: ${fulfillData.error || 'Unknown error'}. The document is still available in your Documents tab.`);
-          // Still reload to show the uploaded document
           window.location.reload();
         }
       } else {
@@ -414,10 +421,11 @@ function SharedDocumentsView({ clientId }: { clientId: string }) {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const res = await fetch(`/api/documents?clientId=${clientId}&status=shared`);
+        const res = await fetch(`/api/documents?clientId=${clientId}`);
         if (res.ok) {
           const data = await res.json();
-          setDocuments(Array.isArray(data) ? data : []);
+          const docs = Array.isArray(data) ? data : [];
+          setDocuments(docs);
         } else {
           setDocuments([]);
         }

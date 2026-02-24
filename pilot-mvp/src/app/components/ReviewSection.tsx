@@ -52,12 +52,13 @@ interface ReviewSectionProps {
   onUpdateReview?: (reviewId: string, status: DocumentReview['status']) => void;
 }
 
-// Mock available reviewers
+// Placeholder reviewers - in production, fetch from team/consultant API
+const DEFAULT_REVIEWER_COLORS = ['bg-purple-600', 'bg-blue-600', 'bg-pink-600', 'bg-orange-600'];
 const availableReviewers = [
-  { name: 'Sarah Chen', initials: 'SC', color: 'bg-purple-600' },
-  { name: 'Mike Torres', initials: 'MT', color: 'bg-blue-600' },
-  { name: 'Lisa Park', initials: 'LP', color: 'bg-pink-600' },
-  { name: 'James Wilson', initials: 'JW', color: 'bg-orange-600' },
+  { name: 'Team member', initials: 'TM', color: DEFAULT_REVIEWER_COLORS[0] },
+  { name: 'Reviewer', initials: 'R1', color: DEFAULT_REVIEWER_COLORS[1] },
+  { name: 'Reviewer', initials: 'R2', color: DEFAULT_REVIEWER_COLORS[2] },
+  { name: 'Reviewer', initials: 'R3', color: DEFAULT_REVIEWER_COLORS[3] },
 ];
 
 export function ReviewSection({ reviews: initialReviews, onUpdateReview }: ReviewSectionProps) {
