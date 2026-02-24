@@ -25,6 +25,7 @@ interface Permit {
   };
   authority?: string;
   activities?: string[];
+  applyUrl?: string;
   sourceUrl?: string;
   priority?: 'High' | 'Medium' | 'Low';
   category?: string;
@@ -119,338 +120,6 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       cleanupOperations();
     };
   }, []);
-
-  // Hardcoded permits based on location and business type
-  const getHardcodedPermits = (location: string, businessType: string): Permit[] => {
-    const locationLower = location.toLowerCase();
-    const businessLower = businessType.toLowerCase();
-    
-    // Check if San Francisco / California location
-    const isSanFrancisco = locationLower.includes('san francisco') || 
-                          locationLower.includes('sf') ||
-                          (locationLower.includes('california') || locationLower.includes('ca'));
-    
-    // Check if restaurant/food business
-    const isRestaurant = businessLower.includes('restaurant') || 
-                        businessLower.includes('food') ||
-                        businessLower.includes('cafe') ||
-                        businessLower.includes('bar') ||
-                        businessLower.includes('dining');
-    
-    // San Francisco Restaurant permits (18 total)
-    if (isSanFrancisco && isRestaurant) {
-      return [
-        {
-          _id: 'sf-health-permit',
-          name: 'Food Service Health Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Public Health',
-          activities: ['Food preparation', 'Food service', 'Food handling'],
-          priority: 'High',
-          category: 'Health & Safety',
-        },
-        {
-          _id: 'sf-business-license',
-          name: 'Business Registration Certificate',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Office of the Treasurer & Tax Collector',
-          activities: ['Operating a business in San Francisco'],
-          priority: 'High',
-          category: 'Business',
-        },
-        {
-          _id: 'sf-food-handler',
-          name: 'Food Handler Certificate',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Public Health',
-          activities: ['Food handling', 'Food preparation'],
-          priority: 'High',
-          category: 'Health & Safety',
-        },
-        {
-          _id: 'sf-fire-permit',
-          name: 'Fire Department Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Fire Department',
-          activities: ['Commercial cooking', 'Hood and duct systems', 'Fire safety'],
-          priority: 'High',
-          category: 'Fire Safety',
-        },
-        {
-          _id: 'sf-building-permit',
-          name: 'Building Permit (Tenant Improvements)',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Building Inspection',
-          activities: ['Interior construction', 'Restaurant build-out', 'Kitchen installation'],
-          priority: 'High',
-          category: 'Construction',
-        },
-        {
-          _id: 'sf-conditional-use',
-          name: 'Conditional Use Authorization',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Planning Commission',
-          activities: ['Restaurant use in certain zoning districts', 'Late night operations'],
-          priority: 'High',
-          category: 'Planning',
-        },
-        {
-          _id: 'sf-grease-trap',
-          name: 'Grease Trap/Interceptor Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Public Utilities Commission',
-          activities: ['Wastewater discharge', 'Grease management'],
-          priority: 'Medium',
-          category: 'Environmental',
-        },
-        {
-          _id: 'sf-hood-duct',
-          name: 'Commercial Kitchen Hood & Duct Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Fire Department',
-          activities: ['Kitchen ventilation', 'Fire suppression systems'],
-          priority: 'Medium',
-          category: 'Fire Safety',
-        },
-        {
-          _id: 'sf-signage-permit',
-          name: 'Sign Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Planning Department',
-          activities: ['Business signage', 'Exterior signs'],
-          priority: 'Medium',
-          category: 'Planning',
-        },
-        {
-          _id: 'sf-sidewalk-permit',
-          name: 'Sidewalk Tables & Chairs Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Public Works',
-          activities: ['Outdoor seating', 'Sidewalk dining'],
-          priority: 'Medium',
-          category: 'Public Works',
-        },
-        {
-          _id: 'sf-entertainment',
-          name: 'Place of Entertainment Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Entertainment Commission',
-          activities: ['Live music', 'DJ performances', 'Dancing'],
-          priority: 'Medium',
-          category: 'Entertainment',
-        },
-        {
-          _id: 'sf-alcohol-abc',
-          name: 'Alcoholic Beverage License (Type 47)',
-          level: 'provincial',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'California Dept of Alcoholic Beverage Control',
-          activities: ['On-premises alcohol sales', 'Beer, wine, and spirits'],
-          priority: 'High',
-          category: 'Alcohol',
-        },
-        {
-          _id: 'ca-sellers-permit',
-          name: 'California Seller\'s Permit',
-          level: 'provincial',
-          jurisdiction: { province: 'California' },
-          authority: 'CA Department of Tax and Fee Administration',
-          activities: ['Selling taxable goods', 'Retail sales'],
-          priority: 'High',
-          category: 'State Tax',
-        },
-        {
-          _id: 'ca-ehs-permit',
-          name: 'Environmental Health Services Permit',
-          level: 'provincial',
-          jurisdiction: { province: 'California' },
-          authority: 'California Department of Public Health',
-          activities: ['Food facility operation', 'Environmental compliance'],
-          priority: 'Medium',
-          category: 'Health & Safety',
-        },
-        {
-          _id: 'ca-weights-measures',
-          name: 'Weights & Measures Registration',
-          level: 'provincial',
-          jurisdiction: { province: 'California' },
-          authority: 'CA Dept of Food and Agriculture',
-          activities: ['Commercial scales', 'Measuring devices'],
-          priority: 'Low',
-          category: 'State',
-        },
-        {
-          _id: 'fed-ein',
-          name: 'Federal Employer Identification Number (EIN)',
-          level: 'federal',
-          jurisdiction: { province: 'USA' },
-          authority: 'Internal Revenue Service (IRS)',
-          activities: ['Business tax identification', 'Hiring employees'],
-          priority: 'High',
-          category: 'Federal',
-        },
-        {
-          _id: 'fed-fda',
-          name: 'FDA Food Facility Registration',
-          level: 'federal',
-          jurisdiction: { province: 'USA' },
-          authority: 'U.S. Food and Drug Administration',
-          activities: ['Food manufacturing', 'Food storage'],
-          priority: 'Medium',
-          category: 'Federal',
-        },
-        {
-          _id: 'sf-music-license',
-          name: 'Music License (ASCAP/BMI/SESAC)',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'Music Licensing Organizations',
-          activities: ['Playing recorded music', 'Background music'],
-          priority: 'Low',
-          category: 'Entertainment',
-        },
-      ];
-    }
-    
-    // Default permits for other locations/business types (12 permits)
-    const city = location.split(',')[0]?.trim() || 'Your City';
-    const state = location.split(',')[1]?.trim() || 'Your State';
-    
-    return [
-      {
-        _id: 'general-business-license',
-        name: 'Business License',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'City Business Administration',
-        activities: ['General business operations'],
-        priority: 'High',
-        category: 'Business',
-      },
-      {
-        _id: 'general-health-permit',
-        name: 'Health Department Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'County Health Department',
-        activities: ['Food service', 'Public health compliance'],
-        priority: 'High',
-        category: 'Health & Safety',
-      },
-      {
-        _id: 'general-food-handler',
-        name: 'Food Handler Certification',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Health Department',
-        activities: ['Food handling', 'Food safety training'],
-        priority: 'High',
-        category: 'Health & Safety',
-      },
-      {
-        _id: 'general-fire-safety',
-        name: 'Fire Safety Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Fire Department',
-        activities: ['Fire safety compliance', 'Commercial operations'],
-        priority: 'High',
-        category: 'Fire Safety',
-      },
-      {
-        _id: 'general-building',
-        name: 'Building Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Building Department',
-        activities: ['Construction', 'Tenant improvements'],
-        priority: 'Medium',
-        category: 'Construction',
-      },
-      {
-        _id: 'general-zoning',
-        name: 'Zoning Compliance Certificate',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Planning Department',
-        activities: ['Land use compliance', 'Business location approval'],
-        priority: 'Medium',
-        category: 'Planning',
-      },
-      {
-        _id: 'general-signage',
-        name: 'Sign Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Planning Department',
-        activities: ['Business signage', 'Exterior signs'],
-        priority: 'Low',
-        category: 'Planning',
-      },
-      {
-        _id: 'general-alcohol',
-        name: 'Liquor License',
-        level: 'provincial',
-        jurisdiction: { province: state },
-        authority: 'State Alcoholic Beverage Control',
-        activities: ['Alcohol sales', 'On-premises consumption'],
-        priority: 'High',
-        category: 'Alcohol',
-      },
-      {
-        _id: 'general-sales-tax',
-        name: 'Sales Tax Permit',
-        level: 'provincial',
-        jurisdiction: { province: state },
-        authority: 'State Revenue Department',
-        activities: ['Collecting sales tax', 'Retail transactions'],
-        priority: 'High',
-        category: 'State Tax',
-      },
-      {
-        _id: 'general-ein',
-        name: 'Federal Employer ID (EIN)',
-        level: 'federal',
-        jurisdiction: { province: 'USA' },
-        authority: 'Internal Revenue Service',
-        activities: ['Business identification', 'Tax filing'],
-        priority: 'High',
-        category: 'Federal',
-      },
-      {
-        _id: 'general-outdoor',
-        name: 'Outdoor Seating Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Public Works Department',
-        activities: ['Patio seating', 'Sidewalk dining'],
-        priority: 'Medium',
-        category: 'Public Works',
-      },
-      {
-        _id: 'general-music',
-        name: 'Music License',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'ASCAP/BMI/SESAC',
-        activities: ['Background music', 'Entertainment'],
-        priority: 'Low',
-        category: 'Entertainment',
-      },
-    ];
-  };
-
   // Helper to parse location string (e.g., "Ottawa, Ontario" or "San Francisco, CA")
   const parseLocation = (locationStr: string): { country: string; province: string; city: string } => {
     const parts = locationStr.split(',').map(p => p.trim());
@@ -503,22 +172,25 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     return { country, province: province.toUpperCase(), city };
   };
 
-  // Map business type to slug
-  const mapBusinessTypeToSlug = (businessType: string): string => {
-    const businessTypeLower = businessType.toLowerCase();
-    
-    // Check if it matches any known business types
-    if (businessTypeLower.includes('restaurant') || businessTypeLower.includes('food') || 
-        businessTypeLower.includes('cafe') || businessTypeLower.includes('dining')) {
-      return 'restaurant';
+  const getPermitApplyUrl = (permit: Permit): string | null => {
+    const rawUrl = permit.applyUrl;
+    if (!rawUrl) return null;
+
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+      return null;
+    } catch {
+      return null;
     }
-    if (businessTypeLower.includes('retail') || businessTypeLower.includes('store') || 
-        businessTypeLower.includes('shop')) {
-      return 'retail';
-    }
-    
-    // Default to restaurant if unclear
-    return 'restaurant';
+  };
+
+  const handlePermitOpen = (permit: Permit) => {
+    const targetUrl = getPermitApplyUrl(permit);
+    if (!targetUrl) return;
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleFindPermits = async () => {
@@ -544,7 +216,6 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     try {
       // Parse location
       const parsedLocation = parseLocation(trimmedData.location);
-      const businessTypeSlug = mapBusinessTypeToSlug(trimmedData.businessType);
       
       // Convert permitKeywords to activities array
       const activities = trimmedData.permitKeywords
@@ -558,7 +229,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       
       const payload = {
         location: parsedLocation,
-        businessType: businessTypeSlug,
+        businessType: trimmedData.businessType,
         activities: activities,
       };
       
@@ -609,14 +280,20 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
         activities: p.reasons || [],
         priority: p.confidence === 'required' ? 'High' : p.confidence === 'conditional' ? 'Medium' : 'Low',
         category: p.level === 'federal' ? 'Federal' : p.level === 'provincial' ? 'Provincial' : 'Municipal',
-        sourceUrl: p.sourceUrl || p.applyUrl,
+        applyUrl: p.applyUrl,
+        sourceUrl: p.sourceUrl,
       }));
       
-      // If no permits found from API, fallback to hardcoded permits
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        console.warn('Permit discovery warnings:', data.warnings);
+      }
+
       if (discoveredPermits.length === 0) {
-        console.log('⚠️ No permits found from API, using fallback...');
-        const fallbackPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
-        setPermits(fallbackPermits);
+        console.log('No permits found from API.');
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          alert(`No permits found yet. ${data.warnings[0]}`);
+        }
+        setPermits([]);
       } else {
         setPermits(discoveredPermits);
       }
@@ -626,10 +303,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       console.log('🏁 Permit discovery process completed');
     } catch (err) {
       console.error('❌ Error during permit discovery:', err);
-      // Fallback to hardcoded permits on error
-      console.log('⚠️ Using fallback permits due to error...');
-      const fallbackPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
-      setPermits(fallbackPermits);
+      setPermits([]);
       setShowPermits(true);
       setLoading(false);
     }
@@ -714,7 +388,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 lastActivity: 'Not Started',
                 lastActivityDate: new Date(),
                 requirements: permit.activities || [],
-                howToApply: permit.sourceUrl ? `Apply at: ${permit.sourceUrl}` : 'Contact the issuing authority',
+                howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : 'Contact the issuing authority',
               };
             });
             
@@ -781,7 +455,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                     {permits.length} permits identified
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Based on the business information provided and BizPaL data, we've identified the following permits and licenses required for your client.
+                    Based on AI-assisted research across official government sources, we've identified the following permits and licenses required for your client.
                   </p>
                 </div>
               </div>
@@ -796,7 +470,21 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 {permits.map((permit, index) => (
                   <div
                     key={permit._id || index}
-                    className="bg-surface border border-border rounded-lg p-5 hover:border-border hover:shadow-md transition-all"
+                    className={`bg-surface border border-border rounded-lg p-5 hover:border-border hover:shadow-md transition-all ${
+                      getPermitApplyUrl(permit) ? 'cursor-pointer' : ''
+                    }`}
+                    onClick={getPermitApplyUrl(permit) ? () => handlePermitOpen(permit) : undefined}
+                    onKeyDown={getPermitApplyUrl(permit)
+                      ? (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handlePermitOpen(permit);
+                          }
+                        }
+                      : undefined
+                    }
+                    role={getPermitApplyUrl(permit) ? 'button' : undefined}
+                    tabIndex={getPermitApplyUrl(permit) ? 0 : undefined}
                   >
                     <div className="flex items-start gap-4">
                       {/* Number Badge */}
