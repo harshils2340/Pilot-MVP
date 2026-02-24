@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { permitSearchSchema } from "@/validators/permitSearchSchema";
+
+// Permit discovery does SerpAPI + scraping + LLM — can take 60+ seconds
+export const maxDuration = 60;
 import { findMatchingPermits } from "@/app/lib/permits/matcher";
 import connectToDB from "@/app/lib/mongodb";
 import type { PermitSearchResponse } from "@/types/permitSearch";
