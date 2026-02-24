@@ -97,7 +97,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const renderTab = () => {
     switch (activeTab) {
       case 'ai-insights':
-        return <AiInsights clientName={client?.businessName} />;
+        return <AiInsights clientId={clientId} clientName={client?.businessName} />;
       case 'discovery':
         return (
           <PermitDiscovery

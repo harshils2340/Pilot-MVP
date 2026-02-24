@@ -2,16 +2,24 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Sparkles, Send, MapPin, User, ChevronRight, Lightbulb, HelpCircle,
+  Sparkles, Send, MapPin, RefreshCw, User, ChevronRight, Lightbulb,
+  Search, Upload, Loader2, ChevronUp, UtensilsCrossed,
 } from 'lucide-react';
 import {
   getResponse,
+  getWelcomeResponse,
+  getSummary,
+  runScan,
   type BrainResponse,
   type ResponseComponent,
   type MetricItem,
   type BarItem,
   type PriceBand,
+  type SummaryResponse,
+  type ScanProgress,
 } from '../lib/aiInsightsBrain';
+import { MenuUpload } from './MenuUpload';
+import { MenuViewer } from './MenuViewer';
 
 // ─── inline component renderers ─────────────────────────────────────────────
 
@@ -52,12 +60,12 @@ function BarList({ items, title }: { items: BarItem[]; title?: string }) {
                 style={{ width: `${(item.value / (item.max ?? 100)) * 100}%` }}
               />
             </div>
-            <span className="text-sm font-semibold text-foreground w-10 text-right shrink-0">
-              {item.value}{item.unit ?? ''}
+            <span className="text-sm font-semibold text-foreground whitespace-nowrap text-right shrink-0">
+              {item.value}{item.unit ? ` ${item.unit}` : ''}
             </span>
           </div>
           {item.signal && (
-            <p className="text-xs text-muted-foreground pl-46">{item.signal}</p>
+            <p className="text-xs text-muted-foreground ml-44 pl-3">{item.signal}</p>
           )}
         </div>
       ))}
@@ -99,7 +107,7 @@ function DataTable({ headers, rows, title }: { headers: string[]; rows: { cells:
   );
 }
 
-function PriceBands({ bands, title }: { bands: PriceBand[]; title?: string }) {
+function PriceBands({ bands }: { bands: PriceBand[] }) {
   return (
     <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
       {bands.map((b, i) => {
@@ -154,14 +162,17 @@ function InlineComponent({ component }: { component: ResponseComponent }) {
   switch (component.type) {
     case 'metric-grid':
       return <MetricGrid items={component.data as MetricItem[]} />;
-    case 'bar-list':
-      return <BarList items={component.data as BarItem[]} title={component.title} />;
+    case 'bar-list': {
+      const d = component.data as { items?: BarItem[]; title?: string } | BarItem[];
+      if (Array.isArray(d)) return <BarList items={d} title={component.title} />;
+      return <BarList items={d.items ?? []} title={d.title ?? component.title} />;
+    }
     case 'data-table': {
-      const d = component.data as { headers: string[]; rows: { cells: (string | number)[] }[] };
-      return <DataTable headers={d.headers} rows={d.rows} title={component.title} />;
+      const d = component.data as { headers: string[]; rows: { cells: (string | number)[] }[]; title?: string };
+      return <DataTable headers={d.headers} rows={d.rows} title={d.title ?? component.title} />;
     }
     case 'price-bands':
-      return <PriceBands bands={component.data as PriceBand[]} title={component.title} />;
+      return <PriceBands bands={component.data as PriceBand[]} />;
     case 'callout':
       return <Callout text={(component.data as { text: string }).text} />;
     default:
@@ -185,57 +196,33 @@ interface Message {
 // ─── main component ──────────────────────────────────────────────────────────
 
 interface AiInsightsProps {
+  clientId: string;
   clientName?: string;
 }
 
-const LOADING_DURATION_MS = 10_000;
-
-// Steps with uneven timing (ms from start) — abrupt, not evenly split
-const LOADING_STEPS: { text: string; atMs: number }[] = [
-  { text: 'Fetching Google Maps API…', atMs: 1400 },
-  { text: 'Fetching Places data…', atMs: 3000 },
-  { text: 'Fetching menu & pricing data…', atMs: 4800 },
-  { text: 'Fetching competitor reviews…', atMs: 6500 },
-  { text: 'Analyzing location intelligence…', atMs: 8200 },
-  { text: 'Building response…', atMs: 9500 },
-];
-
-export function AiInsights({ clientName = 'King West Kitchen & Bar' }: AiInsightsProps) {
+export function AiInsights({ clientId, clientName }: AiInsightsProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [loadingStep, setLoadingStep] = useState<number>(-1); // -1 = nothing yet
-  const loadingTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [summaryData, setSummaryData] = useState<SummaryResponse | null>(null);
+  const [scanAddress, setScanAddress] = useState('');
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showMenuUpload, setShowMenuUpload] = useState(false);
+  const [showMenuViewer, setShowMenuViewer] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll to bottom whenever messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Cleanup loading + response timeouts on unmount
-  useEffect(() => {
-    return () => {
-      loadingTimeoutsRef.current.forEach(clearTimeout);
-      loadingTimeoutsRef.current = [];
-      if (responseTimeoutRef.current) {
-        clearTimeout(responseTimeoutRef.current);
-        responseTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  // Stream sentences into a message
   const streamMessage = useCallback((id: string, response: BrainResponse) => {
     const { sentences, components, followUps } = response;
-
     let index = 0;
 
     const tick = () => {
       if (index >= sentences.length) {
-        // Done streaming — attach components and follow-ups
         setMessages((prev) =>
           prev.map((m) =>
             m.id === id
@@ -266,7 +253,7 @@ export function AiInsights({ clientName = 'King West Kitchen & Bar' }: AiInsight
   }, []);
 
   const sendMessage = useCallback(
-    (text: string) => {
+    async (text: string) => {
       if (!text.trim() || isThinking) return;
 
       const userMsg: Message = {
@@ -283,20 +270,9 @@ export function AiInsights({ clientName = 'King West Kitchen & Bar' }: AiInsight
       setMessages((prev) => [...prev, userMsg]);
       setInput('');
       setIsThinking(true);
-      setLoadingStep(-1); // Start with nothing
 
-      // Abrupt steps at uneven times — full 10 seconds before response
-      loadingTimeoutsRef.current = LOADING_STEPS.map((step, i) =>
-        setTimeout(() => setLoadingStep(i), step.atMs)
-      );
-
-      responseTimeoutRef.current = setTimeout(() => {
-        loadingTimeoutsRef.current.forEach(clearTimeout);
-        loadingTimeoutsRef.current = [];
-        responseTimeoutRef.current = null;
-        setIsThinking(false);
-
-        const response = getResponse(text);
+      try {
+        const response = await getResponse(clientId, text);
         const assistantId = `a-${Date.now()}`;
 
         const assistantMsg: Message = {
@@ -312,12 +288,57 @@ export function AiInsights({ clientName = 'King West Kitchen & Bar' }: AiInsight
 
         setMessages((prev) => [...prev, assistantMsg]);
         streamMessage(assistantId, response);
-      }, LOADING_DURATION_MS);
+      } catch {
+        const errorMsg: Message = {
+          id: `e-${Date.now()}`,
+          role: 'assistant',
+          visibleText: 'Sorry, something went wrong. Please try again.',
+          fullSentences: ['Sorry, something went wrong. Please try again.'],
+          sentenceIndex: 1,
+          components: [],
+          followUps: ["What's the competitive landscape?"],
+          isStreaming: false,
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        setIsThinking(false);
+      }
     },
-    [isThinking, streamMessage]
+    [clientId, isThinking, streamMessage]
   );
 
-  // Start with empty messages — content appears only when the user asks
+  // Load summary + welcome on mount — single API call
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      const summary = await getSummary(clientId);
+      if (cancelled) return;
+      setSummaryData(summary);
+
+      // Pass the already-fetched summary directly — no second API call
+      const welcome = await getWelcomeResponse(summary);
+      if (cancelled) return;
+
+      const welcomeId = 'welcome';
+      const welcomeMsg: Message = {
+        id: welcomeId,
+        role: 'assistant',
+        visibleText: '',
+        fullSentences: welcome.sentences,
+        sentenceIndex: 0,
+        components: [],
+        followUps: [],
+        isStreaming: true,
+      };
+      setMessages([welcomeMsg]);
+      streamMessage(welcomeId, welcome);
+    }
+
+    init();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -326,7 +347,41 @@ export function AiInsights({ clientName = 'King West Kitchen & Bar' }: AiInsight
     }
   };
 
-  // Bold **text** helper
+  const handleInitialize = async () => {
+    if (!scanAddress.trim() || isScanning) return;
+    setIsScanning(true);
+    setScanProgress({ stage: 'Starting scan...', progress: 0 });
+
+    const result = await runScan(clientId, scanAddress, (p) => {
+      setScanProgress(p);
+    });
+
+    setIsScanning(false);
+
+    if (result.success) {
+      setScanProgress({ stage: 'Complete!', progress: 100 });
+      const summary = await getSummary(clientId);
+      setSummaryData(summary);
+      const welcome = await getWelcomeResponse(clientId);
+      const id = `scan-done-${Date.now()}`;
+      const msg: Message = {
+        id,
+        role: 'assistant',
+        visibleText: '',
+        fullSentences: welcome.sentences,
+        sentenceIndex: 0,
+        components: [],
+        followUps: [],
+        isStreaming: true,
+      };
+      setMessages((prev) => [...prev, msg]);
+      streamMessage(id, welcome);
+      setTimeout(() => setScanProgress(null), 2000);
+    } else {
+      setScanProgress({ stage: 'Failed', progress: 0, error: result.error });
+    }
+  };
+
   function renderText(text: string) {
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) =>
@@ -338,237 +393,306 @@ export function AiInsights({ clientName = 'King West Kitchen & Bar' }: AiInsight
     );
   }
 
-  const suggestedQuestions = [
-    "What's the competitive landscape?",
-    'Where are the biggest gaps I can own?',
-    'How does my pricing compare?',
-    "What are customers complaining about?",
-    "What's the late-night opportunity?",
-  ];
+  const isLoading = summaryData === null;
+  const isNotStarted = summaryData?.status === 'not_started';
+  const isReady = summaryData?.status === 'ready';
+  const headerLocation = summaryData?.location?.neighborhood ?? summaryData?.location?.city ?? clientName ?? 'Location';
+  const headerStats = isReady && summaryData?.summary
+    ? `${summaryData.summary.totalCompetitors} competitors · ${summaryData.summary.menusFound} menus analyzed`
+    : '';
+
+  // Show a clean loading state while fetching summary
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full bg-page-bg">
+        <div className="bg-surface border-b border-border px-6 py-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-primary/10">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold text-foreground">AI Insights</h1>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 leading-none">
+                  Beta
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <p className="text-sm">Loading AI Insights...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-page-bg">
       {/* ── Header ── */}
       <div className="bg-surface border-b border-border px-6 py-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 rounded-xl bg-primary/10">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-foreground tracking-tight">AI Insights</h1>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 leading-none">
-                Beta
-              </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-primary/10">
+              <Sparkles className="w-4 h-4 text-primary" />
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-              <MapPin className="w-3 h-3" />
-              <span>{clientName ? `${clientName} · King West, Toronto` : 'King West, Toronto'}</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold text-foreground">AI Insights</h1>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 leading-none">
+                  Beta
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                <MapPin className="w-3 h-3" />
+                <span>{headerLocation}</span>
+                {isReady && headerStats && (
+                  <>
+                    <span className="mx-1">·</span>
+                    <span>{headerStats}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {isReady && (
+              <>
+                <button
+                  onClick={() => { setShowMenuViewer(!showMenuViewer); if (!showMenuViewer) setShowMenuUpload(false); }}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    showMenuViewer
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-primary/40'
+                  }`}
+                >
+                  {showMenuViewer ? (
+                    <>
+                      <ChevronUp className="w-3 h-3" />
+                      Hide Menus
+                    </>
+                  ) : (
+                    <>
+                      <UtensilsCrossed className="w-3 h-3" />
+                      View Menus
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setShowMenuUpload(!showMenuUpload); if (!showMenuUpload) setShowMenuViewer(false); }}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    showMenuUpload
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-primary/40'
+                  }`}
+                >
+                  {showMenuUpload ? (
+                    <>
+                      <ChevronUp className="w-3 h-3" />
+                      Hide Upload
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3 h-3" />
+                      Upload Menu
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <RefreshCw className="w-3 h-3" />
+              <span>{new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
             </div>
           </div>
         </div>
+
+        {/* Scan progress bar */}
+        {scanProgress && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                {scanProgress.progress < 100 && <Loader2 className="w-3 h-3 animate-spin" />}
+                {scanProgress.stage}
+              </span>
+              <span className="text-muted-foreground">{scanProgress.progress}%</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-1.5 bg-primary rounded-full transition-all duration-500"
+                style={{ width: `${scanProgress.progress}%` }}
+              />
+            </div>
+            {scanProgress.error && (
+              <p className="text-xs text-red-500 mt-1">{scanProgress.error}</p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Content: empty state (card) or messages ── */}
-      {messages.length === 0 ? (
-        <div className="flex-1 flex flex-col min-h-0 px-6 py-6 relative">
-          {/* Card stretches to fill vertical space */}
-          <div className="w-full max-w-full flex-1 min-h-0 rounded-3xl border border-border/80 bg-surface p-10 flex flex-col overflow-visible shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.06)]">
-            {/* Hero: icon + title + description — top */}
-            <div className="flex flex-col items-center gap-4 text-center shrink-0">
-              <div className="w-12 h-12 rounded-2xl bg-foreground flex items-center justify-center shrink-0">
-                <Sparkles className="w-6 h-6 text-surface" strokeWidth={2} />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground tracking-tight">
-                  AI Market Intelligence
-                </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
-                  Ask anything about your client&apos;s competitive landscape — foot traffic, competitor pricing, menu gaps, and more.
-                </p>
-              </div>
+      {/* Menu upload panel */}
+      {showMenuUpload && summaryData?.snapshotId && (
+        <div className="border-b border-border bg-surface px-6 py-4 max-h-[45vh] overflow-y-auto">
+          <MenuUpload
+            clientId={clientId}
+            competitorNames={summaryData?.competitorNames}
+            onClose={() => setShowMenuUpload(false)}
+          />
+        </div>
+      )}
+
+      {/* Menu viewer panel */}
+      {showMenuViewer && summaryData?.snapshotId && (
+        <div className="border-b border-border bg-surface px-6 py-4 max-h-[45vh] overflow-y-auto">
+          <MenuViewer clientId={clientId} />
+        </div>
+      )}
+
+      {/* ── Initialization flow ── */}
+      {isNotStarted && !isScanning && (
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="p-3 rounded-2xl bg-primary/10 w-fit mx-auto">
+              <Search className="w-8 h-8 text-primary" />
             </div>
-
-            {/* Spacer — pushes bottom block down so card fills height */}
-            <div className="flex-1 min-h-0 shrink" aria-hidden />
-
-            {/* Bottom block: suggested questions + input + footer — never cut off */}
-            <div className="shrink-0 space-y-4 pt-2">
-              <div>
-                <p className="text-xs font-semibold text-foreground/80 uppercase tracking-widest mb-2">
-                  Suggested questions
-                </p>
-                <div className="flex flex-wrap gap-2 sm:gap-3">
-                  {suggestedQuestions.map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => sendMessage(q)}
-                      className="inline-flex items-center gap-2 text-sm px-4 py-2.5 rounded-full border border-border bg-muted/40 text-foreground hover:bg-muted/70 hover:border-border/80 active:scale-[0.98] transition-all duration-200 ease-out"
-                    >
-                      <span>{q}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 focus-within:border-foreground/20 focus-within:bg-muted/50 focus-within:shadow-[0_0_0_1px_rgba(0,0,0,0.04)] transition-all duration-200 ease-out">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about competitors, pricing, gaps…"
-                  disabled={isThinking}
-                  className="flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-50"
-                />
-                <button
-                  onClick={() => sendMessage(input)}
-                  disabled={!input.trim() || isThinking}
-                  className="p-2.5 rounded-xl bg-foreground text-surface disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all duration-200 ease-out shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-xs text-foreground/60 text-center leading-relaxed">
-                Powered by location intelligence · Places data · Menu & pricing insights
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Set up AI Insights</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Enter the business address to scan the competitive landscape, foot traffic, and pricing.
               </p>
             </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={scanAddress}
+                onChange={(e) => setScanAddress(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInitialize()}
+                placeholder="e.g. 123 King St W, Toronto, ON"
+                className="flex-1 bg-muted rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-primary/50"
+              />
+              <button
+                onClick={handleInitialize}
+                disabled={!scanAddress.trim()}
+                className="px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+              >
+                Initialize
+              </button>
+            </div>
           </div>
-
-          {/* Help — bottom-right, unified radius */}
-          <button
-            type="button"
-            className="absolute bottom-8 right-8 w-10 h-10 rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground hover:bg-muted/50 flex items-center justify-center transition-all duration-200 ease-out shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-            aria-label="Help"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
         </div>
-      ) : (
+      )}
+
+      {/* ── Messages ── */}
+      {(!isNotStarted || isScanning) && (
         <>
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-            {/* Avatar */}
-            <div
-              className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${
-                msg.role === 'assistant'
-                  ? 'bg-primary/10'
-                  : 'bg-muted border border-border'
-              }`}
-            >
-              {msg.role === 'assistant' ? (
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-              ) : (
-                <User className="w-3.5 h-3.5 text-muted-foreground" />
-              )}
-            </div>
-
-            {/* Bubble */}
-            <div className={`flex-1 max-w-3xl ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
-              {msg.role === 'user' ? (
-                <div className="inline-block bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">
-                  {msg.visibleText}
-                </div>
-              ) : (
-                <div>
-                  {/* Text */}
-                  {msg.visibleText && (
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {renderText(msg.visibleText)}
-                      {msg.isStreaming && (
-                        <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-text-bottom" />
-                      )}
-                    </p>
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div
+                  className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${
+                    msg.role === 'assistant'
+                      ? 'bg-primary/10'
+                      : 'bg-muted border border-border'
+                  }`}
+                >
+                  {msg.role === 'assistant' ? (
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  ) : (
+                    <User className="w-3.5 h-3.5 text-muted-foreground" />
                   )}
+                </div>
 
-                  {/* Inline components — only show when streaming is done */}
-                  {!msg.isStreaming &&
-                    msg.components.map((comp, i) => (
-                      <InlineComponent key={i} component={comp} />
-                    ))}
+                <div className={`flex-1 max-w-3xl ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
+                  {msg.role === 'user' ? (
+                    <div className="inline-block bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">
+                      {msg.visibleText}
+                    </div>
+                  ) : (
+                    <div>
+                      {msg.visibleText && (
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {renderText(msg.visibleText)}
+                          {msg.isStreaming && (
+                            <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-text-bottom" />
+                          )}
+                        </p>
+                      )}
 
-                  {/* Follow-up suggestions */}
-                  {!msg.isStreaming && msg.followUps.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {msg.followUps.map((fu, i) => (
-                        <button
-                          key={i}
-                          onClick={() => sendMessage(fu)}
-                          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                        >
-                          {fu}
-                          <ChevronRight className="w-3 h-3 shrink-0" />
-                        </button>
-                      ))}
+                      {!msg.isStreaming &&
+                        msg.components.map((comp, i) => (
+                          <InlineComponent key={i} component={comp} />
+                        ))}
+
+                      {!msg.isStreaming && msg.followUps.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {msg.followUps.map((fu, i) => (
+                            <button
+                              key={i}
+                              onClick={() => sendMessage(fu)}
+                              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                            >
+                              {fu}
+                              <ChevronRight className="w-3 h-3 shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
+              </div>
+            ))}
 
-        {/* Loading indicator — nothing at first, then abrupt steps + chunky bar */}
-        {isThinking && (
-          <div className="flex gap-3">
-            <div className="w-7 h-7 rounded-full bg-primary/10 shrink-0 flex items-center justify-center mt-0.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-2 pt-1">
-              {loadingStep >= 0 ? (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    {LOADING_STEPS[loadingStep].text}
-                  </p>
-                  {/* Discrete bar — jumps per step, no smooth transition */}
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary/70"
-                      style={{
-                        width: `${((loadingStep + 1) / LOADING_STEPS.length) * 100}%`,
-                        transition: 'none',
-                      }}
+            {isThinking && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-full bg-primary/10 shrink-0 flex items-center justify-center mt-0.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div className="flex items-center gap-1 pt-2">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce"
+                      style={{ animationDelay: `${i * 150}ms` }}
                     />
-                  </div>
-                </>
-              ) : (
-                <div className="h-5" aria-label="Loading" />
-              )}
-            </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
           </div>
-        )}
 
-        <div ref={bottomRef} />
-      </div>
-
-      {/* ── Input (when there are messages) ── */}
-      <div className="shrink-0 border-t border-border bg-surface px-6 py-4">
-        <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5 border border-border focus-within:border-primary/50 transition-colors">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about competitors, pricing, menu gaps…"
-            disabled={isThinking}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-50"
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || isThinking}
-            className="p-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground text-center mt-2">
-          Answers from your venue&apos;s market data
-        </p>
-      </div>
+          {/* ── Input ── */}
+          <div className="shrink-0 border-t border-border bg-surface px-6 py-4">
+            <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5 border border-border focus-within:border-primary/50 transition-colors">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about competitors, pricing, menu gaps, customer feedback…"
+                disabled={isThinking || isScanning}
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-50"
+              />
+              <button
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim() || isThinking || isScanning}
+                className="p-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {isReady && summaryData?.summary && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Based on {summaryData.summary.totalCompetitors} competitors · {summaryData.summary.menusFound} menus · ~{summaryData.summary.reviewsAnalyzed} reviews · {headerLocation}
+              </p>
+            )}
+          </div>
         </>
       )}
     </div>
