@@ -169,8 +169,8 @@ export function DocumentsView({
   const fetchDocuments = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
+      // Don't filter by consultantId - fetch ALL documents for the client
       const params = new URLSearchParams({ clientId });
-      if (consultantId) params.append('consultantId', consultantId);
 
       const res = await fetch(`/api/documents?${params}`);
       if (res.ok) {

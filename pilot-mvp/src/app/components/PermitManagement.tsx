@@ -715,38 +715,22 @@ export function PermitManagement({ onClose }: PermitManagementProps) {
                     <td className="px-6 py-4 text-sm text-neutral-700">{permit.estimatedTime}</td>
                     <td className="px-6 py-4 text-sm text-neutral-700">{permit.fees}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            setReviewingPermitId(permit.id);
-                            setReviewingPermitName(permit.name);
-                          }}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Review permit"
-                        >
-                          <FileCheck className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setViewingPermit(permit)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="View details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenEdit(permit)}
-                          className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors"
-                          title="Edit permit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingPermitId(permit.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete permit"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {[
+                          { icon: FileCheck, onClick: () => { setReviewingPermitId(permit.id); setReviewingPermitName(permit.name); }, title: 'Review permit', color: 'text-green-600 hover:bg-green-50' },
+                          { icon: Eye, onClick: () => setViewingPermit(permit), title: 'View details', color: 'text-blue-600 hover:bg-blue-50' },
+                          { icon: Edit2, onClick: () => handleOpenEdit(permit), title: 'Edit permit', color: 'text-muted-foreground hover:bg-accent' },
+                          { icon: Trash2, onClick: () => setDeletingPermitId(permit.id), title: 'Delete permit', color: 'text-red-600 hover:bg-red-50' },
+                        ].map(({ icon: Icon, onClick, title, color }) => (
+                          <button
+                            key={title}
+                            onClick={onClick}
+                            className={`w-7 h-7 inline-flex items-center justify-center rounded-lg transition-colors ${color}`}
+                            title={title}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </button>
+                        ))}
                       </div>
                     </td>
                   </tr>
