@@ -16,11 +16,12 @@ export async function GET(request: Request) {
     const query: any = {};
     
     if (clientId) {
+      // Return ALL documents for this client (both consultant and client uploaded)
+      // Don't filter by consultantId - we want to see all documents regardless of who uploaded
       query.clientId = clientId;
     }
-    if (consultantId) {
-      query.consultantId = consultantId;
-    }
+    // Note: consultantId filter removed - we want all documents for the client
+    // Both consultant and client portals should see all documents
     if (workspace) {
       query.workspace = workspace;
     }

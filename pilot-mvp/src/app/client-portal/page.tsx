@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { DocumentsView } from '../components/DocumentsView';
 import { ClientBilling } from '../components/ClientBilling';
-import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle, DollarSign } from 'lucide-react';
+import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
 type Tab = 'documents' | 'requests' | 'shared' | 'billing';
 
@@ -149,17 +149,7 @@ function ClientPortalContent() {
             <Upload className="w-5 h-5" />
             <span className="text-sm">Shared with Me</span>
           </button>
-          <button
-            onClick={() => setActiveTab('billing')}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
-              activeTab === 'billing'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent'
-            }`}
-          >
-            <DollarSign className="w-5 h-5" />
-            <span className="text-sm">Billing</span>
-          </button>
+          {/* Billing tab hidden for client portal */}
         </nav>
       </aside>
 
@@ -178,13 +168,7 @@ function ClientPortalContent() {
         {activeTab === 'shared' && (
           <SharedDocumentsView clientId={clientId} />
         )}
-        {activeTab === 'billing' && (
-          <ClientBilling
-            clientId={clientId}
-            clientName={clientName}
-            viewMode="client"
-          />
-        )}
+        {/* Billing tab hidden for client portal */}
       </main>
     </div>
   );
@@ -253,10 +237,97 @@ function DocumentRequestsView({ clientId }: { clientId: string }) {
 
 function DocumentRequestCard({ request }: { request: any }) {
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async () => {
-    // TODO: Open submission modal/form
-    alert('Submission form coming soon');
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    handleUpload(file);
+  };
+
+  const handleUpload = async (file: File) => {
+    if (!request.clientId) {
+      alert('Client ID is missing. Please refresh the page and try again.');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const requestId = request.id || request._id;
+      if (!requestId) {
+        alert('Request ID is missing. Please refresh the page and try again.');
+        setSubmitting(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('clientId', request.clientId);
+      formData.append('folder', 'General'); // Default folder for requested documents
+      formData.append('uploadedBy', JSON.stringify({
+        userId: request.clientId,
+        userName: 'Client',
+        userEmail: '',
+        isClient: true,
+      }));
+      formData.append('metadata', JSON.stringify({
+        requestId: requestId,
+        source: 'client',
+        receivedVia: 'request',
+      }));
+
+      console.log('Uploading document for request:', requestId);
+
+      const res = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const newDoc = await res.json();
+        console.log('Document uploaded successfully:', newDoc.id);
+        
+        // Mark request as fulfilled
+        const fulfillRes = await fetch('/api/documents/requests/fulfill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: request.clientId,
+            documentId: newDoc.id,
+            requestId: requestId,
+          }),
+        });
+
+        const fulfillData = await fulfillRes.json().catch(() => ({}));
+        console.log('Fulfill response:', fulfillData);
+
+        if (fulfillRes.ok && fulfillData.modified > 0) {
+          alert('Document uploaded successfully! The request has been marked as fulfilled.');
+          // Refresh requests to show updated status
+          window.location.reload();
+        } else {
+          console.error('Failed to fulfill request:', fulfillData);
+          alert(`Document uploaded but failed to mark request as fulfilled: ${fulfillData.error || 'Unknown error'}. The document is still available in your Documents tab.`);
+          // Still reload to show the uploaded document
+          window.location.reload();
+        }
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Upload failed:', errorData);
+        alert(`Failed to upload file: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -286,13 +357,30 @@ function DocumentRequestCard({ request }: { request: any }) {
         )}
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={submitting}
-        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
-      >
-        {submitting ? 'Submitting...' : 'Submit Response'}
-      </button>
+      {request.status === 'pending' ? (
+        <>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={submitting}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            {submitting ? 'Uploading...' : 'Upload Document'}
+          </button>
+        </>
+      ) : (
+        <div className="text-sm text-muted-foreground flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" />
+          Request fulfilled
+        </div>
+      )}
     </div>
   );
 }
