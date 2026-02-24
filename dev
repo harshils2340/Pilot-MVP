@@ -1,0 +1,5 @@
+#!/bin/bash
+# Load nvm (ensures npm/node are available) and start dev server
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+cd "$(dirname "$0")/pilot-mvp" && nvm use && npm run dev

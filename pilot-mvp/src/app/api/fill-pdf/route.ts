@@ -162,8 +162,9 @@ export async function GET(request: NextRequest) {
 
     // 3. Save and return the filled PDF
     const filledBytes = await pdfDoc.save();
+    const responseBytes = new Uint8Array(filledBytes);
 
-    return new NextResponse(Buffer.from(filledBytes), {
+    return new NextResponse(responseBytes, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

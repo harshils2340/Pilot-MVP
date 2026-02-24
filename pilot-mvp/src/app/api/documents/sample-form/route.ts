@@ -155,8 +155,9 @@ export async function GET() {
     certDate.addToPage(page2, { x: 72, y: page2Height - 225, width: 140, height: 20 });
 
     const bytes = await pdfDoc.save();
+    const responseBytes = new Uint8Array(bytes);
 
-    return new NextResponse(Buffer.from(bytes), {
+    return new NextResponse(responseBytes, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'inline; filename="sample-permit-form.pdf"',

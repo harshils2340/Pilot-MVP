@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, Building2, MapPin, Briefcase, FileText, CheckCircle2, Loader2, Info, Lightbulb, CheckCircle, AlertCircle, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Building2, MapPin, Briefcase, FileText, CheckCircle2, Loader2, Info, Lightbulb, CheckCircle, AlertCircle, Search, ChevronDown } from 'lucide-react';
+import { BUSINESS_TYPES } from '@/constants/businessTypes';
+import { ACTIVITIES } from '@/constants/activities';
 
 interface ClientOnboardingProps {
   onComplete: (clientData: any) => void;
@@ -25,7 +27,11 @@ interface Permit {
   };
   authority?: string;
   activities?: string[];
+  reasons?: string[];
+  applyUrl?: string;
   sourceUrl?: string;
+  lastUpdated?: string;
+  confidence?: 'required' | 'conditional' | 'informational';
   priority?: 'High' | 'Medium' | 'Low';
   category?: string;
 }
@@ -50,9 +56,108 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   const isCancelledRef = useRef<boolean>(false);
   const requestIdRef = useRef<string | null>(null);
 
+  // Structured location when selected from dropdown (has 2-char provinceCode)
+  const selectedLocationRef = useRef<{ display: string; city: string; province: string; country: string } | null>(null);
+
+  // Dropdown refs for click-outside
+  const businessTypeRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
+  const permitKeywordsRef = useRef<HTMLDivElement>(null);
+  const [businessTypeOpen, setBusinessTypeOpen] = useState(false);
+  const [businessTypeHighlightedIndex, setBusinessTypeHighlightedIndex] = useState(-1);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationHighlightedIndex, setLocationHighlightedIndex] = useState(-1);
+  const [permitKeywordsOpen, setPermitKeywordsOpen] = useState(false);
+  const [permitKeywordsHighlightedIndex, setPermitKeywordsHighlightedIndex] = useState(-1);
+
   const handleInputChange = (field: keyof BusinessFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        !businessTypeRef.current?.contains(e.target as Node) &&
+        !locationRef.current?.contains(e.target as Node) &&
+        !permitKeywordsRef.current?.contains(e.target as Node)
+      ) {
+        setBusinessTypeOpen(false);
+        setLocationOpen(false);
+        setPermitKeywordsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filteredBusinessTypes = BUSINESS_TYPES.filter(
+    (b) => !formData.businessType || b.label.toLowerCase().includes(formData.businessType.toLowerCase())
+  );
+  const filteredPermitKeywords = ACTIVITIES.filter(
+    (a) => !formData.permitKeywords || a.label.toLowerCase().includes(formData.permitKeywords.toLowerCase())
+  );
+
+  // Reset highlighted index when dropdown opens/closes or options change
+  useEffect(() => {
+    if (businessTypeOpen && filteredBusinessTypes.length > 0) {
+      setBusinessTypeHighlightedIndex((prev) =>
+        prev < 0 ? 0 : prev >= filteredBusinessTypes.length ? filteredBusinessTypes.length - 1 : prev
+      );
+    } else {
+      setBusinessTypeHighlightedIndex(-1);
+    }
+  }, [businessTypeOpen, filteredBusinessTypes.length]);
+
+  useEffect(() => {
+    if (permitKeywordsOpen && filteredPermitKeywords.length > 0) {
+      setPermitKeywordsHighlightedIndex((prev) =>
+        prev < 0 ? 0 : prev >= filteredPermitKeywords.length ? filteredPermitKeywords.length - 1 : prev
+      );
+    } else {
+      setPermitKeywordsHighlightedIndex(-1);
+    }
+  }, [permitKeywordsOpen, filteredPermitKeywords.length]);
+
+  // Location suggestions from API (thousands of cities via country-state-city)
+  type LocationSuggestion = { display: string; city: string; state: string; provinceCode: string; country: string };
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const locationDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const q = formData.location.trim();
+    if (!q) {
+      setLocationSuggestions([]);
+      return;
+    }
+    if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    locationDebounceRef.current = setTimeout(async () => {
+      setLocationLoading(true);
+      try {
+        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(q)}&limit=15`);
+        const data = await res.json();
+        setLocationSuggestions((Array.isArray(data) ? data : []) as LocationSuggestion[]);
+      } catch {
+        setLocationSuggestions([]);
+      } finally {
+        setLocationLoading(false);
+      }
+    }, 150);
+    return () => {
+      if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    };
+  }, [formData.location]);
+
+  useEffect(() => {
+    if (locationOpen && locationSuggestions.length > 0 && !locationLoading) {
+      setLocationHighlightedIndex((prev) =>
+        prev < 0 ? 0 : prev >= locationSuggestions.length ? locationSuggestions.length - 1 : prev
+      );
+    } else {
+      setLocationHighlightedIndex(-1);
+    }
+  }, [locationOpen, locationSuggestions.length, locationLoading]);
 
   // Cleanup function to stop all ongoing operations
   const cleanupOperations = async () => {
@@ -119,406 +224,96 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       cleanupOperations();
     };
   }, []);
-
-  // Hardcoded permits based on location and business type
-  const getHardcodedPermits = (location: string, businessType: string): Permit[] => {
-    const locationLower = location.toLowerCase();
-    const businessLower = businessType.toLowerCase();
-    
-    // Check if San Francisco / California location
-    const isSanFrancisco = locationLower.includes('san francisco') || 
-                          locationLower.includes('sf') ||
-                          (locationLower.includes('california') || locationLower.includes('ca'));
-    
-    // Check if restaurant/food business
-    const isRestaurant = businessLower.includes('restaurant') || 
-                        businessLower.includes('food') ||
-                        businessLower.includes('cafe') ||
-                        businessLower.includes('bar') ||
-                        businessLower.includes('dining');
-    
-    // San Francisco Restaurant permits (18 total)
-    if (isSanFrancisco && isRestaurant) {
-      return [
-        {
-          _id: 'sf-health-permit',
-          name: 'Food Service Health Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Public Health',
-          activities: ['Food preparation', 'Food service', 'Food handling'],
-          priority: 'High',
-          category: 'Health & Safety',
-        },
-        {
-          _id: 'sf-business-license',
-          name: 'Business Registration Certificate',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Office of the Treasurer & Tax Collector',
-          activities: ['Operating a business in San Francisco'],
-          priority: 'High',
-          category: 'Business',
-        },
-        {
-          _id: 'sf-food-handler',
-          name: 'Food Handler Certificate',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Public Health',
-          activities: ['Food handling', 'Food preparation'],
-          priority: 'High',
-          category: 'Health & Safety',
-        },
-        {
-          _id: 'sf-fire-permit',
-          name: 'Fire Department Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Fire Department',
-          activities: ['Commercial cooking', 'Hood and duct systems', 'Fire safety'],
-          priority: 'High',
-          category: 'Fire Safety',
-        },
-        {
-          _id: 'sf-building-permit',
-          name: 'Building Permit (Tenant Improvements)',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Building Inspection',
-          activities: ['Interior construction', 'Restaurant build-out', 'Kitchen installation'],
-          priority: 'High',
-          category: 'Construction',
-        },
-        {
-          _id: 'sf-conditional-use',
-          name: 'Conditional Use Authorization',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Planning Commission',
-          activities: ['Restaurant use in certain zoning districts', 'Late night operations'],
-          priority: 'High',
-          category: 'Planning',
-        },
-        {
-          _id: 'sf-grease-trap',
-          name: 'Grease Trap/Interceptor Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Public Utilities Commission',
-          activities: ['Wastewater discharge', 'Grease management'],
-          priority: 'Medium',
-          category: 'Environmental',
-        },
-        {
-          _id: 'sf-hood-duct',
-          name: 'Commercial Kitchen Hood & Duct Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Fire Department',
-          activities: ['Kitchen ventilation', 'Fire suppression systems'],
-          priority: 'Medium',
-          category: 'Fire Safety',
-        },
-        {
-          _id: 'sf-signage-permit',
-          name: 'Sign Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Planning Department',
-          activities: ['Business signage', 'Exterior signs'],
-          priority: 'Medium',
-          category: 'Planning',
-        },
-        {
-          _id: 'sf-sidewalk-permit',
-          name: 'Sidewalk Tables & Chairs Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Department of Public Works',
-          activities: ['Outdoor seating', 'Sidewalk dining'],
-          priority: 'Medium',
-          category: 'Public Works',
-        },
-        {
-          _id: 'sf-entertainment',
-          name: 'Place of Entertainment Permit',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'SF Entertainment Commission',
-          activities: ['Live music', 'DJ performances', 'Dancing'],
-          priority: 'Medium',
-          category: 'Entertainment',
-        },
-        {
-          _id: 'sf-alcohol-abc',
-          name: 'Alcoholic Beverage License (Type 47)',
-          level: 'provincial',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'California Dept of Alcoholic Beverage Control',
-          activities: ['On-premises alcohol sales', 'Beer, wine, and spirits'],
-          priority: 'High',
-          category: 'Alcohol',
-        },
-        {
-          _id: 'ca-sellers-permit',
-          name: 'California Seller\'s Permit',
-          level: 'provincial',
-          jurisdiction: { province: 'California' },
-          authority: 'CA Department of Tax and Fee Administration',
-          activities: ['Selling taxable goods', 'Retail sales'],
-          priority: 'High',
-          category: 'State Tax',
-        },
-        {
-          _id: 'ca-ehs-permit',
-          name: 'Environmental Health Services Permit',
-          level: 'provincial',
-          jurisdiction: { province: 'California' },
-          authority: 'California Department of Public Health',
-          activities: ['Food facility operation', 'Environmental compliance'],
-          priority: 'Medium',
-          category: 'Health & Safety',
-        },
-        {
-          _id: 'ca-weights-measures',
-          name: 'Weights & Measures Registration',
-          level: 'provincial',
-          jurisdiction: { province: 'California' },
-          authority: 'CA Dept of Food and Agriculture',
-          activities: ['Commercial scales', 'Measuring devices'],
-          priority: 'Low',
-          category: 'State',
-        },
-        {
-          _id: 'fed-ein',
-          name: 'Federal Employer Identification Number (EIN)',
-          level: 'federal',
-          jurisdiction: { province: 'USA' },
-          authority: 'Internal Revenue Service (IRS)',
-          activities: ['Business tax identification', 'Hiring employees'],
-          priority: 'High',
-          category: 'Federal',
-        },
-        {
-          _id: 'fed-fda',
-          name: 'FDA Food Facility Registration',
-          level: 'federal',
-          jurisdiction: { province: 'USA' },
-          authority: 'U.S. Food and Drug Administration',
-          activities: ['Food manufacturing', 'Food storage'],
-          priority: 'Medium',
-          category: 'Federal',
-        },
-        {
-          _id: 'sf-music-license',
-          name: 'Music License (ASCAP/BMI/SESAC)',
-          level: 'municipal',
-          jurisdiction: { city: 'San Francisco', province: 'California' },
-          authority: 'Music Licensing Organizations',
-          activities: ['Playing recorded music', 'Background music'],
-          priority: 'Low',
-          category: 'Entertainment',
-        },
-      ];
-    }
-    
-    // Default permits for other locations/business types (12 permits)
-    const city = location.split(',')[0]?.trim() || 'Your City';
-    const state = location.split(',')[1]?.trim() || 'Your State';
-    
-    return [
-      {
-        _id: 'general-business-license',
-        name: 'Business License',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'City Business Administration',
-        activities: ['General business operations'],
-        priority: 'High',
-        category: 'Business',
-      },
-      {
-        _id: 'general-health-permit',
-        name: 'Health Department Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'County Health Department',
-        activities: ['Food service', 'Public health compliance'],
-        priority: 'High',
-        category: 'Health & Safety',
-      },
-      {
-        _id: 'general-food-handler',
-        name: 'Food Handler Certification',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Health Department',
-        activities: ['Food handling', 'Food safety training'],
-        priority: 'High',
-        category: 'Health & Safety',
-      },
-      {
-        _id: 'general-fire-safety',
-        name: 'Fire Safety Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Fire Department',
-        activities: ['Fire safety compliance', 'Commercial operations'],
-        priority: 'High',
-        category: 'Fire Safety',
-      },
-      {
-        _id: 'general-building',
-        name: 'Building Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Building Department',
-        activities: ['Construction', 'Tenant improvements'],
-        priority: 'Medium',
-        category: 'Construction',
-      },
-      {
-        _id: 'general-zoning',
-        name: 'Zoning Compliance Certificate',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Planning Department',
-        activities: ['Land use compliance', 'Business location approval'],
-        priority: 'Medium',
-        category: 'Planning',
-      },
-      {
-        _id: 'general-signage',
-        name: 'Sign Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Planning Department',
-        activities: ['Business signage', 'Exterior signs'],
-        priority: 'Low',
-        category: 'Planning',
-      },
-      {
-        _id: 'general-alcohol',
-        name: 'Liquor License',
-        level: 'provincial',
-        jurisdiction: { province: state },
-        authority: 'State Alcoholic Beverage Control',
-        activities: ['Alcohol sales', 'On-premises consumption'],
-        priority: 'High',
-        category: 'Alcohol',
-      },
-      {
-        _id: 'general-sales-tax',
-        name: 'Sales Tax Permit',
-        level: 'provincial',
-        jurisdiction: { province: state },
-        authority: 'State Revenue Department',
-        activities: ['Collecting sales tax', 'Retail transactions'],
-        priority: 'High',
-        category: 'State Tax',
-      },
-      {
-        _id: 'general-ein',
-        name: 'Federal Employer ID (EIN)',
-        level: 'federal',
-        jurisdiction: { province: 'USA' },
-        authority: 'Internal Revenue Service',
-        activities: ['Business identification', 'Tax filing'],
-        priority: 'High',
-        category: 'Federal',
-      },
-      {
-        _id: 'general-outdoor',
-        name: 'Outdoor Seating Permit',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'Public Works Department',
-        activities: ['Patio seating', 'Sidewalk dining'],
-        priority: 'Medium',
-        category: 'Public Works',
-      },
-      {
-        _id: 'general-music',
-        name: 'Music License',
-        level: 'municipal',
-        jurisdiction: { city, province: state },
-        authority: 'ASCAP/BMI/SESAC',
-        activities: ['Background music', 'Entertainment'],
-        priority: 'Low',
-        category: 'Entertainment',
-      },
-    ];
-  };
-
   // Helper to parse location string (e.g., "Ottawa, Ontario" or "San Francisco, CA")
+  // Always returns 2-char province code - required by permit search API
   const parseLocation = (locationStr: string): { country: string; province: string; city: string } => {
     const parts = locationStr.split(',').map(p => p.trim());
     let city = parts[0] || '';
-    let province = parts[1] || '';
-    let country = 'CA'; // Default to Canada
-    
-    // Handle US states
-    const usStates: { [key: string]: string } = {
-      'california': 'CA', 'ca': 'CA', 'calif': 'CA',
-      'new york': 'NY', 'ny': 'NY',
-      'texas': 'TX', 'tx': 'TX',
-      'florida': 'FL', 'fl': 'FL',
-    };
-    
+    let province = (parts[1] || '').trim();
+    let country = 'CA';
+
     const provinceLower = province.toLowerCase();
-    if (usStates[provinceLower]) {
+
+    // US states - full name to code
+    const usStates: Record<string, string> = {
+      alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO',
+      connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID',
+      illinois: 'IL', indiana: 'IN', iowa: 'IA', kansas: 'KS', kentucky: 'KY', louisiana: 'LA',
+      maine: 'ME', maryland: 'MD', massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS',
+      missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+      'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH',
+      oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+      'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT', virginia: 'VA',
+      washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY', 'district of columbia': 'DC',
+    };
+
+    // Canadian provinces
+    const canadianProvinces: Record<string, string> = {
+      ontario: 'ON', quebec: 'QC', 'british columbia': 'BC', alberta: 'AB', manitoba: 'MB',
+      saskatchewan: 'SK', 'nova scotia': 'NS', 'new brunswick': 'NB',
+      'newfoundland and labrador': 'NL', newfoundland: 'NL', labrador: 'NL',
+      'prince edward island': 'PE', 'northwest territories': 'NT', yukon: 'YT', nunavut: 'NU',
+    };
+
+    if (provinceLower in usStates) {
       country = 'US';
       province = usStates[provinceLower];
+    } else if (provinceLower in canadianProvinces) {
+      province = canadianProvinces[provinceLower];
     } else if (province.length === 2) {
-      // Assume 2-letter codes are US states
-      country = 'US';
-    } else {
-      // Canadian provinces
-      const canadianProvinces: { [key: string]: string } = {
-        'ontario': 'ON', 'on': 'ON',
-        'quebec': 'QC', 'qc': 'QC',
-        'british columbia': 'BC', 'bc': 'BC',
-        'alberta': 'AB', 'ab': 'AB',
-        'manitoba': 'MB', 'mb': 'MB',
-        'saskatchewan': 'SK', 'sk': 'SK',
-        'nova scotia': 'NS', 'ns': 'NS',
-        'new brunswick': 'NB', 'nb': 'NB',
-        'newfoundland': 'NL', 'nl': 'NL',
-        'prince edward island': 'PE', 'pe': 'PE',
-        'northwest territories': 'NT', 'nt': 'NT',
-        'yukon': 'YT', 'yt': 'YT',
-        'nunavut': 'NU', 'nu': 'NU',
-      };
-      
-      const provinceKey = provinceLower;
-      if (canadianProvinces[provinceKey]) {
-        province = canadianProvinces[provinceKey];
-      } else if (province.length === 2) {
-        // Assume it's already a 2-letter code
-        province = province.toUpperCase();
-      }
+      province = province.toUpperCase();
     }
-    
-    return { country, province: province.toUpperCase(), city };
+
+    if (province.length > 2 || !province) {
+      province = country === 'US' ? 'CA' : 'ON';
+    }
+
+    return { country, province: province.slice(0, 2).toUpperCase(), city };
   };
 
-  // Map business type to slug
-  const mapBusinessTypeToSlug = (businessType: string): string => {
-    const businessTypeLower = businessType.toLowerCase();
-    
-    // Check if it matches any known business types
-    if (businessTypeLower.includes('restaurant') || businessTypeLower.includes('food') || 
-        businessTypeLower.includes('cafe') || businessTypeLower.includes('dining')) {
-      return 'restaurant';
+  const getPermitApplyUrl = (permit: Permit): string | null => {
+    const rawUrl = permit.applyUrl;
+    if (!rawUrl) return null;
+
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+      return null;
+    } catch {
+      return null;
     }
-    if (businessTypeLower.includes('retail') || businessTypeLower.includes('store') || 
-        businessTypeLower.includes('shop')) {
-      return 'retail';
+  };
+
+  const getPermitSourceUrl = (permit: Permit): string | null => {
+    const rawUrl = permit.sourceUrl;
+    if (!rawUrl) return null;
+
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+      return null;
+    } catch {
+      return null;
     }
-    
-    // Default to restaurant if unclear
-    return 'restaurant';
+  };
+
+  const getPermitConfidence = (
+    permit: Permit
+  ): 'required' | 'conditional' | 'informational' => {
+    if (permit.confidence) return permit.confidence;
+    if (permit.priority === 'High') return 'required';
+    if (permit.priority === 'Low') return 'informational';
+    return 'conditional';
+  };
+
+  const handlePermitOpen = (permit: Permit) => {
+    const targetUrl = getPermitApplyUrl(permit);
+    if (!targetUrl) return;
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleFindPermits = async () => {
@@ -542,23 +337,27 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     console.log('📋 Form data:', trimmedData);
     
     try {
-      // Parse location
-      const parsedLocation = parseLocation(trimmedData.location);
-      const businessTypeSlug = mapBusinessTypeToSlug(trimmedData.businessType);
+      // Parse location - prefer structured selection from dropdown (guaranteed 2-char province)
+      const sel = selectedLocationRef.current;
+      const parsedLocation =
+        sel && sel.display === trimmedData.location
+          ? { country: sel.country, province: sel.province, city: sel.city }
+          : parseLocation(trimmedData.location);
       
-      // Convert permitKeywords to activities array
+      // Convert permitKeywords to activities - default to "all" when empty
       const activities = trimmedData.permitKeywords
-        ? trimmedData.permitKeywords.split(',').map(a => a.trim()).filter(a => a.length > 0)
-        : [trimmedData.businessType]; // Fallback to business type
+        ? trimmedData.permitKeywords.split(',').map((a) => a.trim()).filter((a) => a.length > 0)
+        : ['all'];
       
-      // If no activities, use business type as activity
       if (activities.length === 0) {
-        activities.push(trimmedData.businessType);
+        activities.push('all');
       }
       
       const payload = {
+        businessName: trimmedData.businessName,
+        permitKeywords: trimmedData.permitKeywords,
         location: parsedLocation,
-        businessType: businessTypeSlug,
+        businessType: trimmedData.businessType,
         activities: activities,
       };
       
@@ -579,7 +378,14 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
         console.error('❌ Permit search failed:', errorData);
-        alert(`Failed to search for permits: ${errorData.error || 'Unknown error'}`);
+        const errorMessage = typeof errorData?.error === 'string'
+          ? errorData.error
+          : typeof errorData?.message === 'string'
+            ? errorData.message
+            : errorData?.error
+              ? JSON.stringify(errorData.error)
+              : 'Unknown error';
+        alert(`Failed to search for permits: ${errorMessage}`);
         setLoading(false);
         return;
       }
@@ -589,27 +395,47 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       
       console.log(`✅ Found ${apiPermits.length} permits from API`);
       
-      // Transform API permits to our Permit format
-      const discoveredPermits: Permit[] = apiPermits.map((p: any, index: number) => ({
-        _id: `permit-${index}-${Date.now()}`,
-        name: p.name,
-        level: p.level || 'municipal',
-        jurisdiction: {
-          city: parsedLocation.city,
-          province: parsedLocation.province,
-        },
-        authority: p.authority || 'Unknown',
-        activities: p.reasons || [],
-        priority: p.confidence === 'required' ? 'High' : p.confidence === 'conditional' ? 'Medium' : 'Low',
-        category: p.level === 'federal' ? 'Federal' : p.level === 'provincial' ? 'Provincial' : 'Municipal',
-        sourceUrl: p.sourceUrl || p.applyUrl,
-      }));
+      // Transform API permits to our Permit format and keep only permits with valid apply/source URLs.
+      const discoveredPermits: Permit[] = apiPermits
+        .map((p: any, index: number) => ({
+          _id: `permit-${index}-${Date.now()}`,
+          name: p.name,
+          level: p.level || 'municipal',
+          jurisdiction: {
+            city: parsedLocation.city,
+            province: parsedLocation.province,
+          },
+          authority: p.authority || 'Unknown',
+          activities: Array.isArray(p.reasons) ? p.reasons : [],
+          reasons: Array.isArray(p.reasons) ? p.reasons : [],
+          confidence:
+            p.confidence === 'required' || p.confidence === 'conditional' || p.confidence === 'informational'
+              ? p.confidence
+              : 'conditional',
+          lastUpdated: typeof p.lastUpdated === 'string' ? p.lastUpdated : new Date().toISOString(),
+          priority: p.confidence === 'required' ? 'High' : p.confidence === 'conditional' ? 'Medium' : 'Low',
+          category: p.level === 'federal' ? 'Federal' : p.level === 'provincial' ? 'Provincial' : 'Municipal',
+          applyUrl: p.applyUrl,
+          sourceUrl: p.sourceUrl,
+        }))
+        .filter((permit: Permit) => Boolean(getPermitApplyUrl(permit) && getPermitSourceUrl(permit)));
+
+      if (discoveredPermits.length < apiPermits.length) {
+        console.warn(
+          `Filtered out ${apiPermits.length - discoveredPermits.length} permit(s) due to invalid or missing links`
+        );
+      }
       
-      // If no permits found from API, fallback to hardcoded permits
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        console.warn('Permit discovery warnings:', data.warnings);
+      }
+
       if (discoveredPermits.length === 0) {
-        console.log('⚠️ No permits found from API, using fallback...');
-        const fallbackPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
-        setPermits(fallbackPermits);
+        console.log('No permits found from API.');
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          alert(`No permits found yet. ${data.warnings[0]}`);
+        }
+        setPermits([]);
       } else {
         setPermits(discoveredPermits);
       }
@@ -619,10 +445,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       console.log('🏁 Permit discovery process completed');
     } catch (err) {
       console.error('❌ Error during permit discovery:', err);
-      // Fallback to hardcoded permits on error
-      console.log('⚠️ Using fallback permits due to error...');
-      const fallbackPermits = getHardcodedPermits(trimmedData.location, trimmedData.businessType);
-      setPermits(fallbackPermits);
+      setPermits([]);
       setShowPermits(true);
       setLoading(false);
     }
@@ -706,8 +529,10 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 order: index + 1,
                 lastActivity: 'Not Started',
                 lastActivityDate: new Date(),
-                requirements: permit.activities || [],
-                howToApply: permit.sourceUrl ? `Apply at: ${permit.sourceUrl}` : 'Contact the issuing authority',
+                requirements: permit.reasons || permit.activities || [],
+                howToApply: getPermitApplyUrl(permit)
+                  ? `Apply at: ${getPermitApplyUrl(permit)}`
+                  : 'Contact the issuing authority',
               };
             });
             
@@ -729,7 +554,72 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
             // Don't fail the whole operation if permit linking fails
           }
         }
-        
+
+        if (permits.length > 0 && newClient._id) {
+          try {
+            const discoveredPermitsForDb = permits
+              .map((permit) => {
+                const applyUrl = getPermitApplyUrl(permit);
+                const sourceUrl = getPermitSourceUrl(permit);
+                if (!applyUrl || !sourceUrl) return null;
+
+                return {
+                  name: permit.name,
+                  level: permit.level || 'municipal',
+                  authority: permit.authority || 'Unknown',
+                  applyUrl,
+                  sourceUrl,
+                  lastUpdated: permit.lastUpdated || new Date().toISOString(),
+                  reasons: permit.reasons || permit.activities || [],
+                  confidence: getPermitConfidence(permit),
+                };
+              })
+              .filter(
+                (
+                  permit
+                ): permit is {
+                  name: string;
+                  level: string;
+                  authority: string;
+                  applyUrl: string;
+                  sourceUrl: string;
+                  lastUpdated: string;
+                  reasons: string[];
+                  confidence: 'required' | 'conditional' | 'informational';
+                } => permit !== null
+              );
+
+            if (discoveredPermitsForDb.length > 0) {
+              const discoveredRes = await fetch('/api/permits/discovered/bulk-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clientId: newClient._id,
+                  permits: discoveredPermitsForDb,
+                }),
+              });
+
+              if (discoveredRes.ok) {
+                const discoveredResult = await discoveredRes.json();
+                console.log(
+                  `Saved ${discoveredResult.created} discovered permit record(s) for client ${newClient._id}`
+                );
+              } else {
+                const discoveredError = await discoveredRes.json().catch(() => ({}));
+                console.warn(
+                  'Failed to save discovered permits, but client was created:',
+                  discoveredError
+                );
+              }
+            } else {
+              console.warn('No valid discovered permits to save after URL validation');
+            }
+          } catch (discoveredErr) {
+            console.error('Error saving discovered permits:', discoveredErr);
+            // Don't fail the whole operation if discovered permit save fails
+          }
+        }
+
         onComplete(newClient);
       } else {
         const errorData = await res.json().catch(() => ({}));
@@ -774,7 +664,7 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                     {permits.length} permits identified
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Based on the business information provided and BizPaL data, we've identified the following permits and licenses required for your client.
+                    Based on AI-assisted research across official government sources, we've identified the following permits and licenses required for your client.
                   </p>
                 </div>
               </div>
@@ -789,7 +679,21 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 {permits.map((permit, index) => (
                   <div
                     key={permit._id || index}
-                    className="bg-surface border border-border rounded-lg p-5 hover:border-border hover:shadow-md transition-all"
+                    className={`bg-surface border border-border rounded-lg p-5 hover:border-border hover:shadow-md transition-all ${
+                      getPermitApplyUrl(permit) ? 'cursor-pointer' : ''
+                    }`}
+                    onClick={getPermitApplyUrl(permit) ? () => handlePermitOpen(permit) : undefined}
+                    onKeyDown={getPermitApplyUrl(permit)
+                      ? (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handlePermitOpen(permit);
+                          }
+                        }
+                      : undefined
+                    }
+                    role={getPermitApplyUrl(permit) ? 'button' : undefined}
+                    tabIndex={getPermitApplyUrl(permit) ? 0 : undefined}
                   >
                     <div className="flex items-start gap-4">
                       {/* Number Badge */}
@@ -877,27 +781,28 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   }
 
   return (
-    <div className="h-full flex flex-col bg-surface">
-      {/* Compact Header */}
-      <div className="border-b border-border px-8 py-6 bg-surface">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-          <FileText className="w-4 h-4" />
-          <span>New Permit Setup</span>
+    <div className="min-h-screen w-full flex flex-col bg-muted/30">
+      {/* Header - centered */}
+      <div className="border-b border-border bg-surface px-6 py-8">
+        <div className="mx-auto max-w-xl text-center">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-2">
+            <FileText className="w-4 h-4" />
+            <span>New Permit Setup</span>
+          </div>
+          <h1 className="text-2xl font-semibold text-foreground">Start New Permit</h1>
+          <p className="text-sm text-muted-foreground mt-1">Tell us about the business to discover required permits and licenses</p>
         </div>
-        <h1 className="text-2xl font-semibold text-foreground">Start New Permit</h1>
-        <p className="text-sm text-muted-foreground mt-1">Tell us about the business to discover required permits and licenses</p>
       </div>
 
-      {/* Form Content */}
-      <div className="flex-1 overflow-auto px-8 py-8 bg-surface">
-        <div className="w-full max-w-7xl mx-auto">
-          <div className="bg-surface border border-border rounded-lg p-8 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column */}
+      {/* Form Content - centered card */}
+      <div className="flex-1 overflow-auto flex items-start justify-center px-4 py-10 sm:px-6">
+        <div className="w-full max-w-xl mx-auto">
+          <div className="bg-surface border border-border rounded-xl p-6 sm:p-8 shadow-sm">
+            <div className="space-y-6">
+            {/* Form fields - single column for clean layout */}
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  <Building2 className="w-4 h-4 inline mr-2" />
                   Business Name <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -916,65 +821,261 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 />
               </div>
 
-              <div>
+              <div ref={locationRef} className="relative">
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  <MapPin className="w-4 h-4 inline mr-2" />
                   Business Location <span className="text-destructive">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isStep1Valid && !loading) {
-                      e.preventDefault();
-                      handleFindPermits();
-                    }
-                  }}
-                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
-                  placeholder="Ex: Ottawa, Ontario"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => {
+                      handleInputChange('location', e.target.value);
+                      selectedLocationRef.current = null;
+                      setLocationOpen(true);
+                    }}
+                    onFocus={() => setLocationOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown' && !locationOpen) {
+                        setLocationOpen(true);
+                        setLocationHighlightedIndex(0);
+                        e.preventDefault();
+                        return;
+                      }
+                      if (locationOpen && locationSuggestions.length > 0 && !locationLoading) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setLocationHighlightedIndex((i) =>
+                            i < locationSuggestions.length - 1 ? i + 1 : i < 0 ? 0 : i
+                          );
+                          return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setLocationHighlightedIndex((i) => (i > 0 ? i - 1 : 0));
+                          return;
+                        }
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const idx = locationHighlightedIndex >= 0 ? locationHighlightedIndex : 0;
+                          const selected = locationSuggestions[idx];
+                          if (selected) {
+                            handleInputChange('location', selected.display);
+                            selectedLocationRef.current = {
+                              display: selected.display,
+                              city: selected.city,
+                              province: selected.provinceCode,
+                              country: selected.country,
+                            };
+                            setLocationOpen(false);
+                          }
+                          return;
+                        }
+                      }
+                      if (e.key === 'Enter' && isStep1Valid && !loading) {
+                        e.preventDefault();
+                        handleFindPermits();
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 pr-9 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                    placeholder="Ex: Ottawa, Ontario"
+                    required
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                </div>
+                {locationOpen && (
+                  <ul className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-lg shadow-lg max-h-48 overflow-auto py-1">
+                    {locationLoading ? (
+                      <li className="px-4 py-2 text-muted-foreground text-sm">Searching...</li>
+                    ) : locationSuggestions.length > 0 ? (
+                      locationSuggestions.map((loc, i) => (
+                        <li
+                          key={`${loc.display}-${i}`}
+                          onClick={() => {
+                            handleInputChange('location', loc.display);
+                            selectedLocationRef.current = {
+                              display: loc.display,
+                              city: loc.city,
+                              province: loc.provinceCode,
+                              country: loc.country,
+                            };
+                            setLocationOpen(false);
+                          }}
+                          className={`px-4 py-2 cursor-pointer hover:bg-accent text-sm ${
+                            i === locationHighlightedIndex ? 'bg-accent' : ''
+                          }`}
+                        >
+                          {loc.display}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="px-4 py-2 text-muted-foreground text-sm">Type to search cities (US & Canada)</li>
+                    )}
+                  </ul>
+                )}
                 <p className="text-xs text-muted-foreground mt-1.5">City and province/state</p>
               </div>
+
             </div>
 
-            {/* Right Column */}
             <div className="space-y-5">
-              <div>
+              <div ref={businessTypeRef} className="relative">
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Business Type <span className="text-destructive">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.businessType}
-                  onChange={(e) => handleInputChange('businessType', e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isStep1Valid && !loading) {
-                      e.preventDefault();
-                      handleFindPermits();
-                    }
-                  }}
-                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
-                  placeholder="Ex: restaurant business"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.businessType}
+                    onChange={(e) => {
+                      handleInputChange('businessType', e.target.value);
+                      setBusinessTypeOpen(true);
+                    }}
+                    onFocus={() => setBusinessTypeOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown' && !businessTypeOpen) {
+                        setBusinessTypeOpen(true);
+                        setBusinessTypeHighlightedIndex(0);
+                        e.preventDefault();
+                        return;
+                      }
+                      if (businessTypeOpen && filteredBusinessTypes.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setBusinessTypeHighlightedIndex((i) =>
+                            i < filteredBusinessTypes.length - 1 ? i + 1 : i < 0 ? 0 : i
+                          );
+                          return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setBusinessTypeHighlightedIndex((i) => (i > 0 ? i - 1 : 0));
+                          return;
+                        }
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const idx = businessTypeHighlightedIndex >= 0 ? businessTypeHighlightedIndex : 0;
+                          const selected = filteredBusinessTypes[idx];
+                          if (selected) {
+                            handleInputChange('businessType', selected.label);
+                            setBusinessTypeOpen(false);
+                          }
+                          return;
+                        }
+                      }
+                      if (e.key === 'Enter' && isStep1Valid && !loading) {
+                        e.preventDefault();
+                        handleFindPermits();
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 pr-9 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                    placeholder="Ex: restaurant business"
+                    required
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                </div>
+                {businessTypeOpen && (
+                  <ul className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-lg shadow-lg max-h-48 overflow-auto py-1">
+                    {filteredBusinessTypes.length > 0 ? (
+                      filteredBusinessTypes.map((b, idx) => (
+                        <li
+                          key={b.slug}
+                          onClick={() => {
+                            handleInputChange('businessType', b.label);
+                            setBusinessTypeOpen(false);
+                          }}
+                          className={`px-4 py-2 cursor-pointer hover:bg-accent text-sm ${
+                            idx === businessTypeHighlightedIndex ? 'bg-accent' : ''
+                          }`}
+                        >
+                          {b.label}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="px-4 py-2 text-muted-foreground text-sm">Type to add custom</li>
+                    )}
+                  </ul>
+                )}
                 <p className="text-xs text-muted-foreground mt-1.5">Describe the type of business</p>
               </div>
 
-              <div>
+              <div ref={permitKeywordsRef} className="relative">
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  <Sparkles className="w-4 h-4 inline mr-2" />
                   Permit Keywords <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
                 </label>
-                <textarea
-                  value={formData.permitKeywords}
-                  onChange={(e) => handleInputChange('permitKeywords', e.target.value)}
-                  rows={2}
-                  maxLength={200}
-                  className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
-                  placeholder="Ex: zoning, food service, building permits"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.permitKeywords}
+                    onChange={(e) => {
+                      handleInputChange('permitKeywords', e.target.value.slice(0, 200));
+                      setPermitKeywordsOpen(true);
+                    }}
+                    onFocus={() => setPermitKeywordsOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown' && !permitKeywordsOpen) {
+                        setPermitKeywordsOpen(true);
+                        setPermitKeywordsHighlightedIndex(0);
+                        e.preventDefault();
+                        return;
+                      }
+                      if (permitKeywordsOpen && filteredPermitKeywords.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setPermitKeywordsHighlightedIndex((i) =>
+                            i < filteredPermitKeywords.length - 1 ? i + 1 : i < 0 ? 0 : i
+                          );
+                          return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setPermitKeywordsHighlightedIndex((i) => (i > 0 ? i - 1 : 0));
+                          return;
+                        }
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const idx = permitKeywordsHighlightedIndex >= 0 ? permitKeywordsHighlightedIndex : 0;
+                          const selected = filteredPermitKeywords[idx];
+                          if (selected) {
+                            handleInputChange('permitKeywords', selected.label.slice(0, 200));
+                            setPermitKeywordsOpen(false);
+                          }
+                          return;
+                        }
+                      }
+                      if (e.key === 'Enter' && isStep1Valid && !loading) {
+                        e.preventDefault();
+                        handleFindPermits();
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 pr-9 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground transition-colors"
+                    placeholder="Ex: zoning, food service, building permits"
+                    maxLength={200}
+                  />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                </div>
+                {permitKeywordsOpen && (
+                  <ul className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-lg shadow-lg max-h-48 overflow-auto py-1">
+                    {filteredPermitKeywords.length > 0 ? (
+                      filteredPermitKeywords.map((a, idx) => (
+                        <li
+                          key={a.slug}
+                          onClick={() => {
+                            handleInputChange('permitKeywords', a.label.slice(0, 200));
+                            setPermitKeywordsOpen(false);
+                          }}
+                          className={`px-4 py-2 cursor-pointer hover:bg-accent text-sm ${
+                            idx === permitKeywordsHighlightedIndex ? 'bg-accent' : ''
+                          }`}
+                        >
+                          {a.label}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="px-4 py-2 text-muted-foreground text-sm">Type to add custom</li>
+                    )}
+                  </ul>
+                )}
                 <div className="flex items-center justify-between mt-1.5">
                   <p className="text-xs text-muted-foreground">Specific permits or licenses you're looking for</p>
                   <p className="text-xs text-muted-foreground">{formData.permitKeywords.length}/200</p>
@@ -1010,8 +1111,8 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       </div>
 
       {/* Footer */}
-      <div className="border-t border-border px-8 py-5 bg-surface">
-        <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
+      <div className="border-t border-border px-4 py-5 sm:px-6 bg-surface">
+        <div className="w-full max-w-xl mx-auto flex items-center justify-between">
           <button
             onClick={handleCancel}
             className="flex items-center gap-2 px-4 py-2.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors text-sm font-medium border border-border"
