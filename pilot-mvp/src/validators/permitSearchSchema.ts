@@ -2,6 +2,8 @@ import { z } from "zod";
 
 // Accept free-form business type and activity text from onboarding.
 export const permitSearchSchema = z.object({
+  businessName: z.string().min(1).optional(),
+  permitKeywords: z.string().optional(),
   location: z.object({
     country: z.string().length(2),
     province: z.string().length(2),

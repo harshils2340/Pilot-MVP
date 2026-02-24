@@ -14,8 +14,14 @@ type SourcePage = {
 };
 
 type RawPermit = {
+  id?: unknown;
   name?: unknown;
+  issuer?: unknown;
+  required?: unknown;
   level?: unknown;
+  apply_url?: unknown;
+  info_url?: unknown;
+  description?: unknown;
   authority?: unknown;
   applyUrl?: unknown;
   sourceUrl?: unknown;
@@ -39,6 +45,15 @@ type ExtractedPermitResponse = {
   permits?: unknown;
 };
 
+type SerpApiResponse = {
+  error?: string;
+  organic_results?: Array<{
+    title?: string;
+    link?: string;
+    snippet?: string;
+  }>;
+};
+
 export type LiveDiscoveryResult = {
   permits: ExplainedPermit[];
   warnings: string[];
@@ -53,8 +68,14 @@ const MAX_CANDIDATE_URLS = 12;
 const MAX_SCRAPED_PAGES = 8;
 const MAX_PAGE_TEXT = 12000;
 const FETCH_TIMEOUT_MS = 12000;
+const OPENAI_QUERY_TIMEOUT_MS = 45000;
+const OPENAI_EXTRACT_TIMEOUT_MS = 150000;
+const MAX_PROMPT_SOURCES = 5;
+const MAX_PROMPT_SOURCE_CHARS = 1400;
+const APPLY_URL_VALIDATE_TIMEOUT_MS = 10000;
 const PERMIT_DISCOVERY_DEBUG = process.env.PERMIT_DISCOVERY_DEBUG === "true";
 const SEARCH_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 
 function debugLog(...args: unknown[]) {
   if (!PERMIT_DISCOVERY_DEBUG) return;
@@ -65,11 +86,21 @@ function normalizeLevel(level: unknown): "municipal" | "provincial" | "federal" 
   const value = typeof level === "string" ? level.toLowerCase().trim() : "";
   if (value === "federal") return "federal";
   if (value === "provincial" || value === "state") return "provincial";
+  if (value === "city" || value === "county" || value === "municipal") return "municipal";
   return "municipal";
 }
 
 function normalizeConfidence(value: unknown): "required" | "conditional" | "informational" {
+  if (typeof value === "number") {
+    if (value >= 0.75) return "required";
+    if (value >= 0.4) return "conditional";
+    return "informational";
+  }
+
   const confidence = typeof value === "string" ? value.toLowerCase().trim() : "";
+  if (confidence === "high") return "required";
+  if (confidence === "medium") return "conditional";
+  if (confidence === "low") return "informational";
   if (confidence === "required") return "required";
   if (confidence === "informational") return "informational";
   return "conditional";
@@ -132,9 +163,9 @@ function extractJson<T>(raw: string): T | null {
   return null;
 }
 
-async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -147,51 +178,15 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   }
 }
 
-function decodeDuckDuckGoUrl(rawHref: string): string | null {
+function decodeGoogleUrl(rawHref: string): string | null {
   try {
     const decodedHref = decodeHtmlEntities(rawHref);
-
-    if (decodedHref.startsWith("//")) return `https:${decodedHref}`;
     if (decodedHref.startsWith("http://") || decodedHref.startsWith("https://")) return decodedHref;
+    const url = new URL(decodedHref, "https://www.google.com");
 
-    const url = new URL(decodedHref, "https://duckduckgo.com");
-    const redirected = url.searchParams.get("uddg");
-    if (redirected) {
-      return decodeURIComponent(redirected);
-    }
-
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      return url.toString();
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function decodeBingUrl(rawHref: string): string | null {
-  try {
-    const decodedHref = decodeHtmlEntities(rawHref);
-    const url = new URL(decodedHref, "https://www.bing.com");
-
-    const maybeEncodedTarget = url.searchParams.get("u");
-    if (maybeEncodedTarget) {
-      const decodedTarget = decodeURIComponent(maybeEncodedTarget);
-      const base64Target = decodedTarget.startsWith("a1") ? decodedTarget.slice(2) : decodedTarget;
-
-      try {
-        const maybeUrl = Buffer.from(base64Target, "base64").toString("utf8");
-        if (maybeUrl.startsWith("http://") || maybeUrl.startsWith("https://")) {
-          return maybeUrl;
-        }
-      } catch {
-        // ignore and fall through
-      }
-
-      if (decodedTarget.startsWith("http://") || decodedTarget.startsWith("https://")) {
-        return decodedTarget;
-      }
+    const directTarget = url.searchParams.get("q") || url.searchParams.get("url");
+    if (directTarget && (directTarget.startsWith("http://") || directTarget.startsWith("https://"))) {
+      return directTarget;
     }
 
     if (url.protocol === "http:" || url.protocol === "https:") {
@@ -241,14 +236,15 @@ function isOfficialSource(rawUrl: string): boolean {
   }
 }
 
-function extractSearchHits(query: string, html: string): SearchHit[] {
+function extractGoogleSearchHits(query: string, html: string): SearchHit[] {
   const hits: SearchHit[] = [];
   const rejectedUrls: string[] = [];
-  const anchorRegex = /<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let match = anchorRegex.exec(html);
+  const primaryRegex =
+    /<a[^>]*href=["']([^"']+)["'][^>]*>(?:[\s\S]*?)<h3[^>]*>([\s\S]*?)<\/h3>[\s\S]*?<\/a>/gi;
+  let match = primaryRegex.exec(html);
 
   while (match) {
-    const href = finalizeCandidateUrl(decodeDuckDuckGoUrl(match[1]));
+    const href = finalizeCandidateUrl(decodeGoogleUrl(match[1]));
     const rawTitle = match[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
 
     if (href && isOfficialSource(href)) {
@@ -262,50 +258,41 @@ function extractSearchHits(query: string, html: string): SearchHit[] {
     }
 
     if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
-    match = anchorRegex.exec(html);
+    match = primaryRegex.exec(html);
   }
 
-  if (hits.length === 0 && rejectedUrls.length > 0) {
-    debugLog("No usable hits for query", query, "Rejected URL examples:", rejectedUrls);
-  }
+  if (hits.length === 0) {
+    const fallbackRegex = /<a[^>]*href=["'](\/url\?q=[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let fallbackMatch = fallbackRegex.exec(html);
+    while (fallbackMatch) {
+      const href = finalizeCandidateUrl(decodeGoogleUrl(fallbackMatch[1]));
+      const rawTitle =
+        fallbackMatch[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
 
-  return hits;
-}
+      if (href && isOfficialSource(href)) {
+        hits.push({
+          query,
+          title: decodeHtmlEntities(rawTitle),
+          url: href
+        });
+      } else if (href && rejectedUrls.length < 5) {
+        rejectedUrls.push(href);
+      }
 
-function extractBingSearchHits(query: string, html: string): SearchHit[] {
-  const hits: SearchHit[] = [];
-  const rejectedUrls: string[] = [];
-  const resultRegex =
-    /<li[^>]*class=["'][^"']*b_algo[^"']*["'][\s\S]*?<h2[^>]*>\s*<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-
-  let match = resultRegex.exec(html);
-  while (match) {
-    const href = finalizeCandidateUrl(decodeBingUrl(match[1]));
-    const rawTitle = match[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
-
-    if (href && isOfficialSource(href)) {
-      hits.push({
-        query,
-        title: decodeHtmlEntities(rawTitle),
-        url: href
-      });
-    } else if (href && rejectedUrls.length < 5) {
-      rejectedUrls.push(href);
+      if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
+      fallbackMatch = fallbackRegex.exec(html);
     }
-
-    if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
-    match = resultRegex.exec(html);
   }
 
   if (hits.length === 0 && rejectedUrls.length > 0) {
-    debugLog("No usable Bing hits for query", query, "Rejected URL examples:", rejectedUrls);
+    debugLog("No usable Google hits for query", query, "Rejected URL examples:", rejectedUrls);
   }
 
   return hits;
 }
 
-async function searchDuckDuckGo(query: string): Promise<SearchHit[]> {
-  const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+async function searchGoogle(query: string): Promise<SearchHit[]> {
+  const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=en&num=10&pws=0&gl=us`;
   const response = await fetchWithTimeout(url, {
     headers: {
       "User-Agent": SEARCH_USER_AGENT
@@ -316,27 +303,55 @@ async function searchDuckDuckGo(query: string): Promise<SearchHit[]> {
   const html = await response.text();
 
   if (
-    response.status === 202 ||
-    /bots use duckduckgo too|anomaly-modal|challenge-form|anomaly\.js/i.test(html)
+    response.status === 429 ||
+    /unusual traffic|sorry\/index|captcha|consent\.google\.com|detected unusual traffic/i.test(html)
   ) {
-    debugLog(`DuckDuckGo challenge detected for query "${query}" (status ${response.status})`);
+    debugLog(`Google challenge detected for query "${query}" (status ${response.status})`);
     return [];
   }
 
-  return extractSearchHits(query, html);
+  return extractGoogleSearchHits(query, html);
 }
 
-async function searchBing(query: string): Promise<SearchHit[]> {
-  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=en-us&ensearch=1`;
-  const response = await fetchWithTimeout(url, {
-    headers: {
-      "User-Agent": SEARCH_USER_AGENT
-    }
+async function searchSerpApi(query: string, serpApiKey: string): Promise<SearchHit[]> {
+  const params = new URLSearchParams({
+    engine: "google",
+    q: query,
+    api_key: serpApiKey,
+    hl: "en",
+    gl: "us",
+    num: String(Math.max(8, MAX_SEARCH_RESULTS_PER_QUERY))
   });
 
-  if (!response.ok) return [];
-  const html = await response.text();
-  return extractBingSearchHits(query, html);
+  const url = `${SERPAPI_SEARCH_URL}?${params.toString()}`;
+  const response = await fetchWithTimeout(url);
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`SerpAPI request failed (${response.status}): ${text.slice(0, 300)}`);
+  }
+
+  const data = (await response.json()) as SerpApiResponse;
+  if (data.error) {
+    throw new Error(`SerpAPI error: ${data.error}`);
+  }
+
+  const results = Array.isArray(data.organic_results) ? data.organic_results : [];
+  const hits: SearchHit[] = [];
+
+  for (const result of results) {
+    const href = finalizeCandidateUrl(result.link ?? null);
+    if (!href || !isOfficialSource(href)) continue;
+
+    hits.push({
+      query,
+      title: typeof result.title === "string" && result.title.trim().length > 0 ? result.title : "Untitled",
+      url: href
+    });
+
+    if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
+  }
+
+  return hits;
 }
 
 function sanitizeQueries(input: MatchInput, llmQueries: string[]): string[] {
@@ -377,37 +392,64 @@ async function callOpenAIJson<T>(
   systemPrompt: string,
   userPrompt: string
 ): Promise<T | null> {
-  const response = await fetchWithTimeout(OPENAI_CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ]
-    })
-  });
+  const timeoutMs =
+    stage === "permit-extraction" ? OPENAI_EXTRACT_TIMEOUT_MS : OPENAI_QUERY_TIMEOUT_MS;
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`OpenAI request failed (${response.status}): ${text.slice(0, 300)}`);
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(
+        OPENAI_CHAT_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            temperature: 0.1,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ]
+          })
+        },
+        timeoutMs
+      );
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`OpenAI request failed (${response.status}): ${text.slice(0, 300)}`);
+      }
+
+      const data = (await response.json()) as OpenAIChatResponse;
+      const raw = extractContentText(data.choices?.[0]?.message?.content);
+
+      debugLog(`LLM raw response (${stage}):`, raw || "<empty>");
+
+      if (!raw) return null;
+      const parsed = extractJson<T>(raw);
+      debugLog(`LLM parsed JSON (${stage}):`, parsed);
+      return parsed;
+    } catch (error) {
+      lastError = error;
+      const isAbort = error instanceof Error && error.name === "AbortError";
+      if (isAbort && attempt < 2) {
+        debugLog(`LLM ${stage} timed out on attempt ${attempt}, retrying once...`);
+        continue;
+      }
+      throw error;
+    }
   }
 
-  const data = (await response.json()) as OpenAIChatResponse;
-  const raw = extractContentText(data.choices?.[0]?.message?.content);
+  if (lastError) {
+    throw lastError;
+  }
 
-  debugLog(`LLM raw response (${stage}):`, raw || "<empty>");
-
-  if (!raw) return null;
-  const parsed = extractJson<T>(raw);
-  debugLog(`LLM parsed JSON (${stage}):`, parsed);
-  return parsed;
+  return null;
 }
 
 async function generateQueries(input: MatchInput, apiKey: string): Promise<string[]> {
@@ -434,17 +476,14 @@ async function generateQueries(input: MatchInput, apiKey: string): Promise<strin
   return result.queries.filter((q): q is string => typeof q === "string").map((q) => q.trim());
 }
 
-async function searchWeb(queries: string[]): Promise<SearchHit[]> {
+async function searchWeb(queries: string[], serpApiKey: string): Promise<SearchHit[]> {
   const allHits: SearchHit[] = [];
   const seenUrls = new Set<string>();
 
   for (const query of queries) {
-    const ddgHits = await searchDuckDuckGo(query);
-    const bingHits = ddgHits.length > 0 ? [] : await searchBing(query);
-    const hits = ddgHits.length > 0 ? ddgHits : bingHits;
-    const provider = ddgHits.length > 0 ? "duckduckgo" : "bing";
+    const hits = await searchSerpApi(query, serpApiKey);
 
-    debugLog(`Search hits for query "${query}" via ${provider}:`, hits.map((h) => h.url));
+    debugLog(`Search hits for query "${query}" via serpapi:`, hits.map((h) => h.url));
 
     for (const hit of hits) {
       if (seenUrls.has(hit.url)) continue;
@@ -533,41 +572,205 @@ function dedupePermits(permits: ExplainedPermit[]): ExplainedPermit[] {
   return Array.from(map.values());
 }
 
+async function isUsableApplyUrl(applyUrl: string): Promise<boolean> {
+  if (!applyUrl) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(applyUrl);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  if (isSearchEngineHost(parsed.hostname)) return false;
+
+  // HEAD first (cheaper), then GET fallback when needed.
+  try {
+    const headRes = await fetchWithTimeout(
+      applyUrl,
+      {
+        method: "HEAD",
+        redirect: "follow",
+        headers: {
+          "User-Agent": SEARCH_USER_AGENT
+        }
+      },
+      APPLY_URL_VALIDATE_TIMEOUT_MS
+    );
+
+    if (headRes.status === 404 || headRes.status === 410) return false;
+    if (headRes.status >= 200 && headRes.status < 400) return true;
+
+    // Some servers block HEAD or are auth-gated but still valid for users.
+    if (headRes.status === 401 || headRes.status === 403) return true;
+    if (headRes.status >= 500) return false;
+  } catch {
+    // fall through to GET check
+  }
+
+  try {
+    const getRes = await fetchWithTimeout(
+      applyUrl,
+      {
+        method: "GET",
+        redirect: "follow",
+        headers: {
+          "User-Agent": SEARCH_USER_AGENT
+        }
+      },
+      APPLY_URL_VALIDATE_TIMEOUT_MS
+    );
+
+    if (getRes.status === 404 || getRes.status === 410) return false;
+    if (getRes.status >= 200 && getRes.status < 400) return true;
+    if (getRes.status === 401 || getRes.status === 403) return true;
+    if (getRes.status >= 500) return false;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function filterPermitsWithUsableApplyUrl(permits: ExplainedPermit[]): Promise<ExplainedPermit[]> {
+  const checks = await Promise.all(
+    permits.map(async (permit) => {
+      const ok = await isUsableApplyUrl(permit.applyUrl);
+      return { permit, ok };
+    })
+  );
+
+  const dropped = checks.filter((item) => !item.ok).map((item) => item.permit.name);
+  if (dropped.length > 0) {
+    debugLog("Dropped permits with unusable applyUrl:", dropped);
+  }
+
+  return checks.filter((item) => item.ok).map((item) => item.permit);
+}
+
 async function extractPermitsFromSources(
   input: MatchInput,
   sources: SourcePage[],
   apiKey: string
 ): Promise<ExplainedPermit[]> {
   const systemPrompt =
-    "You are a permit compliance analyst. Extract permits and licenses required for this business from source text. Return valid JSON only.";
+    "You are BizPaL. Follow the exact JSON contract from the user prompt and return valid JSON only.";
+
+  const businessName = (input.businessName || "").trim() || "Unknown Business";
+  const businessType = input.businessType.trim();
+  const locationLabel = `${input.location.city ?? ""}, ${input.location.province}`.replace(/^\s*,\s*/, "");
+  const permitKeywords = (input.permitKeywords || "").trim() || input.activities.join(", ");
 
   const compactSources = sources
+    .slice(0, MAX_PROMPT_SOURCES)
     .map((source, index) => {
       return [
         `Source ${index + 1}`,
         `URL: ${source.url}`,
         `Title: ${source.title}`,
-        `Content: ${source.text.slice(0, 2400)}`
+        `Content: ${source.text.slice(0, MAX_PROMPT_SOURCE_CHARS)}`
       ].join("\n");
     })
     .join("\n\n---\n\n");
 
+  const bizPalPrePrompt = [
+    "You are BizPaL.",
+    "",
+    "Your job is to generate a realistic checklist of permits and licenses required to start a business.",
+    "",
+    "Return ONLY valid JSON.",
+    "No markdown.",
+    "No explanations.",
+    "",
+    "BUSINESS INPUT:",
+    "",
+    `Business Name: ${businessName}`,
+    "",
+    `Business Type: ${businessType}`,
+    "",
+    `Business Location: ${locationLabel}`,
+    "",
+    "Permit Keywords (optional):",
+    permitKeywords,
+    "",
+    "---",
+    "",
+    "TASK:",
+    "",
+    "Based on the business inputs above, generate a complete list of permits and licenses required to operate this business.",
+    "",
+    "Include:",
+    "",
+    "City permits",
+    "County permits",
+    "State permits",
+    "Federal permits (if applicable)",
+    "",
+    "Focus on practical real-world permits required to open and operate.",
+    "",
+    "Include restaurant-specific permits if the business is a restaurant.",
+    "",
+    "If permit keywords are provided, prioritize those permits.",
+    "",
+    "Prefer official government sources.",
+    "",
+    "---",
+    "",
+    "OUTPUT FORMAT:",
+    "",
+    "Return a JSON object:",
+    "",
+    "{",
+    "  \"business_name\": \"string\",",
+    "  \"business_type\": \"string\",",
+    "  \"location\": \"City, State\",",
+    "  \"permits\": [",
+    "    {",
+    "      \"id\": \"snake_case_id\",",
+    "",
+    "      \"name\": \"Permit Name\",",
+    "",
+    "      \"issuer\": \"Agency or Department\",",
+    "",
+    "      \"level\": \"city | county | state | federal\",",
+    "",
+    "      \"required\": true,",
+    "",
+    "      \"apply_url\": \"official application link\",",
+    "",
+    "      \"info_url\": \"information page link\",",
+    "",
+    "      \"description\": \"Short description\",",
+    "",
+    "      \"confidence\": 0.0-1.0",
+    "    }",
+    "  ]",
+    "}",
+    "",
+    "---",
+    "",
+    "RULES:",
+    "",
+    "Return 10-30 permits if possible",
+    "Use real government URLs",
+    "Use stable snake_case IDs",
+    "No duplicate permits",
+    "Only include real permits",
+    "Required permits should appear first",
+    "No text outside JSON",
+    "",
+    "Generate the permit list now."
+  ].join("\n");
+
   const userPrompt = [
-    "Return JSON with shape:",
-    "{\"permits\":[{\"name\":\"string\",\"level\":\"municipal|provincial|federal\",\"authority\":\"string\",\"applyUrl\":\"https://...\",\"sourceUrl\":\"https://...\",\"reasons\":[\"string\"],\"confidence\":\"required|conditional|informational\"}]}",
+    bizPalPrePrompt,
     "",
-    "Rules:",
-    "- Only include permits supported by these sources.",
-    "- Prefer official application URLs.",
-    "- Skip duplicates.",
+    "Use the following scraped web sources as grounding context. Prefer these URLs for apply_url and info_url when relevant:",
     "",
-    `Business type: ${input.businessType}`,
-    `Location country: ${input.location.country}`,
-    `Location province/state: ${input.location.province}`,
-    `Location city: ${input.location.city ?? ""}`,
-    `Activities: ${input.activities.join(", ")}`,
+    compactSources,
     "",
-    compactSources
+    "Do not return markdown. Return only JSON."
   ].join("\n");
 
   const parsed = await callOpenAIJson<ExtractedPermitResponse>(
@@ -582,15 +785,36 @@ async function extractPermitsFromSources(
 
   for (const entry of parsed.permits as RawPermit[]) {
     const name = typeof entry?.name === "string" ? entry.name.trim() : "";
-    const authority = typeof entry?.authority === "string" ? entry.authority.trim() : "";
-    const sourceUrl = toUrlOrEmpty(entry?.sourceUrl);
-    const applyUrl = toUrlOrEmpty(entry?.applyUrl);
+    const authority =
+      typeof entry?.issuer === "string"
+        ? entry.issuer.trim()
+        : typeof entry?.authority === "string"
+          ? entry.authority.trim()
+          : "";
 
-    if (!name || !sourceUrl) continue;
+    const sourceUrl =
+      toUrlOrEmpty(entry?.info_url) ||
+      toUrlOrEmpty(entry?.sourceUrl) ||
+      toUrlOrEmpty(entry?.apply_url) ||
+      toUrlOrEmpty(entry?.applyUrl);
+
+    const applyUrl = toUrlOrEmpty(entry?.apply_url) || toUrlOrEmpty(entry?.applyUrl);
+
+    if (!name || !sourceUrl || !applyUrl) continue;
     if (!isOfficialSource(sourceUrl)) {
       debugLog("Dropped permit from non-http(s) source:", sourceUrl, "permitName:", name);
       continue;
     }
+
+    const reasons = toReasonList(entry?.reasons);
+    const description = typeof entry?.description === "string" ? entry.description.trim() : "";
+    if (reasons.length === 0 && description) {
+      reasons.push(description);
+    }
+
+    let confidence = normalizeConfidence(entry?.confidence);
+    if (entry?.required === true) confidence = "required";
+    if (entry?.required === false && confidence === "required") confidence = "conditional";
 
     normalized.push({
       name,
@@ -599,25 +823,43 @@ async function extractPermitsFromSources(
       applyUrl,
       sourceUrl,
       lastUpdated: new Date().toISOString(),
-      reasons: toReasonList(entry?.reasons),
-      confidence: normalizeConfidence(entry?.confidence)
+      reasons,
+      confidence
     });
   }
 
-  return dedupePermits(normalized);
+  const deduped = dedupePermits(normalized);
+  const usable = await filterPermitsWithUsableApplyUrl(deduped);
+  return usable;
 }
 
 export async function discoverPermitsFromWeb(input: MatchInput): Promise<LiveDiscoveryResult> {
   const warnings: string[] = [];
   const apiKey = process.env.OPENAI_API_KEY?.trim() || "";
+  const serpApiKey = process.env.SERPAPI_API_KEY?.trim() || "";
 
   debugLog("Discovery input:", input);
   debugLog("OpenAI key configured:", Boolean(apiKey));
+  debugLog("SerpAPI key configured:", Boolean(serpApiKey));
+  debugLog("OpenAI timeout config:", {
+    queryMs: OPENAI_QUERY_TIMEOUT_MS,
+    extractMs: OPENAI_EXTRACT_TIMEOUT_MS,
+    maxPromptSources: MAX_PROMPT_SOURCES,
+    maxPromptSourceChars: MAX_PROMPT_SOURCE_CHARS
+  });
 
   if (!apiKey) {
     return {
       permits: [],
       warnings: ["OPENAI_API_KEY is not configured, web discovery was skipped."],
+      sourcesUsed: []
+    };
+  }
+
+  if (!serpApiKey) {
+    return {
+      permits: [],
+      warnings: ["SERPAPI_API_KEY is not configured, web search API was skipped."],
       sourcesUsed: []
     };
   }
@@ -644,7 +886,7 @@ export async function discoverPermitsFromWeb(input: MatchInput): Promise<LiveDis
 
   let hits: SearchHit[] = [];
   try {
-    hits = await searchWeb(preparedQueries);
+    hits = await searchWeb(preparedQueries, serpApiKey);
     debugLog("Total search hits:", hits.length);
   } catch (error) {
     warnings.push(`Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`);

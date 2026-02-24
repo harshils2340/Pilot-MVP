@@ -2,6 +2,8 @@ import { Permit, IPermit } from "./schema";
 
 // Input type for search
 export type MatchInput = {
+  businessName?: string;
+  permitKeywords?: string;
   location: { country: string; province: string; city?: string };
   businessType: string;
   activities: string[];

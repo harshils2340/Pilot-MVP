@@ -25,8 +25,11 @@ interface Permit {
   };
   authority?: string;
   activities?: string[];
+  reasons?: string[];
   applyUrl?: string;
   sourceUrl?: string;
+  lastUpdated?: string;
+  confidence?: 'required' | 'conditional' | 'informational';
   priority?: 'High' | 'Medium' | 'Low';
   category?: string;
 }
@@ -187,6 +190,30 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     }
   };
 
+  const getPermitSourceUrl = (permit: Permit): string | null => {
+    const rawUrl = permit.sourceUrl;
+    if (!rawUrl) return null;
+
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const getPermitConfidence = (
+    permit: Permit
+  ): 'required' | 'conditional' | 'informational' => {
+    if (permit.confidence) return permit.confidence;
+    if (permit.priority === 'High') return 'required';
+    if (permit.priority === 'Low') return 'informational';
+    return 'conditional';
+  };
+
   const handlePermitOpen = (permit: Permit) => {
     const targetUrl = getPermitApplyUrl(permit);
     if (!targetUrl) return;
@@ -228,6 +255,8 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       }
       
       const payload = {
+        businessName: trimmedData.businessName,
+        permitKeywords: trimmedData.permitKeywords,
         location: parsedLocation,
         businessType: trimmedData.businessType,
         activities: activities,
@@ -267,22 +296,36 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       
       console.log(`✅ Found ${apiPermits.length} permits from API`);
       
-      // Transform API permits to our Permit format
-      const discoveredPermits: Permit[] = apiPermits.map((p: any, index: number) => ({
-        _id: `permit-${index}-${Date.now()}`,
-        name: p.name,
-        level: p.level || 'municipal',
-        jurisdiction: {
-          city: parsedLocation.city,
-          province: parsedLocation.province,
-        },
-        authority: p.authority || 'Unknown',
-        activities: p.reasons || [],
-        priority: p.confidence === 'required' ? 'High' : p.confidence === 'conditional' ? 'Medium' : 'Low',
-        category: p.level === 'federal' ? 'Federal' : p.level === 'provincial' ? 'Provincial' : 'Municipal',
-        applyUrl: p.applyUrl,
-        sourceUrl: p.sourceUrl,
-      }));
+      // Transform API permits to our Permit format and keep only permits with valid apply/source URLs.
+      const discoveredPermits: Permit[] = apiPermits
+        .map((p: any, index: number) => ({
+          _id: `permit-${index}-${Date.now()}`,
+          name: p.name,
+          level: p.level || 'municipal',
+          jurisdiction: {
+            city: parsedLocation.city,
+            province: parsedLocation.province,
+          },
+          authority: p.authority || 'Unknown',
+          activities: Array.isArray(p.reasons) ? p.reasons : [],
+          reasons: Array.isArray(p.reasons) ? p.reasons : [],
+          confidence:
+            p.confidence === 'required' || p.confidence === 'conditional' || p.confidence === 'informational'
+              ? p.confidence
+              : 'conditional',
+          lastUpdated: typeof p.lastUpdated === 'string' ? p.lastUpdated : new Date().toISOString(),
+          priority: p.confidence === 'required' ? 'High' : p.confidence === 'conditional' ? 'Medium' : 'Low',
+          category: p.level === 'federal' ? 'Federal' : p.level === 'provincial' ? 'Provincial' : 'Municipal',
+          applyUrl: p.applyUrl,
+          sourceUrl: p.sourceUrl,
+        }))
+        .filter((permit: Permit) => Boolean(getPermitApplyUrl(permit) && getPermitSourceUrl(permit)));
+
+      if (discoveredPermits.length < apiPermits.length) {
+        console.warn(
+          `Filtered out ${apiPermits.length - discoveredPermits.length} permit(s) due to invalid or missing links`
+        );
+      }
       
       if (Array.isArray(data.warnings) && data.warnings.length > 0) {
         console.warn('Permit discovery warnings:', data.warnings);
@@ -387,8 +430,10 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 order: index + 1,
                 lastActivity: 'Not Started',
                 lastActivityDate: new Date(),
-                requirements: permit.activities || [],
-                howToApply: permit.applyUrl ? `Apply at: ${permit.applyUrl}` : 'Contact the issuing authority',
+                requirements: permit.reasons || permit.activities || [],
+                howToApply: getPermitApplyUrl(permit)
+                  ? `Apply at: ${getPermitApplyUrl(permit)}`
+                  : 'Contact the issuing authority',
               };
             });
             
@@ -410,7 +455,72 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
             // Don't fail the whole operation if permit linking fails
           }
         }
-        
+
+        if (permits.length > 0 && newClient._id) {
+          try {
+            const discoveredPermitsForDb = permits
+              .map((permit) => {
+                const applyUrl = getPermitApplyUrl(permit);
+                const sourceUrl = getPermitSourceUrl(permit);
+                if (!applyUrl || !sourceUrl) return null;
+
+                return {
+                  name: permit.name,
+                  level: permit.level || 'municipal',
+                  authority: permit.authority || 'Unknown',
+                  applyUrl,
+                  sourceUrl,
+                  lastUpdated: permit.lastUpdated || new Date().toISOString(),
+                  reasons: permit.reasons || permit.activities || [],
+                  confidence: getPermitConfidence(permit),
+                };
+              })
+              .filter(
+                (
+                  permit
+                ): permit is {
+                  name: string;
+                  level: string;
+                  authority: string;
+                  applyUrl: string;
+                  sourceUrl: string;
+                  lastUpdated: string;
+                  reasons: string[];
+                  confidence: 'required' | 'conditional' | 'informational';
+                } => permit !== null
+              );
+
+            if (discoveredPermitsForDb.length > 0) {
+              const discoveredRes = await fetch('/api/permits/discovered/bulk-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clientId: newClient._id,
+                  permits: discoveredPermitsForDb,
+                }),
+              });
+
+              if (discoveredRes.ok) {
+                const discoveredResult = await discoveredRes.json();
+                console.log(
+                  `Saved ${discoveredResult.created} discovered permit record(s) for client ${newClient._id}`
+                );
+              } else {
+                const discoveredError = await discoveredRes.json().catch(() => ({}));
+                console.warn(
+                  'Failed to save discovered permits, but client was created:',
+                  discoveredError
+                );
+              }
+            } else {
+              console.warn('No valid discovered permits to save after URL validation');
+            }
+          } catch (discoveredErr) {
+            console.error('Error saving discovered permits:', discoveredErr);
+            // Don't fail the whole operation if discovered permit save fails
+          }
+        }
+
         onComplete(newClient);
       } else {
         const errorData = await res.json().catch(() => ({}));

@@ -1,4 +1,6 @@
 export type PermitSearchRequest = {
+  businessName?: string;
+  permitKeywords?: string;
   location: {
     country: string;
     province: string;
