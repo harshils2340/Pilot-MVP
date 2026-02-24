@@ -48,8 +48,28 @@ export async function POST(req: Request) {
 
     const warnings: string[] = [];
     let discoveryMode: "web-llm" | "database" = "database";
+    let liveDiscovery: Awaited<ReturnType<typeof discoverPermitsFromWeb>>;
 
-    const liveDiscovery = await discoverPermitsFromWeb(parsed.data);
+    // Hard timeout 58s to give extraction time to finish (Vercel max 60s)
+    const DISCOVERY_TIMEOUT_MS = 58_000;
+    try {
+      liveDiscovery = await Promise.race([
+        discoverPermitsFromWeb(parsed.data),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Discovery timeout")), DISCOVERY_TIMEOUT_MS)
+        )
+      ]);
+    } catch (timeoutOrOther: unknown) {
+      const msg = timeoutOrOther instanceof Error ? timeoutOrOther.message : "Unknown error";
+      const isTimeout = msg === "Discovery timeout";
+      if (isTimeout) {
+        warnings.push("Web discovery timed out; using database results.");
+      } else {
+        warnings.push(`Web discovery failed: ${msg}`);
+      }
+      liveDiscovery = { permits: [], warnings: [], sourcesUsed: [] };
+    }
+
     let permits = liveDiscovery.permits;
     warnings.push(...liveDiscovery.warnings);
 

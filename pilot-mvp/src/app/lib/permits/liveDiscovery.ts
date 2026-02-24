@@ -37,10 +37,6 @@ type OpenAIChatResponse = {
   }>;
 };
 
-type SearchQueryResponse = {
-  queries?: unknown;
-};
-
 type ExtractedPermitResponse = {
   permits?: unknown;
 };
@@ -67,23 +63,21 @@ type SearchWebResult = {
 
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const MAX_SEARCH_QUERIES = 4;
-const MAX_SEARCH_RESULTS_PER_QUERY = 6;
-const MAX_CANDIDATE_URLS = 12;
-const MAX_SCRAPED_PAGES = 8;
-const MAX_PAGE_TEXT = 12000;
-const FETCH_TIMEOUT_MS = 12000;
+// Reduced for Vercel 60s limit: parallelized flow still needs room for LLM + scrape + extract
+const MAX_SEARCH_QUERIES = 3;
+const MAX_SEARCH_RESULTS_PER_QUERY = 5;
+const MAX_CANDIDATE_URLS = 10;
+const MAX_SCRAPED_PAGES = 5;
+const MAX_PAGE_TEXT = 8000;
+const FETCH_TIMEOUT_MS = 8000;
 const SERPAPI_TIMEOUT_MS = Math.max(
-  5000,
+  10000,
   Number.parseInt(process.env.SERPAPI_TIMEOUT_MS || "25000", 10) || 25000
 );
-const OPENAI_QUERY_TIMEOUT_MS = 45000;
-const OPENAI_EXTRACT_TIMEOUT_MS = 150000;
-const MAX_PROMPT_SOURCES = 5;
-const MAX_PROMPT_SOURCE_CHARS = 1400;
-const APPLY_URL_VALIDATE_TIMEOUT_MS = 10000;
+const OPENAI_EXTRACT_TIMEOUT_MS = 45000;
+const MAX_PROMPT_SOURCES = 3;
+const MAX_PROMPT_SOURCE_CHARS = 1000;
 const PERMIT_DISCOVERY_DEBUG = process.env.PERMIT_DISCOVERY_DEBUG === "true";
-const SEARCH_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 
 function debugLog(...args: unknown[]) {
@@ -187,27 +181,6 @@ async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = FET
   }
 }
 
-function decodeGoogleUrl(rawHref: string): string | null {
-  try {
-    const decodedHref = decodeHtmlEntities(rawHref);
-    if (decodedHref.startsWith("http://") || decodedHref.startsWith("https://")) return decodedHref;
-    const url = new URL(decodedHref, "https://www.google.com");
-
-    const directTarget = url.searchParams.get("q") || url.searchParams.get("url");
-    if (directTarget && (directTarget.startsWith("http://") || directTarget.startsWith("https://"))) {
-      return directTarget;
-    }
-
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      return url.toString();
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 function isSearchEngineHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
   return (
@@ -245,82 +218,8 @@ function isOfficialSource(rawUrl: string): boolean {
   }
 }
 
-function extractGoogleSearchHits(query: string, html: string): SearchHit[] {
-  const hits: SearchHit[] = [];
-  const rejectedUrls: string[] = [];
-  const primaryRegex =
-    /<a[^>]*href=["']([^"']+)["'][^>]*>(?:[\s\S]*?)<h3[^>]*>([\s\S]*?)<\/h3>[\s\S]*?<\/a>/gi;
-  let match = primaryRegex.exec(html);
-
-  while (match) {
-    const href = finalizeCandidateUrl(decodeGoogleUrl(match[1]));
-    const rawTitle = match[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
-
-    if (href && isOfficialSource(href)) {
-      hits.push({
-        query,
-        title: decodeHtmlEntities(rawTitle),
-        url: href
-      });
-    } else if (href && rejectedUrls.length < 5) {
-      rejectedUrls.push(href);
-    }
-
-    if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
-    match = primaryRegex.exec(html);
-  }
-
-  if (hits.length === 0) {
-    const fallbackRegex = /<a[^>]*href=["'](\/url\?q=[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-    let fallbackMatch = fallbackRegex.exec(html);
-    while (fallbackMatch) {
-      const href = finalizeCandidateUrl(decodeGoogleUrl(fallbackMatch[1]));
-      const rawTitle =
-        fallbackMatch[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
-
-      if (href && isOfficialSource(href)) {
-        hits.push({
-          query,
-          title: decodeHtmlEntities(rawTitle),
-          url: href
-        });
-      } else if (href && rejectedUrls.length < 5) {
-        rejectedUrls.push(href);
-      }
-
-      if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
-      fallbackMatch = fallbackRegex.exec(html);
-    }
-  }
-
-  if (hits.length === 0 && rejectedUrls.length > 0) {
-    debugLog("No usable Google hits for query", query, "Rejected URL examples:", rejectedUrls);
-  }
-
-  return hits;
-}
-
-async function searchGoogle(query: string): Promise<SearchHit[]> {
-  const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=en&num=10&pws=0&gl=us`;
-  const response = await fetchWithTimeout(url, {
-    headers: {
-      "User-Agent": SEARCH_USER_AGENT
-    }
-  });
-
-  if (!response.ok) return [];
-  const html = await response.text();
-
-  if (
-    response.status === 429 ||
-    /unusual traffic|sorry\/index|captcha|consent\.google\.com|detected unusual traffic/i.test(html)
-  ) {
-    debugLog(`Google challenge detected for query "${query}" (status ${response.status})`);
-    return [];
-  }
-
-  return extractGoogleSearchHits(query, html);
-}
+const SERPAPI_RETRIES = 2;
+const SERPAPI_RETRY_DELAY_MS = 1000;
 
 async function searchSerpApi(query: string, serpApiKey: string): Promise<SearchHit[]> {
   const params = new URLSearchParams({
@@ -329,38 +228,73 @@ async function searchSerpApi(query: string, serpApiKey: string): Promise<SearchH
     api_key: serpApiKey,
     hl: "en",
     gl: "us",
-    num: String(Math.max(8, MAX_SEARCH_RESULTS_PER_QUERY))
+    num: String(MAX_SEARCH_RESULTS_PER_QUERY)
   });
 
   const url = `${SERPAPI_SEARCH_URL}?${params.toString()}`;
-  const response = await fetchWithTimeout(url, undefined, SERPAPI_TIMEOUT_MS);
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`SerpAPI request failed (${response.status}): ${text.slice(0, 300)}`);
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= SERPAPI_RETRIES; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url, undefined, SERPAPI_TIMEOUT_MS);
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        const err = new Error(`SerpAPI request failed (${response.status}): ${text.slice(0, 300)}`);
+        if (response.status === 401 || response.status === 400) throw err;
+        lastError = err;
+        if (attempt < SERPAPI_RETRIES) {
+          debugLog(`SerpAPI attempt ${attempt} failed (${response.status}), retrying...`);
+          await new Promise((r) => setTimeout(r, SERPAPI_RETRY_DELAY_MS));
+          continue;
+        }
+        throw err;
+      }
+
+      const data = (await response.json()) as SerpApiResponse;
+      if (data.error) {
+        const err = new Error(`SerpAPI error: ${data.error}`);
+        if (String(data.error).toLowerCase().includes("invalid api key")) throw err;
+        lastError = err;
+        if (attempt < SERPAPI_RETRIES) {
+          debugLog(`SerpAPI attempt ${attempt} failed:`, data.error, "retrying...");
+          await new Promise((r) => setTimeout(r, SERPAPI_RETRY_DELAY_MS));
+          continue;
+        }
+        throw err;
+      }
+
+      const results = Array.isArray(data.organic_results) ? data.organic_results : [];
+      const hits: SearchHit[] = [];
+
+      for (const result of results) {
+        const href = finalizeCandidateUrl(result.link ?? null);
+        if (!href || !isOfficialSource(href)) continue;
+
+        hits.push({
+          query,
+          title: typeof result.title === "string" && result.title.trim().length > 0 ? result.title : "Untitled",
+          url: href
+        });
+
+        if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
+      }
+
+      return hits;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const isAbort = lastError.name === "AbortError";
+      const isAuth = /401|invalid api key/i.test(lastError.message);
+      if (isAuth) throw lastError;
+      if (attempt < SERPAPI_RETRIES && (isAbort || lastError.message.includes("aborted"))) {
+        debugLog(`SerpAPI attempt ${attempt} aborted/timed out, retrying...`);
+        await new Promise((r) => setTimeout(r, SERPAPI_RETRY_DELAY_MS));
+        continue;
+      }
+      throw lastError;
+    }
   }
 
-  const data = (await response.json()) as SerpApiResponse;
-  if (data.error) {
-    throw new Error(`SerpAPI error: ${data.error}`);
-  }
-
-  const results = Array.isArray(data.organic_results) ? data.organic_results : [];
-  const hits: SearchHit[] = [];
-
-  for (const result of results) {
-    const href = finalizeCandidateUrl(result.link ?? null);
-    if (!href || !isOfficialSource(href)) continue;
-
-    hits.push({
-      query,
-      title: typeof result.title === "string" && result.title.trim().length > 0 ? result.title : "Untitled",
-      url: href
-    });
-
-    if (hits.length >= MAX_SEARCH_RESULTS_PER_QUERY) break;
-  }
-
-  return hits;
+  throw lastError ?? new Error("SerpAPI failed after retries");
 }
 
 function sanitizeQueries(input: MatchInput, llmQueries: string[]): string[] {
@@ -395,18 +329,17 @@ function extractContentText(content: string | Array<{ type?: string; text?: stri
     .trim();
 }
 
+const OPENAI_EXTRACT_RETRIES = 2;
+
 async function callOpenAIJson<T>(
   apiKey: string,
-  stage: "query-generation" | "permit-extraction",
+  stage: "permit-extraction",
   systemPrompt: string,
   userPrompt: string
 ): Promise<T | null> {
-  const timeoutMs =
-    stage === "permit-extraction" ? OPENAI_EXTRACT_TIMEOUT_MS : OPENAI_QUERY_TIMEOUT_MS;
+  let lastError: Error | null = null;
 
-  let lastError: unknown = null;
-
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  for (let attempt = 1; attempt <= OPENAI_EXTRACT_RETRIES; attempt += 1) {
     try {
       const response = await fetchWithTimeout(
         OPENAI_CHAT_URL,
@@ -426,7 +359,7 @@ async function callOpenAIJson<T>(
             ]
           })
         },
-        timeoutMs
+        OPENAI_EXTRACT_TIMEOUT_MS
       );
 
       if (!response.ok) {
@@ -444,127 +377,106 @@ async function callOpenAIJson<T>(
       debugLog(`LLM parsed JSON (${stage}):`, parsed);
       return parsed;
     } catch (error) {
-      lastError = error;
-      const isAbort = error instanceof Error && error.name === "AbortError";
-      if (isAbort && attempt < 2) {
-        debugLog(`LLM ${stage} timed out on attempt ${attempt}, retrying once...`);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const isAbort = lastError.name === "AbortError" || lastError.message.includes("aborted");
+      if (attempt < OPENAI_EXTRACT_RETRIES && isAbort) {
+        debugLog(`OpenAI extraction attempt ${attempt} aborted, retrying...`);
+        await new Promise((r) => setTimeout(r, 1500));
         continue;
       }
-      throw error;
+      throw lastError;
     }
   }
 
-  if (lastError) {
-    throw lastError;
+  throw lastError ?? new Error("OpenAI extraction failed");
+}
+
+async function searchOneQuery(
+  query: string,
+  serpApiKey: string
+): Promise<{ hits: SearchHit[]; warnings: string[] }> {
+  try {
+    const hits = await searchSerpApi(query, serpApiKey);
+    debugLog(`Search hits for "${query}":`, hits.map((h) => h.url));
+    return { hits, warnings: [] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    debugLog(`SerpAPI failed for "${query}":`, message);
+    return { hits: [], warnings: [`Search failed for "${query}": ${message}`] };
   }
-
-  return null;
 }
 
-async function generateQueries(input: MatchInput, apiKey: string): Promise<string[]> {
-  const systemPrompt =
-    "You generate concise web search queries for permit research. Return valid JSON only: {\"queries\": string[]}.";
-
-  const userPrompt = [
-    "Generate 4 high quality search queries to find official permit and license requirements.",
-    `Country code: ${input.location.country}`,
-    `Province/state code: ${input.location.province}`,
-    `City: ${input.location.city ?? ""}`,
-    `Business type: ${input.businessType}`,
-    `Activities: ${input.activities.join(", ")}`
-  ].join("\n");
-
-  const result = await callOpenAIJson<SearchQueryResponse>(
-    apiKey,
-    "query-generation",
-    systemPrompt,
-    userPrompt
-  );
-  if (!result?.queries || !Array.isArray(result.queries)) return [];
-
-  return result.queries.filter((q): q is string => typeof q === "string").map((q) => q.trim());
-}
+// Don't block on slow SerpAPI retries — proceed with partial results after this
+const SEARCH_PHASE_TIMEOUT_MS = 28_000;
 
 async function searchWeb(queries: string[], serpApiKey: string): Promise<SearchWebResult> {
   const allHits: SearchHit[] = [];
   const seenUrls = new Set<string>();
   const warnings: string[] = [];
 
-  for (const query of queries) {
-    let hits: SearchHit[] = [];
-    let provider: "serpapi" | "google-fallback" | null = null;
-
-    try {
-      hits = await searchSerpApi(query, serpApiKey);
-      provider = "serpapi";
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      debugLog(`SerpAPI search failed for query "${query}":`, message);
-
-      // If SerpAPI times out/aborts for one query, continue discovery via Google fallback.
-      try {
-        hits = await searchGoogle(query);
-        provider = "google-fallback";
-        warnings.push(`SerpAPI failed for one query; used Google fallback for: "${query}"`);
-      } catch (fallbackError) {
-        const fallbackMessage =
-          fallbackError instanceof Error ? fallbackError.message : "Unknown fallback error";
-        debugLog(`Google fallback failed for query "${query}":`, fallbackMessage);
-        warnings.push(`Web search failed for query "${query}": ${message}`);
-        continue;
-      }
-    }
-
-    debugLog(
-      `Search hits for query "${query}" via ${provider ?? "unknown"}:`,
-      hits.map((h) => h.url)
+  const searchPromise = (async (): Promise<SearchWebResult> => {
+    await Promise.all(
+      queries.map(async (q) => {
+        const result = await searchOneQuery(q, serpApiKey);
+        for (const hit of result.hits) {
+          if (!seenUrls.has(hit.url)) {
+            seenUrls.add(hit.url);
+            allHits.push(hit);
+          }
+        }
+        warnings.push(...result.warnings);
+      })
     );
+    return { hits: allHits, warnings };
+  })();
 
-    for (const hit of hits) {
-      if (seenUrls.has(hit.url)) continue;
-      seenUrls.add(hit.url);
-      allHits.push(hit);
-      if (allHits.length >= MAX_CANDIDATE_URLS) {
-        return { hits: allHits, warnings };
+  const timeoutPromise = new Promise<SearchWebResult>((resolve) => {
+    setTimeout(() => {
+      resolve({
+        hits: allHits,
+        warnings:
+          allHits.length > 0
+            ? [...warnings, "Search phase timed out; proceeding with partial results."]
+            : warnings
+      });
+    }, SEARCH_PHASE_TIMEOUT_MS);
+  });
+
+  return Promise.race([searchPromise, timeoutPromise]);
+}
+
+async function scrapeOnePage(hit: SearchHit): Promise<SourcePage | null> {
+  try {
+    const response = await fetchWithTimeout(hit.url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; PilotPermitBot/1.0)"
       }
-    }
-  }
+    });
 
-  return { hits: allHits, warnings };
+    if (!response.ok) return null;
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("text/html")) return null;
+
+    const html = await response.text();
+    const text = stripHtmlToText(html).slice(0, MAX_PAGE_TEXT).trim();
+    if (text.length < 300) return null;
+
+    debugLog("Scraped source:", hit.url, `textLength=${text.length}`);
+    return {
+      title: hit.title,
+      url: hit.url,
+      excerpt: text.slice(0, 320),
+      text
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function scrapeSources(hits: SearchHit[]): Promise<SourcePage[]> {
-  const sources: SourcePage[] = [];
-
-  for (const hit of hits.slice(0, MAX_SCRAPED_PAGES)) {
-    try {
-      const response = await fetchWithTimeout(hit.url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; PilotPermitBot/1.0)"
-        }
-      });
-
-      if (!response.ok) continue;
-      const contentType = (response.headers.get("content-type") || "").toLowerCase();
-      if (!contentType.includes("text/html")) continue;
-
-      const html = await response.text();
-      const text = stripHtmlToText(html).slice(0, MAX_PAGE_TEXT).trim();
-      if (text.length < 300) continue;
-
-      sources.push({
-        title: hit.title,
-        url: hit.url,
-        excerpt: text.slice(0, 320),
-        text
-      });
-      debugLog("Scraped source:", hit.url, `textLength=${text.length}`);
-    } catch {
-      // Ignore scrape errors for individual pages and continue.
-    }
-  }
-
-  return sources;
+  const toScrape = hits.slice(0, MAX_SCRAPED_PAGES);
+  const results = await Promise.all(toScrape.map(scrapeOnePage));
+  return results.filter((r): r is SourcePage => r !== null);
 }
 
 function toReasonList(value: unknown): string[] {
@@ -607,83 +519,6 @@ function dedupePermits(permits: ExplainedPermit[]): ExplainedPermit[] {
   }
 
   return Array.from(map.values());
-}
-
-async function isUsableApplyUrl(applyUrl: string): Promise<boolean> {
-  if (!applyUrl) return false;
-
-  let parsed: URL;
-  try {
-    parsed = new URL(applyUrl);
-  } catch {
-    return false;
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
-  if (isSearchEngineHost(parsed.hostname)) return false;
-
-  // HEAD first (cheaper), then GET fallback when needed.
-  try {
-    const headRes = await fetchWithTimeout(
-      applyUrl,
-      {
-        method: "HEAD",
-        redirect: "follow",
-        headers: {
-          "User-Agent": SEARCH_USER_AGENT
-        }
-      },
-      APPLY_URL_VALIDATE_TIMEOUT_MS
-    );
-
-    if (headRes.status === 404 || headRes.status === 410) return false;
-    if (headRes.status >= 200 && headRes.status < 400) return true;
-
-    // Some servers block HEAD or are auth-gated but still valid for users.
-    if (headRes.status === 401 || headRes.status === 403) return true;
-    if (headRes.status >= 500) return false;
-  } catch {
-    // fall through to GET check
-  }
-
-  try {
-    const getRes = await fetchWithTimeout(
-      applyUrl,
-      {
-        method: "GET",
-        redirect: "follow",
-        headers: {
-          "User-Agent": SEARCH_USER_AGENT
-        }
-      },
-      APPLY_URL_VALIDATE_TIMEOUT_MS
-    );
-
-    if (getRes.status === 404 || getRes.status === 410) return false;
-    if (getRes.status >= 200 && getRes.status < 400) return true;
-    if (getRes.status === 401 || getRes.status === 403) return true;
-    if (getRes.status >= 500) return false;
-
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-async function filterPermitsWithUsableApplyUrl(permits: ExplainedPermit[]): Promise<ExplainedPermit[]> {
-  const checks = await Promise.all(
-    permits.map(async (permit) => {
-      const ok = await isUsableApplyUrl(permit.applyUrl);
-      return { permit, ok };
-    })
-  );
-
-  const dropped = checks.filter((item) => !item.ok).map((item) => item.permit.name);
-  if (dropped.length > 0) {
-    debugLog("Dropped permits with unusable applyUrl:", dropped);
-  }
-
-  return checks.filter((item) => item.ok).map((item) => item.permit);
 }
 
 async function extractPermitsFromSources(
@@ -866,8 +701,8 @@ async function extractPermitsFromSources(
   }
 
   const deduped = dedupePermits(normalized);
-  const usable = await filterPermitsWithUsableApplyUrl(deduped);
-  return usable;
+  // Skip apply-URL validation: HEAD/GET per permit adds 5–10s, marginal value (saves time)
+  return deduped;
 }
 
 export async function discoverPermitsFromWeb(input: MatchInput): Promise<LiveDiscoveryResult> {
@@ -878,9 +713,8 @@ export async function discoverPermitsFromWeb(input: MatchInput): Promise<LiveDis
   debugLog("Discovery input:", input);
   debugLog("OpenAI key configured:", Boolean(apiKey));
   debugLog("SerpAPI key configured:", Boolean(serpApiKey));
-  debugLog("OpenAI timeout config:", {
-    queryMs: OPENAI_QUERY_TIMEOUT_MS,
-    extractMs: OPENAI_EXTRACT_TIMEOUT_MS,
+  debugLog("OpenAI config:", {
+    extractTimeoutMs: OPENAI_EXTRACT_TIMEOUT_MS,
     maxPromptSources: MAX_PROMPT_SOURCES,
     maxPromptSourceChars: MAX_PROMPT_SOURCE_CHARS
   });
@@ -901,18 +735,9 @@ export async function discoverPermitsFromWeb(input: MatchInput): Promise<LiveDis
     };
   }
 
-  let queries: string[] = [];
-  try {
-    queries = await generateQueries(input, apiKey);
-    debugLog("LLM-generated queries:", queries);
-  } catch (error) {
-    warnings.push(
-      `Query generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  }
-
-  const preparedQueries = sanitizeQueries(input, queries);
-  debugLog("Final queries after fallback/sanitize:", preparedQueries);
+  // Skip LLM query generation—static fallbacks are fast and good enough (saves ~10–15s + 1 API call)
+  const preparedQueries = sanitizeQueries(input, []);
+  debugLog("Queries (static fallback, no LLM gen):", preparedQueries);
   if (preparedQueries.length === 0) {
     return {
       permits: [],

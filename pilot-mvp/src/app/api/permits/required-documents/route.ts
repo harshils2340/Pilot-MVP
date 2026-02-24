@@ -63,7 +63,7 @@ List the documents typically required. Return JSON only.`;
         { role: 'user', content: userPrompt },
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 800,
+      max_completion_tokens: 800,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -96,7 +96,7 @@ List the documents typically required. Return JSON only.`;
             { role: 'user', content: userPrompt },
           ],
           response_format: { type: 'json_object' },
-          max_tokens: 800,
+          max_completion_tokens: 800,
         });
         const content = fallback.choices[0]?.message?.content;
         if (content) {
