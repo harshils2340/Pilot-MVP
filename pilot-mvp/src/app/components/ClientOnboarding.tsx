@@ -920,10 +920,10 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
         <div className="mx-auto max-w-xl text-center">
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-2">
             <FileText className="w-4 h-4" />
-            <span>New Permit Setup</span>
+            <span>New Client</span>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">Start New Permit</h1>
-          <p className="text-sm text-muted-foreground mt-1">Tell us about the business to discover required permits and licenses</p>
+          <h1 className="text-2xl font-semibold text-foreground">Add New Client</h1>
+          <p className="text-sm text-muted-foreground mt-1">Enter business details to discover required permits and licenses</p>
         </div>
       </div>
 
