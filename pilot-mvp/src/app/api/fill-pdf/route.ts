@@ -70,28 +70,40 @@ function buildBusinessContextFromClient(client: any): {
     suite = client.address.unit;
   }
   
-  // Parse owner name from contactInfo
-  const ownerName = client.contactInfo?.name || client.ownerName || '';
-  const nameParts = ownerName.split(' ').filter(Boolean);
-  const ownerFirstName = nameParts[0] || client.ownerFirstName || '';
-  const ownerLastName = nameParts.slice(1).join(' ') || client.ownerLastName || '';
+  // Parse owner name - prioritize ownerInfo structure, then fallback to contactInfo
+  let ownerFirstName = '';
+  let ownerLastName = '';
+  let ownerPosition = 'Owner';
+  
+  if (client.ownerInfo) {
+    ownerFirstName = client.ownerInfo.firstName || '';
+    ownerLastName = client.ownerInfo.lastName || '';
+    ownerPosition = client.ownerInfo.position || 'Owner';
+  } else {
+    // Fallback: parse from contactInfo.name or other sources
+    const ownerName = client.contactInfo?.name || client.ownerName || client.ownerInfo?.fullName || '';
+    const nameParts = ownerName.split(' ').filter(Boolean);
+    ownerFirstName = nameParts[0] || client.ownerFirstName || '';
+    ownerLastName = nameParts.slice(1).join(' ') || client.ownerLastName || '';
+    ownerPosition = client.ownerPosition || client.contactInfo?.position || client.ownerInfo?.position || 'Owner';
+  }
   
   return {
     legalName: client.businessName || client.name || '',
-    operatingName: client.businessName || client.name || client.operatingName || '',
+    operatingName: client.operatingName || client.businessName || client.name || '',
     streetNumber: streetNumber || '',
     streetName: streetName || '',
     suite: suite || '',
     city: city || '',
     province: province || '',
     postalCode: client.address?.postalCode || client.address?.zipCode || client.postalCode || '',
-    phone: client.contactInfo?.phone || client.contactPhone || client.phone || '',
-    email: client.contactInfo?.email || client.contactEmail || client.email || '',
+    phone: client.contactInfo?.phone || client.ownerInfo?.phone || client.contactPhone || client.phone || '',
+    email: client.contactInfo?.email || client.ownerInfo?.email || client.contactEmail || client.email || '',
     businessLicenceNumber: client.businessLicenceNumber || client.licenseNumber || '',
     licenceExpiry: client.licenceExpiry || client.licenseExpiry || '',
     ownerFirstName: ownerFirstName,
     ownerLastName: ownerLastName,
-    ownerPosition: client.ownerPosition || client.contactInfo?.position || 'Owner',
+    ownerPosition: ownerPosition,
     cafeStreet: streetName || '',
     cafeLength: client.cafeLength || '6.0',
     cafeWidth: client.cafeWidth || '2.0',

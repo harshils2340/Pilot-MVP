@@ -12,9 +12,27 @@ interface ClientOnboardingProps {
 
 interface BusinessFormData {
   businessName: string;
+  operatingName?: string;
   location: string; // Where is your business located?
   businessType: string; // What type of business is it?
   permitKeywords: string; // What type of permits and licences are you looking for?
+  // Address fields for form filling
+  streetNumber?: string;
+  streetName?: string;
+  suite?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  // Contact fields
+  email?: string;
+  phone?: string;
+  // Owner/representative fields
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerPosition?: string;
+  // Business license fields
+  businessLicenceNumber?: string;
+  licenceExpiry?: string;
 }
 
 interface Permit {
@@ -44,9 +62,23 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
   const [permits, setPermits] = useState<Permit[]>([]);
   const [formData, setFormData] = useState<BusinessFormData>({
     businessName: '',
+    operatingName: '',
     location: '',
     businessType: '',
     permitKeywords: '',
+    streetNumber: '',
+    streetName: '',
+    suite: '',
+    city: '',
+    province: '',
+    postalCode: '',
+    email: '',
+    phone: '',
+    ownerFirstName: '',
+    ownerLastName: '',
+    ownerPosition: '',
+    businessLicenceNumber: '',
+    licenceExpiry: '',
   });
 
   // Refs to track ongoing operations for cleanup
@@ -468,8 +500,36 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
     // Create client in MongoDB
     setSubmitting(true);
     try {
+      // Parse location to extract city/province for address
+      const locationParts = formData.location.split(',').map(s => s.trim());
+      // Use form data if provided, otherwise parse from location string
+      const city = formData.city || locationParts[0] || '';
+      const province = formData.province || locationParts[1] || '';
+      
+      // Auto-populate city/province from location if not manually entered
+      if (!formData.city && locationParts[0]) {
+        formData.city = locationParts[0];
+      }
+      if (!formData.province && locationParts[1]) {
+        formData.province = locationParts[1];
+      }
+      
+      // Build full address if we have components
+      let fullAddress = '';
+      if (formData.streetNumber && formData.streetName) {
+        const addressParts = [
+          `${formData.streetNumber} ${formData.streetName}`,
+          formData.suite,
+          city,
+          province,
+          formData.postalCode
+        ].filter(Boolean);
+        fullAddress = addressParts.join(', ');
+      }
+      
       const clientData = {
         businessName: formData.businessName,
+        operatingName: formData.operatingName || formData.businessName,
         businessType: formData.businessType,
         jurisdiction: formData.location,
         activePermits: permits.length,
@@ -479,6 +539,38 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
         location: formData.location,
         permitKeywords: formData.permitKeywords,
         permits: permits,
+        // Address fields for form filling
+        address: {
+          streetNumber: formData.streetNumber || '',
+          streetName: formData.streetName || '',
+          suite: formData.suite || '',
+          city: city,
+          province: province,
+          postalCode: formData.postalCode || '',
+          fullAddress: fullAddress,
+        },
+        // Contact info
+        contactInfo: {
+          email: formData.email || '',
+          phone: formData.phone || '',
+          name: formData.ownerFirstName && formData.ownerLastName 
+            ? `${formData.ownerFirstName} ${formData.ownerLastName}`
+            : formData.ownerFirstName || formData.ownerLastName || '',
+        },
+        // Owner info
+        ownerInfo: {
+          firstName: formData.ownerFirstName || '',
+          lastName: formData.ownerLastName || '',
+          fullName: formData.ownerFirstName && formData.ownerLastName
+            ? `${formData.ownerFirstName} ${formData.ownerLastName}`
+            : formData.ownerFirstName || formData.ownerLastName || '',
+          position: formData.ownerPosition || '',
+          email: formData.email || '',
+          phone: formData.phone || '',
+        },
+        // Business license fields
+        businessLicenceNumber: formData.businessLicenceNumber || '',
+        licenceExpiry: formData.licenceExpiry || '',
       };
 
       console.log('📝 Creating client:', clientData.businessName);
@@ -1079,6 +1171,203 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
                 <div className="flex items-center justify-between mt-1.5">
                   <p className="text-xs text-muted-foreground">Specific permits or licenses you're looking for</p>
                   <p className="text-xs text-muted-foreground">{formData.permitKeywords.length}/200</p>
+                </div>
+              </div>
+
+              {/* Additional Fields for Form Filling */}
+              <div className="mt-8 pt-6 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Additional Business Information</h3>
+                <p className="text-xs text-muted-foreground mb-4">These details will be used to auto-fill permit forms</p>
+                
+                <div className="space-y-4">
+                  {/* Operating Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Operating Name (DBA)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.operatingName}
+                      onChange={(e) => handleInputChange('operatingName', e.target.value)}
+                      className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                      placeholder="Leave blank if same as business name"
+                    />
+                  </div>
+
+                  {/* Address Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Street Number
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.streetNumber}
+                        onChange={(e) => handleInputChange('streetNumber', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="123"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Street Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.streetName}
+                        onChange={(e) => handleInputChange('streetName', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="Main Street"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Suite/Unit
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.suite}
+                        onChange={(e) => handleInputChange('suite', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="Suite 200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="Auto-filled from location"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Province/State
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.province}
+                        onChange={(e) => handleInputChange('province', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="Auto-filled from location"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Postal/ZIP Code
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.postalCode}
+                      onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                      className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                      placeholder="M5V 1L5"
+                    />
+                  </div>
+
+                  {/* Contact Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="contact@business.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="(416) 555-1234"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Owner Fields */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Owner First Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ownerFirstName}
+                        onChange={(e) => handleInputChange('ownerFirstName', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="John"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Owner Last Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ownerLastName}
+                        onChange={(e) => handleInputChange('ownerLastName', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Position
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ownerPosition}
+                        onChange={(e) => handleInputChange('ownerPosition', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="Owner"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Business License Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Business License Number
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.businessLicenceNumber}
+                        onChange={(e) => handleInputChange('businessLicenceNumber', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                        placeholder="T-2024-00000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        License Expiry Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.licenceExpiry}
+                        onChange={(e) => handleInputChange('licenceExpiry', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground bg-surface placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
