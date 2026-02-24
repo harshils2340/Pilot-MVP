@@ -15,7 +15,7 @@ import { PermitManagement } from './components/PermitManagement';
 import { PermitDetailView } from './components/PermitDetailView';
 import { ClientOnboarding } from './components/ClientOnboarding';
 import { Leads } from './components/Leads';
-import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, Bell, Database, UserPlus } from 'lucide-react';
+import { Users, Inbox, Archive, ArrowLeft, Settings, ListOrdered, Search, Bell, Database, UserPlus, Lock, Construction } from 'lucide-react';
 import { toast } from 'sonner';
 
 type ClientScreen = 'discovery' | 'plan' | 'permit-detail';
@@ -36,6 +36,24 @@ export default function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [addLeadPrefill, setAddLeadPrefill] = useState<{ name: string; email: string } | null>(null);
+  const [showLeadsComingSoon, setShowLeadsComingSoon] = useState(false);
+
+  const comingSoonMessages = [
+    "Our lead wizards are still in training. Check back soon!",
+    "Leads is getting a glow-up. Almost ready for its debut!",
+    "We're teaching this feature some new tricks. Hang tight!",
+    "This section is under construction... hard hats required.",
+    "Leads is brewing. Good things take time (and coffee).",
+  ];
+
+  const handleLeadsClick = () => {
+    const msg = comingSoonMessages[Math.floor(Math.random() * comingSoonMessages.length)];
+    toast('Coming Soon!', {
+      description: msg,
+      icon: <Construction className="w-5 h-5 text-amber-500" />,
+      duration: 4000,
+    });
+  };
 
   // Load auth state from localStorage and URL params on mount
   useEffect(() => {
@@ -67,9 +85,9 @@ export default function App() {
           setUserName(storedName);
         }
       }
-      // Restore view from URL (e.g. /?view=leads when returning from lead detail)
+      // Restore view from URL (leads is currently disabled)
       const view = params.get('view');
-      if (view === 'leads') setCurrentView('leads');
+      if (view === 'leads') setCurrentView('dashboard');
     }
   }, []);
 
@@ -251,11 +269,13 @@ export default function App() {
               <span className="text-sm">Clients</span>
             </button>
             <button
-              onClick={() => setCurrentView('leads')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+              onClick={handleLeadsClick}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed transition-colors group relative"
+              title="Coming soon"
             >
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm">Leads</span>
+              <UserPlus className="w-5 h-5 opacity-40" />
+              <span className="text-sm opacity-40">Leads</span>
+              <Lock className="w-3.5 h-3.5 ml-auto opacity-50" />
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
@@ -367,10 +387,10 @@ export default function App() {
     );
   }
 
-  // Show dashboard or leads (shared layout)
+  // Show dashboard (leads is currently restricted)
   if (currentView === 'dashboard' || currentView === 'leads') {
-    const isDashboard = currentView === 'dashboard';
-    const isLeads = currentView === 'leads';
+    const isDashboard = true;
+    const isLeads = false;
     return (
       <div className="flex h-screen bg-page-bg">
         {/* Sidebar */}
@@ -401,13 +421,13 @@ export default function App() {
               <span className="text-sm">Clients</span>
             </button>
             <button
-              onClick={() => setCurrentView('leads')}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
-                isLeads ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-              }`}
+              onClick={handleLeadsClick}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed transition-colors"
+              title="Coming soon"
             >
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm">Leads</span>
+              <UserPlus className="w-5 h-5 opacity-40" />
+              <span className="text-sm opacity-40">Leads</span>
+              <Lock className="w-3.5 h-3.5 ml-auto opacity-50" />
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
