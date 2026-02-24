@@ -4,6 +4,7 @@ import connectToDB from "@/app/lib/mongodb";
 import ClientModel from "../../models/client";
 import DocumentModel from "@/app/lib/documents/schema";
 import { PermitManagement } from "@/app/lib/permits/managementSchema";
+import DiscoveredPermit from "@/app/lib/permits/discoveredSchema";
 
 // Helper to convert _id to string
 const serializeClient = (client: any) => ({
@@ -175,6 +176,18 @@ export async function DELETE(req: NextRequest) {
       // Continue with client deletion even if permit deletion fails
     }
     
+    // Delete discovered permit snapshots for this client
+    try {
+      const discoveredDeleteResult = await DiscoveredPermit.deleteMany({ clientId: _id });
+      console.log(`Deleted ${discoveredDeleteResult.deletedCount} discovered permit(s) for client ${_id}`);
+    } catch (discoveredErr) {
+      console.warn(
+        "Failed to delete discovered permits, continuing with client deletion:",
+        discoveredErr
+      );
+      // Continue with client deletion even if discovered permit deletion fails
+    }
+
     // Delete the client
     const deletedClient = await ClientModel.findByIdAndDelete(_id).lean();
 

@@ -1,4 +1,6 @@
 export type PermitSearchRequest = {
+  businessName?: string;
+  permitKeywords?: string;
   location: {
     country: string;
     province: string;
@@ -19,11 +21,20 @@ export type PermitResult = {
   applyUrl: string;
   sourceUrl: string;
   lastUpdated: string;
+  reasons?: string[];
+  confidence?: "required" | "conditional" | "informational";
 };
 
 export type PermitSearchResponse = {
   permits: PermitResult[];
   disclaimer: string;
+  discoveryMode?: "web-llm" | "database";
+  warnings?: string[];
+  sourcesUsed?: Array<{
+    title: string;
+    url: string;
+    excerpt: string;
+  }>;
 };
 
 export type PermitMatchReason =

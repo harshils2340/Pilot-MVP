@@ -74,7 +74,7 @@ export function LiveFillModal({
         setBlankBytes(bytes);
 
         // Show the blank PDF in the iframe
-        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         setCurrentBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
@@ -151,7 +151,7 @@ export function LiveFillModal({
         // Refresh PDF preview periodically
         if ((i + 1) % refreshEvery === 0 || i === totalSteps - 1) {
           const snapshot = await pdfDoc.save();
-          const blob = new Blob([snapshot], { type: 'application/pdf' });
+          const blob = new Blob([new Uint8Array(snapshot)], { type: 'application/pdf' });
           const url = URL.createObjectURL(blob);
           setCurrentBlobUrl((prev) => {
             if (prev) URL.revokeObjectURL(prev);
@@ -177,7 +177,7 @@ export function LiveFillModal({
   const handleDownload = () => {
     const bytes = filledPdfBytes;
     if (!bytes) return;
-    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

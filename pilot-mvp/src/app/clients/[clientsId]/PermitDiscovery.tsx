@@ -554,8 +554,8 @@
 
 'use client';
 
-import { Search, MapPin, Building2, Briefcase, Plus, CheckCircle2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Search, MapPin, Building2, Briefcase, Plus, CheckCircle2, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { BUSINESS_TYPES } from '@/constants/businessTypes';
 import { ACTIVITIES } from '@/constants/activities';
 
@@ -614,9 +614,74 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
   const [addingPermitId, setAddingPermitId] = useState<string | null>(null);
   const [addedPermits, setAddedPermits] = useState<Set<string>>(new Set());
 
+  // Dropdown visibility
+  const [businessTypeOpen, setBusinessTypeOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
+  const businessTypeRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
+  const activitiesRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (client?.jurisdiction) setLocation(client.jurisdiction);
   }, [client]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        !businessTypeRef.current?.contains(e.target as Node) &&
+        !locationRef.current?.contains(e.target as Node) &&
+        !activitiesRef.current?.contains(e.target as Node)
+      ) {
+        setBusinessTypeOpen(false);
+        setLocationOpen(false);
+        setActivitiesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filteredBusinessTypes = BUSINESS_TYPES.filter(
+    (b) =>
+      !businessType ||
+      b.label.toLowerCase().includes(businessType.toLowerCase())
+  );
+  const filteredActivities = ACTIVITIES.filter(
+    (a) =>
+      !activities ||
+      a.label.toLowerCase().includes(activities.toLowerCase())
+  );
+
+  // Location suggestions from API (country-state-city, thousands of cities)
+  const [locationSuggestions, setLocationSuggestions] = useState<{ display: string }[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const locationDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const q = location.trim();
+    if (!q) {
+      setLocationSuggestions([]);
+      return;
+    }
+    if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    locationDebounceRef.current = setTimeout(async () => {
+      setLocationLoading(true);
+      try {
+        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(q)}&limit=15`);
+        const data = await res.json();
+        setLocationSuggestions(Array.isArray(data) ? data : []);
+      } catch {
+        setLocationSuggestions([]);
+      } finally {
+        setLocationLoading(false);
+      }
+    }, 150);
+    return () => {
+      if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    };
+  }, [location]);
 
   // Map user input to businessType slug
   const mapBusinessTypeToSlug = (input: string) => {
@@ -705,49 +770,136 @@ export function PermitDiscovery({ clientId, client }: PermitDiscoveryProps) {
         </div>
 
         <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Business Type */}
-          <div>
+          {/* Business Type - Combobox */}
+          <div ref={businessTypeRef} className="relative">
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               <Building2 className="w-4 h-4 inline mr-2" />
               Business Type
             </label>
-            <input
-              type="text"
-              value={businessType}
-              onChange={(e) => setBusinessType(e.target.value)}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              placeholder="e.g., Restaurant, Retail, Manufacturing"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={businessType}
+                onChange={(e) => {
+                  setBusinessType(e.target.value);
+                  setBusinessTypeOpen(true);
+                }}
+                onFocus={() => setBusinessTypeOpen(true)}
+                className="w-full px-3 py-2 pr-9 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                placeholder="e.g., Restaurant, Retail, Coffee shop"
+              />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            </div>
+            {businessTypeOpen && (
+              <ul className="absolute z-50 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-auto py-1">
+                {filteredBusinessTypes.length > 0 ? (
+                  filteredBusinessTypes.map((b) => (
+                    <li
+                      key={b.slug}
+                      onClick={() => {
+                        setBusinessType(b.label);
+                        setBusinessTypeOpen(false);
+                      }}
+                      className="px-3 py-2 cursor-pointer hover:bg-neutral-100 text-sm"
+                    >
+                      {b.label}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-neutral-500 text-sm">
+                    Type to add custom
+                  </li>
+                )}
+              </ul>
+            )}
           </div>
 
-          {/* Location */}
-          <div>
+          {/* Location - Typeahead */}
+          <div ref={locationRef} className="relative">
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               <MapPin className="w-4 h-4 inline mr-2" />
               Location
             </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              placeholder="City, State or full address"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => {
+                  setLocation(e.target.value);
+                  setLocationOpen(true);
+                }}
+                onFocus={() => setLocationOpen(true)}
+                className="w-full px-3 py-2 pr-9 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                placeholder="Type city, state..."
+              />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            </div>
+            {locationOpen && (
+              <ul className="absolute z-50 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-auto py-1">
+                {locationLoading ? (
+                  <li className="px-3 py-2 text-neutral-500 text-sm">Searching...</li>
+                ) : locationSuggestions.length > 0 ? (
+                  locationSuggestions.map((loc, i) => (
+                    <li
+                      key={`${loc.display}-${i}`}
+                      onClick={() => {
+                        setLocation(loc.display);
+                        setLocationOpen(false);
+                      }}
+                      className="px-3 py-2 cursor-pointer hover:bg-neutral-100 text-sm"
+                    >
+                      {loc.display}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-neutral-500 text-sm">Type to search cities (US & Canada)</li>
+                )}
+              </ul>
+            )}
           </div>
 
-          {/* Activities */}
-          <div>
+          {/* Activities - Combobox */}
+          <div ref={activitiesRef} className="relative">
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               <Briefcase className="w-4 h-4 inline mr-2" />
               Business Activities
             </label>
-            <textarea
-              value={activities}
-              onChange={(e) => setActivities(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-none"
-              placeholder="Describe your business activities..."
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={activities}
+                onChange={(e) => {
+                  setActivities(e.target.value);
+                  setActivitiesOpen(true);
+                }}
+                onFocus={() => setActivitiesOpen(true)}
+                className="w-full px-3 py-2 pr-9 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                placeholder="e.g., Food preparation, indoor dining"
+              />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+            </div>
+            {activitiesOpen && (
+              <ul className="absolute z-50 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-auto py-1">
+                {filteredActivities.length > 0 ? (
+                  filteredActivities.map((a) => (
+                    <li
+                      key={a.slug}
+                      onClick={() => {
+                        setActivities(a.label);
+                        setActivitiesOpen(false);
+                      }}
+                      className="px-3 py-2 cursor-pointer hover:bg-neutral-100 text-sm"
+                    >
+                      {a.label}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-neutral-500 text-sm">
+                    Type to add custom
+                  </li>
+                )}
+              </ul>
+            )}
           </div>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}

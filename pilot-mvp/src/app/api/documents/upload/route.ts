@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDB from '../../../lib/mongodb';
 import DocumentModel from '../../../lib/documents/schema';
+import { DocumentRequest } from '../../../lib/documents/requestSchema';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
       metadata = {};
     }
     
+    // Get requestId from metadata if provided
+    const requestId = metadata.requestId;
+    
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
@@ -57,6 +61,16 @@ export async function POST(request: NextRequest) {
     // Get file extension for type
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'file';
     
+    // If requestId is provided, fetch request details to link document
+    let requestDetails: any = null;
+    if (requestId) {
+      try {
+        requestDetails = await DocumentRequest.findById(requestId).lean();
+      } catch (err) {
+        console.warn('Could not fetch request details:', err);
+      }
+    }
+    
     // Create document record with enhanced schema
     const document = await DocumentModel.create({
       name: file.name,
@@ -65,7 +79,7 @@ export async function POST(request: NextRequest) {
       fileType: fileExtension,
       fileSize: file.size,
       clientId,
-      consultantId: consultantId || undefined,
+      consultantId: consultantId || (requestDetails?.consultantId),
       workspace,
       folder: folder,
       uploadedBy: {
@@ -77,8 +91,16 @@ export async function POST(request: NextRequest) {
       metadata: {
         ...metadata,
         source: metadata.source || (uploadedBy.isClient ? 'client' : 'consultant'),
-        receivedVia: metadata.receivedVia || 'upload',
+        receivedVia: metadata.receivedVia || (requestId ? 'request' : 'upload'),
+        requestId: requestId || undefined,
       },
+      requestedBy: requestDetails ? {
+        consultantId: requestDetails.consultantId,
+        consultantName: requestDetails.consultantName,
+        requestMessage: requestDetails.description,
+        requestedAt: requestDetails.requestedAt,
+        requestId: requestId,
+      } : undefined,
       status: 'draft',
       tags: metadata.tags || [],
       sharedWith: [],

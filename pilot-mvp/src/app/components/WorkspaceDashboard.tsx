@@ -102,7 +102,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       case 'submitted':
         return <Clock className="w-4 h-4 text-blue-600" />;
       case 'action-required':
-        return <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />;
+        return <AlertCircle className="w-4 h-4 text-destructive" />;
       case 'draft':
         return <FileText className="w-4 h-4 text-muted-foreground" />;
     }
@@ -128,7 +128,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
       case 'submitted':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'action-required':
-        return 'bg-amber-200/80 dark:bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-500/40 ';
+        return 'bg-destructive/10 text-destructive border-border';
       case 'draft':
         return 'bg-muted text-muted-foreground border-border';
     }

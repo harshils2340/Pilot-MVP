@@ -1,17 +1,16 @@
 import { z } from "zod";
-import { BUSINESS_TYPES } from "@/constants/businessTypes";
 
-// Keep businessType enum for safety, but allow any activity string
+// Accept free-form business type and activity text from onboarding.
 export const permitSearchSchema = z.object({
+  businessName: z.string().min(1).optional(),
+  permitKeywords: z.string().optional(),
   location: z.object({
     country: z.string().length(2),
     province: z.string().length(2),
     city: z.string().min(1)
   }),
-  businessType: z.enum(
-    BUSINESS_TYPES.map(b => b.slug) as [string, ...string[]]
-  ),
-  activities: z.array(z.string()), // allow any string
+  businessType: z.string().min(1),
+  activities: z.array(z.string().min(1)).min(1),
   options: z
     .object({
       homeBased: z.boolean().optional(),

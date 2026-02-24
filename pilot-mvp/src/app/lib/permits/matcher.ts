@@ -2,6 +2,8 @@ import { Permit, IPermit } from "./schema";
 
 // Input type for search
 export type MatchInput = {
+  businessName?: string;
+  permitKeywords?: string;
   location: { country: string; province: string; city?: string };
   businessType: string;
   activities: string[];
@@ -21,19 +23,25 @@ export type ExplainedPermit = {
 };
 
 export async function findMatchingPermits(input: MatchInput): Promise<ExplainedPermit[]> {
-  const permits: IPermit[] = await Permit.find({
+  const filter: Record<string, unknown> = {
     "jurisdiction.country": input.location.country,
     "jurisdiction.province": input.location.province,
     businessTypes: input.businessType,
-    activities: { $in: input.activities }
-  }) as IPermit[];
+  };
+  const useAllPermits = input.activities.includes("all") || input.activities.length === 0;
+  if (!useAllPermits) {
+    filter.activities = { $in: input.activities };
+  }
+
+  const permits: IPermit[] = (await Permit.find(filter)) as IPermit[];
 
   return permits.map((permit) => {
     const reasons: string[] = [];
     let confidence: "required" | "conditional" | "informational" = "informational";
 
     if (permit.businessTypes.includes(input.businessType)) reasons.push("BUSINESS_TYPE");
-    if (permit.activities.some((a: string) => input.activities.includes(a))) reasons.push("ACTIVITY");
+    const activityMatch = useAllPermits || permit.activities.some((a: string) => input.activities.includes(a));
+    if (activityMatch) reasons.push("ACTIVITY");
     if (!permit.jurisdiction.city || permit.jurisdiction.city === input.location.city) reasons.push("LOCATION");
 
     if (reasons.includes("BUSINESS_TYPE") && reasons.includes("ACTIVITY") && reasons.includes("LOCATION")) {
