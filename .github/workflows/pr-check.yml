@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
+          NODE_OPTIONS: --max-old-space-size=4096
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MAILGUN_API_KEY: placeholder
           MAILGUN_DOMAIN: placeholder
