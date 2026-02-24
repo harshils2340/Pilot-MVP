@@ -301,7 +301,7 @@ export function FillablePDFModal({
           if (field.constructor.name === 'PDFTextField') {
             (field as import('pdf-lib').PDFTextField).setText(String(val));
           } else if (field.constructor.name === 'PDFCheckBox') {
-            if (val === true || val === 'true' || val === 'yes') {
+            if (val === 'true' || val === 'yes') {
               (field as import('pdf-lib').PDFCheckBox).check();
             }
           } else if (field.constructor.name === 'PDFDropdown') {

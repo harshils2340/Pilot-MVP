@@ -579,7 +579,14 @@ export function ClientOnboarding({ onComplete, onCancel }: ClientOnboardingProps
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
         console.error('❌ Permit search failed:', errorData);
-        alert(`Failed to search for permits: ${errorData.error || 'Unknown error'}`);
+        const errorMessage = typeof errorData?.error === 'string'
+          ? errorData.error
+          : typeof errorData?.message === 'string'
+            ? errorData.message
+            : errorData?.error
+              ? JSON.stringify(errorData.error)
+              : 'Unknown error';
+        alert(`Failed to search for permits: ${errorMessage}`);
         setLoading(false);
         return;
       }

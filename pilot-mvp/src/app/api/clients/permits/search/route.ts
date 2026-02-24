@@ -14,8 +14,19 @@ export async function POST(req: Request) {
     // Validate request body
     const parsed = permitSearchSchema.safeParse(body);
     if (!parsed.success) {
+      const validationMessage =
+        parsed.error.issues
+          .map((issue) => {
+            const fieldPath = issue.path.join(".");
+            return fieldPath ? `${fieldPath}: ${issue.message}` : issue.message;
+          })
+          .join("; ") || "Invalid permit search request payload.";
+
       return NextResponse.json(
-        { error: parsed.error.format() },
+        {
+          error: validationMessage,
+          details: parsed.error.format()
+        },
         { status: 400 }
       );
     }
