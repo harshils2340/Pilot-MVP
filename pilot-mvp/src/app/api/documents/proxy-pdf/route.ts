@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const pdfBytes = await response.arrayBuffer();
 
     // Return the PDF with appropriate headers
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="form.pdf"`,
