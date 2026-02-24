@@ -1,17 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDB from '@/app/lib/mongodb';
 import { DocumentRequest } from '@/app/lib/documents/requestSchema';
+import mongoose from 'mongoose';
 
-/** POST: Mark pending document request(s) for a client as fulfilled by a given document. */
+/** POST: Mark a specific document request as fulfilled by a given document. */
 export async function POST(request: NextRequest) {
   try {
     await connectToDB();
     const body = await request.json();
-    const { clientId, documentId } = body;
+    const { clientId, documentId, requestId } = body;
 
-    if (!clientId || !documentId) {
+    if (!documentId) {
       return NextResponse.json(
-        { error: 'clientId and documentId are required' },
+        { error: 'documentId is required' },
+        { status: 400 }
+      );
+    }
+
+    // If requestId is provided, update that specific request
+    if (requestId) {
+      // Convert requestId to ObjectId if it's a valid ObjectId string
+      let requestObjectId: any = requestId;
+      if (mongoose.Types.ObjectId.isValid(requestId)) {
+        requestObjectId = new mongoose.Types.ObjectId(requestId);
+      }
+      
+      const result = await DocumentRequest.updateOne(
+        { _id: requestObjectId, status: 'pending' },
+        {
+          $set: {
+            status: 'fulfilled',
+            fulfilledAt: new Date(),
+            fulfilledByDocumentId: documentId,
+          },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        console.warn(`No pending request found with ID: ${requestId}`);
+        return NextResponse.json(
+          { error: 'Request not found or already fulfilled', matched: 0, modified: 0 },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        matched: result.matchedCount,
+        modified: result.modifiedCount,
+      });
+    }
+
+    // Otherwise, update all pending requests for the client (backward compatibility)
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'clientId is required when requestId is not provided' },
         { status: 400 }
       );
     }

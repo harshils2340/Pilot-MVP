@@ -74,7 +74,7 @@ export function LiveFillModal({
         setBlankBytes(bytes);
 
         // Show the blank PDF in the iframe
-        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         setCurrentBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);

@@ -1,0 +1,31 @@
+name: PR Build Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pilot-mvp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pilot-mvp/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          MONGODB_URI: mongodb+srv://placeholder:placeholder@localhost/test?retryWrites=true&w=majority
+          MAILGUN_API_KEY: placeholder
+          MAILGUN_DOMAIN: placeholder
+          FROM_EMAIL: placeholder
+          FROM_NAME: placeholder
+          GOOGLE_CLIENT_ID: placeholder
+          GOOGLE_CLIENT_SECRET: placeholder
+          GEMINI_API_KEY: placeholder

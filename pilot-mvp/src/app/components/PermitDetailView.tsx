@@ -815,7 +815,62 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
         const totalCityItems = allCityFeedback.length + cityEmails.length;
         const unreadCityEmails = cityEmails.filter(e => e.status === 'unread').length;
         const unreadClientEmails = clientEmails.filter(e => e.status === 'unread').length;
-        
+
+        // Google sign-in gate — email integration requires OAuth
+        const isGoogleConnected = false; // TODO: wire to real auth state
+        if (!isGoogleConnected) {
+          return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="max-w-md w-full text-center space-y-6">
+                <div className="mx-auto w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+                  <Mail className="w-7 h-7 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Connect your email to unlock City Feedback</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Sign in with Google to let Pilot monitor your inbox for permit-related updates from the city.
+                  </p>
+                </div>
+
+                <div className="text-left space-y-3 bg-muted/40 rounded-lg p-4 border border-border">
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-blue-700 text-xs font-bold">1</span>
+                    </div>
+                    <p className="text-sm text-foreground"><span className="font-medium">Auto-detect permit emails</span> — Pilot filters your inbox and surfaces only messages related to your active permits</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-blue-700 text-xs font-bold">2</span>
+                    </div>
+                    <p className="text-sm text-foreground"><span className="font-medium">Draft & send replies in-app</span> — Respond to city feedback directly from Pilot without switching to your email client</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-blue-700 text-xs font-bold">3</span>
+                    </div>
+                    <p className="text-sm text-foreground"><span className="font-medium">Track resolution status</span> — Mark feedback as addressed, in-progress, or unresolved and see progress at a glance</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {/* TODO: trigger Google OAuth flow */}}
+                  className="inline-flex items-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-all text-sm font-medium text-gray-700"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Sign in with Google
+                </button>
+                <p className="text-xs text-muted-foreground">Pilot only reads permit-related emails. Your data stays private.</p>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-4">
             {/* Summary Bar */}
@@ -2179,6 +2234,8 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
     }
   };
 
+  const hiddenSections = new Set<Section>(['discussion', 'history']);
+
   const sections = [
     { id: 'overview' as Section, label: 'Overview', icon: Eye },
     { id: 'city-feedback' as Section, label: 'City Feedback', icon: AlertCircle, badge: cityFeedback.filter(f => f.status !== 'addressed').length + cityEmails.filter(e => e.status === 'unread').length },
@@ -2186,7 +2243,7 @@ export function PermitDetailView({ permitId, onBack, clientName }: PermitDetailV
     { id: 'review' as Section, label: 'Review', icon: GitPullRequest },
     { id: 'discussion' as Section, label: 'Discussion', icon: MessageCircle, badge: comments.filter(c => !c.resolved).length },
     { id: 'history' as Section, label: 'History', icon: Clock },
-  ];
+  ].filter(s => !hiddenSections.has(s.id));
 
   return (
     <div className="h-full flex flex-col bg-page-bg">

@@ -9,7 +9,7 @@ import { ClientBilling } from '../../components/ClientBilling';
 import { EnhancedDocumentsView } from '../../components/EnhancedDocumentsView';
 import { InviteClientModal } from '../../components/InviteClientModal';
 import { AiInsights } from '../../components/AiInsights';
-import { ListOrdered, Search, ArrowLeft, LogOut, DollarSign, FileText, UserPlus, Sparkles } from 'lucide-react';
+import { ListOrdered, ArrowLeft, LogOut, FileText, UserPlus, Sparkles } from 'lucide-react';
 
 type Tab = 'ai-insights' | 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents';
 
@@ -60,9 +60,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const clientNavigation = [
     { id: 'ai-insights' as Tab, label: 'AI Insights', icon: Sparkles, badge: 'Beta' },
     { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
-    { id: 'discovery' as Tab, label: 'Permit Discovery', icon: Search },
     { id: 'documents' as Tab, label: 'Documents', icon: FileText },
-    { id: 'billing' as Tab, label: 'Billing', icon: DollarSign },
   ];
 
   const handleLogout = () => {
