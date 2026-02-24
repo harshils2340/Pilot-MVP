@@ -42,14 +42,71 @@ export async function GET(request: Request) {
           },
         },
       ]);
-      const countsMap = Object.fromEntries(
+      const docCountsMap = Object.fromEntries(
         docCounts.map((d) => [d._id, { totalDocs: d.totalDocs, pendingDocs: d.pendingDocs }])
       );
-      clientsWithStringId = clientsWithStringId.map((c) => ({
-        ...c,
-        totalDocs: countsMap[c._id]?.totalDocs ?? 0,
-        pendingDocs: countsMap[c._id]?.pendingDocs ?? 0,
-      }));
+
+      // Permit-derived stats (status, activePermits, completionRate, lastActivity, pendingReview)
+      const permitStats = await PermitManagement.aggregate([
+        { $match: { clientId: { $in: clientIds } } },
+        {
+          $group: {
+            _id: '$clientId',
+            total: { $sum: 1 },
+            approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } },
+            actionRequired: { $sum: { $cond: [{ $eq: ['$status', 'action-required'] }, 1, 0] } },
+            submitted: { $sum: { $cond: [{ $eq: ['$status', 'submitted'] }, 1, 0] } },
+            inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in-progress'] }, 1, 0] } },
+            notStarted: { $sum: { $cond: [{ $eq: ['$status', 'not-started'] }, 1, 0] } },
+            lastActivity: { $max: '$lastActivityDate' },
+          },
+        },
+      ]);
+      const permitStatsMap = Object.fromEntries(permitStats.map((p) => [p._id, p]));
+
+      clientsWithStringId = clientsWithStringId.map((c) => {
+        const docCount = docCountsMap[c._id];
+        const permit = permitStatsMap[c._id];
+        let status = c.status || 'draft';
+        let activePermits = c.activePermits ?? 0;
+        let completionRate = c.completionRate ?? 0;
+        let lastActivity = c.lastActivity;
+        let pendingReview = 0;
+
+        if (permit) {
+          const { total, approved, actionRequired, submitted, inProgress } = permit;
+          activePermits = (inProgress || 0) + (submitted || 0) + (actionRequired || 0);
+          completionRate = total > 0 ? Math.round(((approved || 0) / total) * 100) : 0;
+          pendingReview = submitted || 0;
+          if (permit.lastActivity) {
+            const d = permit.lastActivity;
+            lastActivity =
+              typeof d === 'string'
+                ? d
+                : d instanceof Date
+                  ? d.toISOString?.() ?? String(d)
+                  : d ? String(d) : undefined;
+          }
+          if (actionRequired > 0) status = 'action-required';
+          else if (submitted > 0) status = 'submitted';
+          else if (approved === total && total > 0) status = 'approved';
+          else if (inProgress > 0) status = 'in-progress';
+          else status = 'draft';
+        } else {
+          status = (c.status === 'new' || !c.status) ? 'draft' : (c.status as string);
+        }
+
+        return {
+          ...c,
+          status,
+          activePermits,
+          completionRate,
+          lastActivity: lastActivity ?? c.lastActivity,
+          pendingDocs: docCount?.pendingDocs ?? 0,
+          totalDocs: docCount?.totalDocs ?? 0,
+          pendingReview,
+        };
+      });
     }
 
     return NextResponse.json(clientsWithStringId, { status: 200 });

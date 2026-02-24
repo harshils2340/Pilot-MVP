@@ -8,11 +8,12 @@ interface Client {
   businessName: string;
   jurisdiction: string;
   activePermits: number;
-  status: 'draft' | 'submitted' | 'approved' | 'action-required';
+  status: 'draft' | 'submitted' | 'approved' | 'action-required' | 'in-progress';
   lastActivity: string;
   completionRate: number;
   pendingDocs?: number;
   totalDocs?: number;
+  pendingReview?: number;
 }
 
 interface WorkspaceDashboardProps {
@@ -38,17 +39,6 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
 
   useEffect(() => {
     const fetchClients = async () => {
-      const { mockClients } = await import('../lib/mockClients');
-      const mockAsClients: Client[] = mockClients.map((c) => ({
-        _id: c.id,
-        businessName: c.businessName,
-        jurisdiction: c.jurisdiction,
-        activePermits: c.activePermits,
-        status: c.status as Client['status'],
-        lastActivity: c.lastActivity,
-        completionRate: c.completionRate,
-      }));
-
       try {
         const res = await fetch('/api/clients?includeDocCounts=1');
         if (res.ok) {
@@ -56,30 +46,24 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
           const rawClients: Client[] = Array.isArray(clientsData)
             ? clientsData
             : Array.isArray(clientsData.clients) ? clientsData.clients : [];
-          
-          // Merge: DB clients first, then any mock clients not already present
-          const dbNames = new Set(rawClients.map((c) => c.businessName.toLowerCase()));
-          const extras = mockAsClients.filter((m) => !dbNames.has(m.businessName.toLowerCase()));
-          const merged = [...rawClients, ...extras].sort((a, b) => {
-            if (a.businessName === 'King West Kitchen & Bar') return -1;
-            if (b.businessName === 'King West Kitchen & Bar') return 1;
-            return 0;
-          });
 
-          // Doc counts come from API when includeDocCounts=1; mock clients get zeros
-          const withDocs = merged.map((client) => ({
-            ...client,
-            pendingDocs: client.pendingDocs ?? 0,
-            totalDocs: client.totalDocs ?? 0,
+          const withDefaults = rawClients.map((c) => ({
+            ...c,
+            status: (c.status || 'draft') as Client['status'],
+            activePermits: c.activePermits ?? 0,
+            completionRate: c.completionRate ?? 0,
+            pendingDocs: c.pendingDocs ?? 0,
+            totalDocs: c.totalDocs ?? 0,
+            pendingReview: c.pendingReview ?? 0,
+            lastActivity: c.lastActivity ?? '',
           }));
-
-          setClients(withDocs);
+          setClients(withDefaults);
         } else {
-          setClients(mockAsClients);
+          setClients([]);
         }
       } catch (error) {
         console.error('Failed to fetch clients from API:', error);
-        setClients(mockAsClients);
+        setClients([]);
       } finally {
         setLoading(false);
       }
@@ -103,7 +87,10 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
         return <Clock className="w-4 h-4 text-blue-600" />;
       case 'action-required':
         return <AlertCircle className="w-4 h-4 text-destructive" />;
+      case 'in-progress':
+        return <FileText className="w-4 h-4 text-blue-500" />;
       case 'draft':
+      default:
         return <FileText className="w-4 h-4 text-muted-foreground" />;
     }
   };
@@ -116,7 +103,10 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
         return 'Submitted';
       case 'action-required':
         return 'Action Required';
+      case 'in-progress':
+        return 'In Progress';
       case 'draft':
+      default:
         return 'Draft';
     }
   };
@@ -129,14 +119,18 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'action-required':
         return 'bg-destructive/10 text-destructive border-border';
+      case 'in-progress':
+        return 'bg-blue-50 text-blue-600 border-blue-200';
       case 'draft':
+      default:
         return 'bg-muted text-muted-foreground border-border';
     }
   };
 
-  const formatLastActivity = (dateString: string) => {
-    // Handle already formatted strings like "2 days ago"
-    if (!dateString || !dateString.includes('T')) {
+  const formatLastActivity = (dateString: string | undefined) => {
+    if (!dateString) return '—';
+    // Handle already formatted strings (no T = not ISO)
+    if (!dateString.includes('T')) {
       return dateString;
     }
     
@@ -161,7 +155,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
   };
 
   // Extract unique values for filters
-  const statuses = ['draft', 'submitted', 'approved', 'action-required'] as const;
+  const statuses = ['draft', 'in-progress', 'submitted', 'approved', 'action-required'] as const;
   const jurisdictions = Array.from(new Set(clients.map((c) => c.jurisdiction)));
 
   // Filter clients based on search and filters
@@ -221,10 +215,10 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
     }
 
     try {
-      const res = await fetch('/api/clients', {
+      const res = await fetch('/api/clients/bulk-delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _id: clientId }),
+        body: JSON.stringify({ ids: [clientId] }),
       });
 
       if (res.ok) {
@@ -435,8 +429,8 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
                         onChange={() => toggleFilter(selectedStatuses, setSelectedStatuses, status)}
                         className="w-4 h-4 rounded border-border text-primary focus:ring-ring"
                       />
-                      <span className="text-sm text-foreground capitalize">
-                        {status === 'action-required' ? 'Action Required' : status}
+                      <span className="text-sm text-foreground">
+                        {status === 'action-required' ? 'Action Required' : status === 'in-progress' ? 'In Progress' : status}
                       </span>
                     </label>
                   ))}
@@ -509,10 +503,9 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
             </div>
           ) : (
             filteredClients.map((client) => {
-              // Use real document counts from API
               const pendingDocs = client.pendingDocs ?? 0;
               const totalDocs = client.totalDocs ?? 0;
-              const pendingReview = client.status === 'submitted' ? 1 : 0;
+              const pendingReview = client.pendingReview ?? 0;
               const hasPending = pendingDocs > 0 || pendingReview > 0;
               
               return (
@@ -660,7 +653,7 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
           )}
         </div>
 
-        {/* Summary Cards */}
+        {/* Summary Cards - dynamic from client/permit data */}
         <div className="grid grid-cols-4 gap-4 mt-6">
           <div className="bg-surface rounded-lg border border-border p-5">
             <p className="text-muted-foreground text-sm mb-1">Total Clients</p>
@@ -668,15 +661,21 @@ export function WorkspaceDashboard({ onSelectClient, onStartPermit, onOpenInbox 
           </div>
           <div className="bg-surface rounded-lg border border-border p-5">
             <p className="text-muted-foreground text-sm mb-1">Active Permits</p>
-            <p className="text-foreground font-semibold">34</p>
+            <p className="text-foreground font-semibold">
+              {filteredClients.reduce((sum, c) => sum + (c.activePermits ?? 0), 0)}
+            </p>
           </div>
           <div className="bg-surface rounded-lg border border-border p-5">
             <p className="text-muted-foreground text-sm mb-1">Pending Review</p>
-            <p className="text-foreground font-semibold">12</p>
+            <p className="text-foreground font-semibold">
+              {filteredClients.reduce((sum, c) => sum + (c.pendingReview ?? 0), 0)}
+            </p>
           </div>
           <div className="bg-surface rounded-lg border border-border p-5">
             <p className="text-muted-foreground text-sm mb-1">Action Required</p>
-            <p className="text-foreground font-semibold">4</p>
+            <p className="text-foreground font-semibold">
+              {filteredClients.filter((c) => c.status === 'action-required').length}
+            </p>
           </div>
         </div>
       </div>
