@@ -60,6 +60,11 @@ export type LiveDiscoveryResult = {
   sourcesUsed: Array<{ title: string; url: string; excerpt: string }>;
 };
 
+type SearchWebResult = {
+  hits: SearchHit[];
+  warnings: string[];
+};
+
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const MAX_SEARCH_QUERIES = 4;
@@ -68,6 +73,10 @@ const MAX_CANDIDATE_URLS = 12;
 const MAX_SCRAPED_PAGES = 8;
 const MAX_PAGE_TEXT = 12000;
 const FETCH_TIMEOUT_MS = 12000;
+const SERPAPI_TIMEOUT_MS = Math.max(
+  5000,
+  Number.parseInt(process.env.SERPAPI_TIMEOUT_MS || "25000", 10) || 25000
+);
 const OPENAI_QUERY_TIMEOUT_MS = 45000;
 const OPENAI_EXTRACT_TIMEOUT_MS = 150000;
 const MAX_PROMPT_SOURCES = 5;
@@ -324,7 +333,7 @@ async function searchSerpApi(query: string, serpApiKey: string): Promise<SearchH
   });
 
   const url = `${SERPAPI_SEARCH_URL}?${params.toString()}`;
-  const response = await fetchWithTimeout(url);
+  const response = await fetchWithTimeout(url, undefined, SERPAPI_TIMEOUT_MS);
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(`SerpAPI request failed (${response.status}): ${text.slice(0, 300)}`);
@@ -476,24 +485,52 @@ async function generateQueries(input: MatchInput, apiKey: string): Promise<strin
   return result.queries.filter((q): q is string => typeof q === "string").map((q) => q.trim());
 }
 
-async function searchWeb(queries: string[], serpApiKey: string): Promise<SearchHit[]> {
+async function searchWeb(queries: string[], serpApiKey: string): Promise<SearchWebResult> {
   const allHits: SearchHit[] = [];
   const seenUrls = new Set<string>();
+  const warnings: string[] = [];
 
   for (const query of queries) {
-    const hits = await searchSerpApi(query, serpApiKey);
+    let hits: SearchHit[] = [];
+    let provider: "serpapi" | "google-fallback" | null = null;
 
-    debugLog(`Search hits for query "${query}" via serpapi:`, hits.map((h) => h.url));
+    try {
+      hits = await searchSerpApi(query, serpApiKey);
+      provider = "serpapi";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      debugLog(`SerpAPI search failed for query "${query}":`, message);
+
+      // If SerpAPI times out/aborts for one query, continue discovery via Google fallback.
+      try {
+        hits = await searchGoogle(query);
+        provider = "google-fallback";
+        warnings.push(`SerpAPI failed for one query; used Google fallback for: "${query}"`);
+      } catch (fallbackError) {
+        const fallbackMessage =
+          fallbackError instanceof Error ? fallbackError.message : "Unknown fallback error";
+        debugLog(`Google fallback failed for query "${query}":`, fallbackMessage);
+        warnings.push(`Web search failed for query "${query}": ${message}`);
+        continue;
+      }
+    }
+
+    debugLog(
+      `Search hits for query "${query}" via ${provider ?? "unknown"}:`,
+      hits.map((h) => h.url)
+    );
 
     for (const hit of hits) {
       if (seenUrls.has(hit.url)) continue;
       seenUrls.add(hit.url);
       allHits.push(hit);
-      if (allHits.length >= MAX_CANDIDATE_URLS) return allHits;
+      if (allHits.length >= MAX_CANDIDATE_URLS) {
+        return { hits: allHits, warnings };
+      }
     }
   }
 
-  return allHits;
+  return { hits: allHits, warnings };
 }
 
 async function scrapeSources(hits: SearchHit[]): Promise<SourcePage[]> {
@@ -886,7 +923,9 @@ export async function discoverPermitsFromWeb(input: MatchInput): Promise<LiveDis
 
   let hits: SearchHit[] = [];
   try {
-    hits = await searchWeb(preparedQueries, serpApiKey);
+    const searchResult = await searchWeb(preparedQueries, serpApiKey);
+    hits = searchResult.hits;
+    warnings.push(...searchResult.warnings);
     debugLog("Total search hits:", hits.length);
   } catch (error) {
     warnings.push(`Web search failed: ${error instanceof Error ? error.message : "Unknown error"}`);
