@@ -570,8 +570,25 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
                 </button>
               </div>
 
+              {/* Loading state when discovering */}
+              {isDiscovering && (
+                <div className="mt-3 p-4 bg-muted/30 border border-border rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Loader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Finding permits for &quot;{discoveryInput.trim()}&quot;
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Searching across jurisdictions and permit types — this may take a moment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Discovered Permits */}
-              {discoveredPermits.length > 0 && (
+              {!isDiscovering && discoveredPermits.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {discoveredPermits.map((permit) => (
                     <div key={permit.id} className="bg-surface border border-border rounded-lg p-3">
