@@ -31,12 +31,22 @@ interface DiscoveredPermit {
   estimatedTime: string;
   description: string;
   reason: string;
+  level?: 'municipal' | 'provincial' | 'federal';
+  applyUrl?: string;
+  sourceUrl?: string;
+  confidence?: 'required' | 'conditional' | 'informational';
 }
 
 interface PermitPlanProps {
   clientId: string | null;
   clientName: string;
   onSelectPermit: (permitId: string) => void;
+}
+
+interface ClientContext {
+  businessName: string;
+  jurisdiction: string;
+  businessType: string;
 }
 
 export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanProps) {
@@ -48,6 +58,11 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
   const [expandedPermit, setExpandedPermit] = useState<string | null>(null);
   const [permits, setPermits] = useState<Permit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clientContext, setClientContext] = useState<ClientContext>({
+    businessName: clientName || '',
+    jurisdiction: '',
+    businessType: '',
+  });
 
   // Fetch permits from Mongo for this client
   useEffect(() => {
@@ -61,6 +76,32 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
       try {
         setLoading(true);
         console.log(`Fetching permit plan from Mongo for client ${clientId}`);
+
+        // Fetch client context used by "Add Permit" live discovery flow.
+        try {
+          const clientResponse = await fetch(`/api/clients/${encodeURIComponent(clientId)}`);
+          if (clientResponse.ok) {
+            const clientData = await clientResponse.json();
+            setClientContext({
+              businessName:
+                typeof clientData.businessName === 'string' ? clientData.businessName : clientName || '',
+              jurisdiction:
+                typeof clientData.jurisdiction === 'string' ? clientData.jurisdiction : '',
+              businessType:
+                typeof clientData.businessType === 'string' ? clientData.businessType : '',
+            });
+          } else {
+            setClientContext((prev) => ({
+              ...prev,
+              businessName: clientName || prev.businessName,
+            }));
+          }
+        } catch {
+          setClientContext((prev) => ({
+            ...prev,
+            businessName: clientName || prev.businessName,
+          }));
+        }
 
         const response = await fetch(`/api/permits/management?clientId=${encodeURIComponent(clientId)}`);
         if (!response.ok) {
@@ -148,47 +189,269 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
     fetchPermits();
   }, [clientId]);
 
-  const handleDiscoverPermits = () => {
-    if (!discoveryInput.trim()) return;
-    
-    setIsDiscovering(true);
-    
-    // Simulate AI discovery
-    setTimeout(() => {
-      const permits: DiscoveredPermit[] = [
-        {
-          id: 'new-1',
-          name: 'Sidewalk Cafe Permit',
-          authority: 'SF Public Works Department',
-          municipality: 'San Francisco',
-          estimatedTime: '4-6 weeks',
-          description: 'Required for outdoor seating on public sidewalk',
-          reason: 'Outdoor seating on public property requires Public Works approval',
-        },
-        {
-          id: 'new-2',
-          name: 'Planning Department Conditional Use',
-          authority: 'SF Planning Department',
-          municipality: 'San Francisco',
-          estimatedTime: '8-12 weeks',
-          description: 'Conditional use authorization for outdoor dining',
-          reason: 'Required for restaurants adding outdoor seating in commercial districts',
-        },
-      ];
-      
-      setDiscoveredPermits(permits);
-      setIsDiscovering(false);
-    }, 1500);
+  const buildPermitKey = (name: string, authority: string) =>
+    `${name.trim().toLowerCase()}|${authority.trim().toLowerCase()}`;
+
+  const parseJurisdictionToLocation = (
+    jurisdiction: string
+  ): { country: string; province: string; city: string } => {
+    const parts = jurisdiction
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    const city = parts[0] || 'Toronto';
+    const regionRaw = parts[1] || '';
+
+    const usStates: Record<string, string> = {
+      california: 'CA',
+      ca: 'CA',
+      'new york': 'NY',
+      ny: 'NY',
+      texas: 'TX',
+      tx: 'TX',
+      florida: 'FL',
+      fl: 'FL',
+      washington: 'WA',
+      wa: 'WA',
+    };
+
+    const canadianProvinces: Record<string, string> = {
+      ontario: 'ON',
+      on: 'ON',
+      quebec: 'QC',
+      qc: 'QC',
+      alberta: 'AB',
+      ab: 'AB',
+      'british columbia': 'BC',
+      bc: 'BC',
+      manitoba: 'MB',
+      mb: 'MB',
+      saskatchewan: 'SK',
+      sk: 'SK',
+      'nova scotia': 'NS',
+      ns: 'NS',
+      'new brunswick': 'NB',
+      nb: 'NB',
+      newfoundland: 'NL',
+      nl: 'NL',
+    };
+
+    const cityHints: Record<string, { country: string; province: string }> = {
+      toronto: { country: 'CA', province: 'ON' },
+      calgary: { country: 'CA', province: 'AB' },
+      vancouver: { country: 'CA', province: 'BC' },
+      montreal: { country: 'CA', province: 'QC' },
+      ottawa: { country: 'CA', province: 'ON' },
+      'san francisco': { country: 'US', province: 'CA' },
+      'new york': { country: 'US', province: 'NY' },
+      austin: { country: 'US', province: 'TX' },
+      miami: { country: 'US', province: 'FL' },
+    };
+
+    const region = regionRaw.toLowerCase();
+    const cityKey = city.toLowerCase();
+
+    if (region && usStates[region]) {
+      return { country: 'US', province: usStates[region], city };
+    }
+
+    if (region && canadianProvinces[region]) {
+      return { country: 'CA', province: canadianProvinces[region], city };
+    }
+
+    if (regionRaw.length === 2) {
+      const code = regionRaw.toUpperCase();
+      const isUS = Object.values(usStates).includes(code);
+      return { country: isUS ? 'US' : 'CA', province: code, city };
+    }
+
+    if (cityHints[cityKey]) {
+      return { country: cityHints[cityKey].country, province: cityHints[cityKey].province, city };
+    }
+
+    return { country: 'CA', province: 'ON', city };
   };
 
-  const handleAddDiscoveredPermit = (permit: DiscoveredPermit) => {
-    // Add permit to list
-    console.log('Adding permit:', permit);
-    // Reset discovery
-    setDiscoveredPermits(discoveredPermits.filter(p => p.id !== permit.id));
-    if (discoveredPermits.length === 1) {
-      setShowAddPermit(false);
-      setDiscoveryInput('');
+  const handleDiscoverPermits = async () => {
+    const query = discoveryInput.trim();
+    if (!query) return;
+
+    setIsDiscovering(true);
+    try {
+      const locationSeed =
+        clientContext.jurisdiction ||
+        permits[0]?.municipality ||
+        '';
+      const parsedLocation = parseJurisdictionToLocation(locationSeed);
+
+      const activities = query
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+
+      const payload = {
+        businessName: clientContext.businessName || clientName || 'Business',
+        permitKeywords: query,
+        location: parsedLocation,
+        businessType: clientContext.businessType || activities[0] || 'business',
+        activities: activities.length > 0 ? activities : [query],
+      };
+
+      const response = await fetch('/api/clients/permits/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Permit discovery failed');
+      }
+
+      const data = await response.json();
+      const apiPermits = Array.isArray(data?.permits) ? data.permits : [];
+      const existing = new Set(permits.map((permit) => buildPermitKey(permit.name, permit.authority)));
+      const seen = new Set<string>();
+
+      const newlyDiscovered: DiscoveredPermit[] = apiPermits
+        .map((permit: any, index: number) => {
+          const reasons = Array.isArray(permit?.reasons)
+            ? permit.reasons.filter((reason: unknown): reason is string => typeof reason === 'string')
+            : [];
+
+          const confidence =
+            permit?.confidence === 'required' ||
+            permit?.confidence === 'conditional' ||
+            permit?.confidence === 'informational'
+              ? permit.confidence
+              : 'conditional';
+
+          return {
+            id: `new-${Date.now()}-${index}`,
+            name: typeof permit?.name === 'string' ? permit.name : 'Unnamed Permit',
+            authority: typeof permit?.authority === 'string' ? permit.authority : 'Unknown Authority',
+            municipality: parsedLocation.city || clientContext.jurisdiction || 'Unknown',
+            estimatedTime:
+              permit?.level === 'federal'
+                ? '6-12 weeks'
+                : permit?.level === 'provincial'
+                  ? '3-8 weeks'
+                  : '2-6 weeks',
+            description: reasons[0] || 'Discovered from live permit search',
+            reason: reasons[0] || 'Live discovery based on your query and business location.',
+            level:
+              permit?.level === 'federal' || permit?.level === 'provincial' || permit?.level === 'municipal'
+                ? permit.level
+                : 'municipal',
+            applyUrl: typeof permit?.applyUrl === 'string' ? permit.applyUrl : undefined,
+            sourceUrl: typeof permit?.sourceUrl === 'string' ? permit.sourceUrl : undefined,
+            confidence,
+          };
+        })
+        .filter((permit: DiscoveredPermit) => {
+          const key = buildPermitKey(permit.name, permit.authority);
+          if (existing.has(key) || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+      setDiscoveredPermits(newlyDiscovered);
+
+      if (newlyDiscovered.length === 0) {
+        alert('No new permits found outside the current permit list for this business.');
+      }
+    } catch (error) {
+      console.error('Failed to discover permits:', error);
+      alert(error instanceof Error ? error.message : 'Failed to discover permits');
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
+  const handleAddDiscoveredPermit = async (permit: DiscoveredPermit) => {
+    if (!clientId) return;
+
+    try {
+      const nextOrder = permits.length > 0 ? Math.max(...permits.map((item) => item.order)) + 1 : 1;
+      const complexity: 'low' | 'medium' | 'high' =
+        permit.level === 'federal' ? 'high' : permit.level === 'municipal' ? 'low' : 'medium';
+
+      const payload = {
+        clientId,
+        name: permit.name,
+        authority: permit.authority,
+        municipality: permit.municipality,
+        complexity,
+        estimatedTime: permit.estimatedTime || 'N/A',
+        description: permit.description || permit.reason || permit.name,
+        category:
+          permit.level === 'federal'
+            ? 'Federal'
+            : permit.level === 'provincial'
+              ? 'Provincial'
+              : 'Municipal',
+        status: 'not-started',
+        order: nextOrder,
+        lastActivity: 'Not Started',
+        lastActivityDate: new Date(),
+        requirements: permit.reason ? [permit.reason] : [],
+        howToApply: permit.applyUrl
+          ? `Apply at: ${permit.applyUrl}`
+          : permit.sourceUrl
+            ? `More info: ${permit.sourceUrl}`
+            : 'Contact the issuing authority',
+      };
+
+      const response = await fetch('/api/permits/management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to add permit to plan');
+      }
+
+      const created = await response.json();
+      const now = new Date();
+
+      const newPermit: Permit = {
+        id:
+          typeof created?.id === 'string'
+            ? created.id
+            : typeof created?._id === 'string'
+              ? created._id
+              : `permit-${Date.now()}`,
+        name: permit.name,
+        authority: permit.authority,
+        municipality: permit.municipality || 'Unknown',
+        status: 'not-started',
+        order: nextOrder,
+        blockedBy: undefined,
+        blocks: [],
+        lastActivity: 'Not Started',
+        lastActivityDate: now.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        daysInState: 0,
+        priority: permit.confidence === 'required' ? 'high' : 'medium',
+      };
+
+      setPermits((previous) => [...previous, newPermit].sort((a, b) => a.order - b.order));
+
+      const remaining = discoveredPermits.filter((item) => item.id !== permit.id);
+      setDiscoveredPermits(remaining);
+      if (remaining.length === 0) {
+        setShowAddPermit(false);
+        setDiscoveryInput('');
+      }
+    } catch (error) {
+      console.error('Failed to add discovered permit:', error);
+      alert(error instanceof Error ? error.message : 'Failed to add permit');
     }
   };
 
@@ -204,6 +467,12 @@ export function PermitPlan({ clientId, clientName, onSelectPermit }: PermitPlanP
         return {
           icon: <Send className="w-3.5 h-3.5" />,
           label: 'Submitted',
+          className: 'text-foreground',
+        };
+      case 'in-progress':
+        return {
+          icon: <Clock className="w-3.5 h-3.5" />,
+          label: 'In Progress',
           className: 'text-foreground',
         };
       case 'action-required':
