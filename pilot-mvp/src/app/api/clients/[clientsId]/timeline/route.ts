@@ -154,11 +154,13 @@ export async function GET(
       return {
         permitId: permit._id.toString(),
         permitName: permit.name,
+        authority: permit.authority || '',
         status: permit.status,
         complexity: permit.complexity,
         order: permit.order || 0,
         blockedBy: permit.blockedBy,
         blocks: permit.blocks || [],
+        lastActivity: permit.lastActivity,
         timeline: {
           initialEstimatedDays: timeline.initialEstimatedDays,
           currentEstimatedDays: timeline.currentEstimatedDays,

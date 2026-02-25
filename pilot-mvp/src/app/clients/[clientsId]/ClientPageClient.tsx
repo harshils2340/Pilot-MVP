@@ -9,7 +9,7 @@ import { ClientBilling } from '../../components/ClientBilling';
 import { EnhancedDocumentsView } from '../../components/EnhancedDocumentsView';
 import { InviteClientModal } from '../../components/InviteClientModal';
 import { AiInsights } from '../../components/AiInsights';
-import { TimelineView } from '../../components/TimelineView';
+import { ClientTimeline } from '../../components/ClientTimeline';
 import { ListOrdered, ArrowLeft, LogOut, FileText, UserPlus, Sparkles, Calendar } from 'lucide-react';
 
 type Tab = 'ai-insights' | 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents' | 'timeline';
@@ -146,9 +146,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
         );
       case 'timeline':
         return (
-          <TimelineView
-            clientId={clientId}
-          />
+          <ClientTimeline clientId={clientId} />
         );
       case 'documents':
         return (
