@@ -4,9 +4,10 @@ import { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { DocumentsView } from '../components/DocumentsView';
 import { ClientBilling } from '../components/ClientBilling';
-import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { ClientTimeline } from '../components/ClientTimeline';
+import { FileText, Upload, Inbox, CheckCircle2, Clock, AlertCircle, Calendar } from 'lucide-react';
 
-type Tab = 'documents' | 'requests' | 'shared' | 'billing';
+type Tab = 'timeline' | 'documents' | 'requests' | 'shared' | 'billing';
 
 const getLocalRequests = (clientId: string) => {
   try {
@@ -21,7 +22,7 @@ const getLocalRequests = (clientId: string) => {
 function ClientPortalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<Tab>('documents');
+  const [activeTab, setActiveTab] = useState<Tab>('timeline');
   const [clientId, setClientId] = useState<string | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string>('Client');
@@ -140,6 +141,17 @@ function ClientPortalContent() {
         {/* Navigation */}
         <nav className="flex-1 p-4">
           <button
+            onClick={() => setActiveTab('timeline')}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
+              activeTab === 'timeline'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            <span className="text-sm">Timeline</span>
+          </button>
+          <button
             onClick={() => setActiveTab('documents')}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-colors ${
               activeTab === 'documents'
@@ -178,6 +190,9 @@ function ClientPortalContent() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
+        {activeTab === 'timeline' && (
+          <ClientTimeline clientId={clientId} />
+        )}
         {activeTab === 'documents' && (
           <DocumentsView 
             clientId={clientId} 
