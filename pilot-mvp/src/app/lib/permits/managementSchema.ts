@@ -28,6 +28,34 @@ export interface IPermitManagement extends Document {
     officeHours?: string;
   };
   additionalNotes?: string;
+  // Timeline tracking fields
+  timeline?: {
+    // Initial estimate from LLM (in days)
+    initialEstimatedDays?: number;
+    // Current estimate (updated based on delays)
+    currentEstimatedDays?: number;
+    // Estimated start date (when permit can start processing)
+    estimatedStartDate?: Date;
+    // Estimated completion date (initial)
+    initialEstimatedCompletionDate?: Date;
+    // Current estimated completion date (updated)
+    currentEstimatedCompletionDate?: Date;
+    // Actual dates
+    actualStartDate?: Date;
+    actualCompletionDate?: Date;
+    // Processing delays (in days)
+    processingDelays?: number;
+    // Last timeline update
+    lastUpdated?: Date;
+    // Estimation algorithm version so old estimates can be re-generated
+    estimateVersion?: number;
+    // Status history for tracking delays
+    statusHistory?: Array<{
+      status: string;
+      date: Date;
+      notes?: string;
+    }>;
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -69,6 +97,24 @@ const PermitManagementSchema: Schema<IPermitManagement> = new Schema(
       officeHours: { type: String },
     },
     additionalNotes: { type: String },
+    // Timeline tracking fields
+    timeline: {
+      initialEstimatedDays: { type: Number },
+      currentEstimatedDays: { type: Number },
+      estimatedStartDate: { type: Date },
+      initialEstimatedCompletionDate: { type: Date },
+      currentEstimatedCompletionDate: { type: Date },
+      actualStartDate: { type: Date },
+      actualCompletionDate: { type: Date },
+      processingDelays: { type: Number, default: 0 },
+      lastUpdated: { type: Date },
+      estimateVersion: { type: Number, default: 1 },
+      statusHistory: [{
+        status: { type: String },
+        date: { type: Date },
+        notes: { type: String },
+      }],
+    },
   },
   {
     timestamps: true,

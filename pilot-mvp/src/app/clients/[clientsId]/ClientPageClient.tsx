@@ -9,9 +9,10 @@ import { ClientBilling } from '../../components/ClientBilling';
 import { EnhancedDocumentsView } from '../../components/EnhancedDocumentsView';
 import { InviteClientModal } from '../../components/InviteClientModal';
 import { AiInsights } from '../../components/AiInsights';
-import { ListOrdered, ArrowLeft, LogOut, FileText, UserPlus, Sparkles } from 'lucide-react';
+import { TimelineView } from '../../components/TimelineView';
+import { ListOrdered, ArrowLeft, LogOut, FileText, UserPlus, Sparkles, Calendar } from 'lucide-react';
 
-type Tab = 'ai-insights' | 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents';
+type Tab = 'ai-insights' | 'plan' | 'discovery' | 'permit-detail' | 'billing' | 'documents' | 'timeline';
 
 interface Client {
   _id: string;
@@ -52,7 +53,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   // Sync tab with URL query params on mount and when URL changes
   useEffect(() => {
     const tab = searchParams.get('tab') as Tab | null;
-    if (tab && ['ai-insights', 'plan', 'discovery', 'permit-detail', 'billing', 'documents'].includes(tab)) {
+    if (tab && ['ai-insights', 'plan', 'discovery', 'permit-detail', 'billing', 'documents', 'timeline'].includes(tab)) {
       setActiveTab(tab);
     }
     const permitId = searchParams.get('permit');
@@ -70,6 +71,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
   const clientNavigation = [
     { id: 'ai-insights' as Tab, label: 'AI Insights', icon: Sparkles, badge: 'Beta' },
     { id: 'plan' as Tab, label: 'Permit Plan', icon: ListOrdered },
+    { id: 'timeline' as Tab, label: 'Timeline', icon: Calendar },
     { id: 'documents' as Tab, label: 'Documents', icon: FileText },
   ];
 
@@ -140,6 +142,12 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           <ClientBilling
             clientId={clientId}
             clientName={client?.businessName || 'Client'}
+          />
+        );
+      case 'timeline':
+        return (
+          <TimelineView
+            clientId={clientId}
           />
         );
       case 'documents':
