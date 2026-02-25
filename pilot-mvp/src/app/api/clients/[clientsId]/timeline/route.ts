@@ -199,11 +199,11 @@ export async function GET(
 
           const blockerCompletionDates = blockers
             .map((name: string) => completionByName.get(name))
-            .filter((d): d is Date => Boolean(d));
+            .filter((d: Date | undefined): d is Date => Boolean(d));
 
           if (blockerCompletionDates.length > 0) {
             const latestBlockerCompletion = new Date(
-              Math.max(...blockerCompletionDates.map((d) => d.getTime()))
+              Math.max(...blockerCompletionDates.map((d: Date) => d.getTime()))
             );
             const requiredStart = new Date(latestBlockerCompletion);
             requiredStart.setDate(requiredStart.getDate() + 1);
