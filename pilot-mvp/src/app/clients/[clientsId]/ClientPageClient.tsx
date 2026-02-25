@@ -297,7 +297,7 @@ export function ClientPageClient({ clientId, client }: ClientPageClientProps) {
           <AiInsights
             clientId={client?._id ?? clientId}
             clientName={client?.businessName}
-            clientAddress={client?.address?.fullAddress || client?.location}
+            clientAddress={client?.address?.fullAddress || client?.location || client?.jurisdiction}
           />
         </div>
         {activeTab !== 'ai-insights' && renderTab()}
