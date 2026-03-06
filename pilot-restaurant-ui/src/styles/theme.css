@@ -119,6 +119,30 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Safe area for notched devices */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Safe area utilities for notched devices */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Safe area for notched devices */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -174,8 +198,17 @@
   }
 
   input {
-    font-size: var(--text-base);
+    font-size: var(--text-size);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+}
+
+/* Safe area utilities for notched devices */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }

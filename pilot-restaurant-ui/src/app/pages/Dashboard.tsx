@@ -68,7 +68,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="p-10 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-10 max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-[#111827]">Sakura Ramen</h1>
@@ -91,7 +91,7 @@ export function DashboardPage() {
               <button
                 key={i}
                 onClick={() => navigate(alert.to)}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all hover:shadow-sm ${
+                className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all hover:shadow-sm min-h-[44px] touch-manipulation ${
                   alert.urgency === "urgent"
                     ? "bg-red-50 border-red-200 hover:border-red-300"
                     : "bg-amber-50 border-amber-200 hover:border-amber-300"
@@ -144,7 +144,7 @@ export function DashboardPage() {
             <button
               key={section.to}
               onClick={() => navigate(section.to)}
-              className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-[#E5E7EB] text-left hover:border-blue-200 hover:shadow-sm transition-all group"
+              className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-[#E5E7EB] text-left hover:border-blue-200 hover:shadow-sm transition-all group min-h-[56px] touch-manipulation"
             >
               <div className="w-9 h-9 bg-[#F3F4F6] rounded-lg flex items-center justify-center shrink-0 group-hover:bg-blue-50 transition-colors">
                 <section.icon className="w-4.5 h-4.5 text-[#6B7280] group-hover:text-blue-600 transition-colors" />

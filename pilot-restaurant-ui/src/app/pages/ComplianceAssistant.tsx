@@ -186,9 +186,9 @@ export function ComplianceAssistantPage() {
   };
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar suggestions */}
-      <div className="w-64 border-r border-[#E5E7EB] bg-white p-5 overflow-y-auto flex flex-col gap-5">
+    <div className="flex flex-col md:flex-row h-full">
+      {/* Sidebar suggestions - hidden on mobile */}
+      <div className="hidden md:flex w-64 border-r border-[#E5E7EB] bg-white p-5 overflow-y-auto flex-col gap-5 shrink-0">
         <div>
           <p className="text-[#9CA3AF] mb-3" style={{ fontSize: "11.5px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Suggested Questions

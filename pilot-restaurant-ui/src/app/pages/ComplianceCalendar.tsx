@@ -10,6 +10,8 @@ import {
   User,
   Tag,
 } from "lucide-react";
+import { Sheet, SheetContent } from "../components/ui/sheet";
+import { useIsMobile } from "../components/ui/use-mobile";
 
 interface ComplianceEvent {
   date: string;
@@ -110,6 +112,7 @@ const monthNames = ["January", "February", "March", "April", "May", "June", "Jul
 
 export function ComplianceCalendarPage() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [selectedEvent, setSelectedEvent] = useState<ComplianceEvent | null>(events[0]);
   const [currentMonth, setCurrentMonth] = useState(2); // March = index 2 (0-based)
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
@@ -122,9 +125,9 @@ export function ComplianceCalendarPage() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row h-full">
       {/* Main */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
         <div className="max-w-2xl">
           <div className="mb-7">
             <h1 className="text-[#111827]">Compliance Calendar</h1>
@@ -238,8 +241,52 @@ export function ComplianceCalendarPage() {
         </div>
       </div>
 
-      {/* Event Detail Panel */}
-      <div className="w-80 border-l border-[#E5E7EB] bg-white p-6 overflow-y-auto">
+      {/* Event Detail Panel - Sheet on mobile, side panel on desktop */}
+      {isMobile ? (
+        <Sheet open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
+          <SheetContent side="bottom" className="h-[85dvh] overflow-y-auto">
+            {selectedEvent && (
+              <div className="p-4">
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border mb-3 ${urgencyConfig[selectedEvent.urgency].color}`} style={{ fontSize: "12px" }}>
+                  {(() => { const Icon = urgencyConfig[selectedEvent.urgency].icon; return <Icon className={`w-3 h-3 ${urgencyConfig[selectedEvent.urgency].iconColor}`} />; })()}
+                  {selectedEvent.status}
+                </div>
+                <h3 className="text-[#111827] text-lg">{selectedEvent.title}</h3>
+                <p className="text-[#6B7280] mt-1" style={{ fontSize: "13.5px" }}>{selectedEvent.date}</p>
+                <p className="text-[#374151] my-5" style={{ fontSize: "13.5px", lineHeight: 1.6 }}>{selectedEvent.description}</p>
+                <div className="space-y-3 mb-5">
+                  <div className="flex items-start gap-2.5">
+                    <User className="w-4 h-4 text-[#9CA3AF] mt-0.5" />
+                    <div>
+                      <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>Owner</p>
+                      <p className="text-[#374151]" style={{ fontSize: "13.5px" }}>{selectedEvent.owner}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <Tag className="w-4 h-4 text-[#9CA3AF] mt-0.5" />
+                    <div>
+                      <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>Category</p>
+                      <p className="text-[#374151]" style={{ fontSize: "13.5px" }}>{selectedEvent.category}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <FileText className="w-4 h-4 text-[#9CA3AF] mt-0.5" />
+                    <div>
+                      <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>Related Document</p>
+                      <p className="text-[#374151]" style={{ fontSize: "13.5px" }}>{selectedEvent.relatedDoc}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <button onClick={() => selectedEvent && handleMarkCompleted(selectedEvent)} className="w-full px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" style={{ fontSize: "13.5px" }}>Mark as Completed</button>
+                  <button onClick={() => navigate("/documents")} className="w-full px-4 py-3 min-h-[44px] bg-[#F7F8FA] text-[#374151] rounded-lg hover:bg-[#EEEEF0] border border-[#E5E7EB] transition-colors" style={{ fontSize: "13.5px" }}>View Document</button>
+                </div>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <div className="w-80 border-l border-[#E5E7EB] bg-white p-6 overflow-y-auto shrink-0">
         {selectedEvent ? (
           <>
             <div className="mb-5">
@@ -310,6 +357,7 @@ export function ComplianceCalendarPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,8 @@ import {
   User,
   Clipboard,
 } from "lucide-react";
+import { Sheet, SheetContent } from "../components/ui/sheet";
+import { useIsMobile } from "../components/ui/use-mobile";
 
 const inspection = {
   score: 81,
@@ -93,6 +95,8 @@ export function InspectionAnalysisPage() {
   const [expandedViolation, setExpandedViolation] = useState<string | null>("V-001");
   const [corrected, setCorrected] = useState<Record<string, boolean>>({});
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [recsOpen, setRecsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const toggleCorrected = (id: string) => {
     setCorrected((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -121,9 +125,9 @@ export function InspectionAnalysisPage() {
       : recommendations.filter((r) => r.priority === priorityFilter);
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row h-full">
       {/* Main */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
         <div className="max-w-2xl">
           <div className="mb-7">
             <h1 className="text-[#111827]">Inspection Analysis</h1>
@@ -303,11 +307,62 @@ export function InspectionAnalysisPage() {
               ))}
             </div>
           </div>
+
+          {/* Mobile: Recommendations button */}
+          {isMobile && (
+            <button
+              onClick={() => setRecsOpen(true)}
+              className="mt-4 w-full flex items-center justify-center gap-2 py-3 min-h-[48px] bg-blue-600 text-white rounded-xl font-medium"
+              style={{ fontSize: "14px" }}
+            >
+              <Shield className="w-4 h-4" />
+              View Pilot Recommendations
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Recommendations panel */}
-      <div className="w-80 border-l border-[#E5E7EB] bg-white p-6 overflow-y-auto">
+      {/* Mobile: Recommendations Sheet */}
+      {isMobile && (
+        <Sheet open={recsOpen} onOpenChange={setRecsOpen}>
+          <SheetContent side="bottom" className="h-[85dvh] overflow-y-auto">
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-5 h-5 text-blue-600" />
+                <h3 className="text-[#111827]" style={{ fontSize: "16px", fontWeight: 600 }}>Pilot Recommendations</h3>
+              </div>
+              <p className="text-[#6B7280] mb-4" style={{ fontSize: "13px" }}>Suggested fixes before your next inspection.</p>
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                {(["all", "high", "medium", "low"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPriorityFilter(p)}
+                    className={`px-3 py-1.5 rounded-lg text-sm capitalize shrink-0 min-h-[44px] ${
+                      priorityFilter === p ? "bg-[#111827] text-white" : "bg-[#F3F4F6] text-[#6B7280]"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-3">
+                {filteredRecs.map((rec, i) => (
+                  <div key={i} className="p-4 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB]">
+                    <span className={`inline-block px-2 py-0.5 rounded border text-xs font-semibold capitalize mb-2 ${priorityColors[rec.priority as keyof typeof priorityColors]}`}>
+                      {rec.priority}
+                    </span>
+                    <p className="text-[#111827] font-medium" style={{ fontSize: "14px" }}>{rec.action}</p>
+                    <p className="text-[#6B7280] mt-1" style={{ fontSize: "13px", lineHeight: 1.5 }}>{rec.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Recommendations panel - desktop */}
+      <div className="hidden md:block w-80 border-l border-[#E5E7EB] bg-white p-6 overflow-y-auto shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <Shield className="w-4 h-4 text-blue-600" />
           <p className="text-[#111827]" style={{ fontSize: "14px", fontWeight: 600 }}>

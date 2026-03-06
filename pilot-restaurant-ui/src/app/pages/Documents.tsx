@@ -9,6 +9,8 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Sheet, SheetContent } from "../components/ui/sheet";
+import { useIsMobile } from "../components/ui/use-mobile";
 
 type Category = "All" | "Licenses & Permits" | "Certifications" | "Inspections" | "Maintenance" | "Invoices";
 
@@ -232,7 +234,60 @@ const statusColors: Record<Doc["status"], string> = {
   "On File": "bg-[#F3F4F6] text-[#6B7280]",
 };
 
+function DocDetailPanel({ doc, onClose }: { doc: Doc; onClose: () => void }) {
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <p className="text-[#111827]" style={{ fontSize: "13px", fontWeight: 600 }}>
+            Extracted Data
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-[#C4C9D4] hover:text-[#374151] transition-colors min-w-[44px] min-h-[44px] -mr-2 flex items-center justify-center"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <p className="text-[#374151] mb-4" style={{ fontSize: "13px", fontWeight: 500, lineHeight: 1.4 }}>
+        {doc.name}
+      </p>
+      <div className="space-y-3.5">
+        {doc.extraction.map((field) => (
+          <div key={field.label}>
+            <p className="text-[#9CA3AF]" style={{ fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {field.label}
+            </p>
+            <p className="text-[#111827] mt-0.5" style={{ fontSize: "13.5px" }}>
+              {field.value}
+            </p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 pt-4 border-t border-[#F3F4F6]">
+        <div className="flex items-start gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+          <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>
+            Pilot extracted and structured this data automatically.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => toast.success(`Downloading ${doc.name} — in production, file would be fetched`)}
+        className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 min-h-[44px] border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
+        style={{ fontSize: "12.5px" }}
+      >
+        <Download className="w-3.5 h-3.5" />
+        Download original
+      </button>
+    </>
+  );
+}
+
 export function DocumentsPage() {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [selectedDoc, setSelectedDoc] = useState<Doc | null>(null);
@@ -293,21 +348,21 @@ export function DocumentsPage() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row h-full">
       {/* Main panel */}
-      <div className="flex-1 p-8 overflow-y-auto min-w-0">
+      <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
           <div>
             <h1 className="text-[#111827]">Documents</h1>
             <p className="text-[#9CA3AF]" style={{ fontSize: "13.5px" }}>
               {documents.length} documents · Pilot extracts and organizes key data from each file.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[#E5E7EB] rounded-lg text-[#374151] hover:bg-[#F9FAFB] hover:border-[#D1D5DB] transition-all"
+              className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] bg-white border border-[#E5E7EB] rounded-lg text-[#374151] hover:bg-[#F9FAFB] hover:border-[#D1D5DB] transition-all"
               style={{ fontSize: "13px" }}
             >
               <Download className="w-3.5 h-3.5" />
@@ -315,7 +370,7 @@ export function DocumentsPage() {
             </button>
             <button
               onClick={() => { setShowUpload(!showUpload); setSelectedDoc(null); }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               style={{ fontSize: "13px" }}
             >
               <Upload className="w-3.5 h-3.5" />
@@ -363,7 +418,7 @@ export function DocumentsPage() {
         )}
 
         {/* Category filters */}
-        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+        <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1 -mx-1 md:mx-0 md:flex-wrap md:overflow-visible">
           {categories.map((cat) => (
             <button
               key={cat}
@@ -409,8 +464,8 @@ export function DocumentsPage() {
           )}
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+        {/* Table - hidden on mobile */}
+        <div className="hidden md:block bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#F3F4F6]">
@@ -493,6 +548,48 @@ export function DocumentsPage() {
           </table>
         </div>
 
+        {/* Mobile card layout */}
+        <div className="md:hidden space-y-2">
+          {filtered.map((doc, i) => (
+            <button
+              key={i}
+              onClick={() => setSelectedDoc(selectedDoc?.name === doc.name ? null : doc)}
+              className={`w-full flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border text-left transition-all min-h-[44px] ${
+                selectedDoc?.name === doc.name
+                  ? "bg-blue-50 border-blue-200"
+                  : "bg-white border-[#E5E7EB] hover:border-blue-200"
+              }`}
+            >
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <FileText className="w-5 h-5 text-[#C4C9D4] shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[#111827] truncate" style={{ fontSize: "14px", fontWeight: 500 }}>
+                    {doc.name}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span
+                      className={`inline-block px-1.5 py-px rounded ${categoryColors[doc.category]}`}
+                      style={{ fontSize: "11px", fontWeight: 500 }}
+                    >
+                      {doc.category}
+                    </span>
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded-full ${statusColors[doc.status]}`}
+                      style={{ fontSize: "11.5px", fontWeight: 500 }}
+                    >
+                      {doc.status}
+                    </span>
+                  </div>
+                  <p className="text-[#6B7280] mt-1" style={{ fontSize: "12px" }}>
+                    {doc.issuer} · {doc.date}
+                    {doc.amount ? ` · ${doc.amount}` : ""}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
         {filtered.length > 0 && (
           <p className="text-[#9CA3AF] mt-3" style={{ fontSize: "12px" }}>
             {filtered.length} document{filtered.length !== 1 ? "s" : ""} · Click any row to see extracted data
@@ -500,59 +597,105 @@ export function DocumentsPage() {
         )}
       </div>
 
-      {/* Detail panel */}
+      {/* Detail panel - Sheet on mobile, side panel on desktop */}
       {selectedDoc && (
-        <div className="w-64 border-l border-[#E5E7EB] bg-white p-5 overflow-y-auto shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <p className="text-[#111827]" style={{ fontSize: "13px", fontWeight: 600 }}>
-                Extracted Data
-              </p>
-            </div>
-            <button
-              onClick={() => setSelectedDoc(null)}
-              className="text-[#C4C9D4] hover:text-[#374151] transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <p className="text-[#374151] mb-4" style={{ fontSize: "13px", fontWeight: 500, lineHeight: 1.4 }}>
-            {selectedDoc.name}
-          </p>
-
-          <div className="space-y-3.5">
-            {selectedDoc.extraction.map((field) => (
-              <div key={field.label}>
-                <p className="text-[#9CA3AF]" style={{ fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  {field.label}
-                </p>
-                <p className="text-[#111827] mt-0.5" style={{ fontSize: "13.5px" }}>
-                  {field.value}
-                </p>
+        <>
+          {isMobile ? (
+            <Sheet open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
+              <SheetContent side="bottom" className="h-[85dvh] overflow-y-auto">
+                <div className="p-4 pb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <p className="text-[#111827]" style={{ fontSize: "13px", fontWeight: 600 }}>
+                        Extracted Data
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[#374151] mb-4" style={{ fontSize: "13px", fontWeight: 500, lineHeight: 1.4 }}>
+                    {selectedDoc.name}
+                  </p>
+                  <div className="space-y-3.5">
+                    {selectedDoc.extraction.map((field) => (
+                      <div key={field.label}>
+                        <p className="text-[#9CA3AF]" style={{ fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          {field.label}
+                        </p>
+                        <p className="text-[#111827] mt-0.5" style={{ fontSize: "13.5px" }}>
+                          {field.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-5 pt-4 border-t border-[#F3F4F6]">
+                    <div className="flex items-start gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+                      <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>
+                        Pilot extracted and structured this data automatically.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toast.success(`Downloading ${selectedDoc.name} — in production, file would be fetched`)}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 py-3 min-h-[44px] border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
+                    style={{ fontSize: "12.5px" }}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download original
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <div className="hidden md:block w-64 border-l border-[#E5E7EB] bg-white p-5 overflow-y-auto shrink-0">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <p className="text-[#111827]" style={{ fontSize: "13px", fontWeight: 600 }}>
+                    Extracted Data
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedDoc(null)}
+                  className="text-[#C4C9D4] hover:text-[#374151] transition-colors min-w-[44px] min-h-[44px] -m-2 flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-5 pt-4 border-t border-[#F3F4F6]">
-            <div className="flex items-start gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
-              <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>
-                Pilot extracted and structured this data automatically.
+              <p className="text-[#374151] mb-4" style={{ fontSize: "13px", fontWeight: 500, lineHeight: 1.4 }}>
+                {selectedDoc.name}
               </p>
+              <div className="space-y-3.5">
+                {selectedDoc.extraction.map((field) => (
+                  <div key={field.label}>
+                    <p className="text-[#9CA3AF]" style={{ fontSize: "11px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {field.label}
+                    </p>
+                    <p className="text-[#111827] mt-0.5" style={{ fontSize: "13.5px" }}>
+                      {field.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 pt-4 border-t border-[#F3F4F6]">
+                <div className="flex items-start gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+                  <p className="text-[#9CA3AF]" style={{ fontSize: "11.5px" }}>
+                    Pilot extracted and structured this data automatically.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => toast.success(`Downloading ${selectedDoc.name} — in production, file would be fetched`)}
+                className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
+                style={{ fontSize: "12.5px" }}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download original
+              </button>
             </div>
-          </div>
-
-          <button
-            onClick={() => toast.success(`Downloading ${selectedDoc.name} — in production, file would be fetched`)}
-            className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
-            style={{ fontSize: "12.5px" }}
-          >
-            <Download className="w-3.5 h-3.5" />
-            Download original
-          </button>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
